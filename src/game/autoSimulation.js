@@ -2022,7 +2022,7 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
       if (pitchCount <= 3 && gameState.outs < 2 && !gameState._stolenAttempted) {
         const stealBefore = observed ? {outs:pitcher.gameStats.pitching.outs,risp:!!(gameState.bases[1] || gameState.bases[2])} : null;
         const stealResult = attemptStolenBase(offenseTeam, defenseTeam);
-        if (observed && pitcher.gameStats.pitching.outs > stealBefore.outs) observer.runnerOut?.({...observed,risp:stealBefore.risp,outs:pitcher.gameStats.pitching.outs-stealBefore.outs});
+        if (observed && pitcher.gameStats.pitching.outs > stealBefore.outs) observer.runnerOut?.({...observed,risp:stealBefore.risp,outs:pitcher.gameStats.pitching.outs-stealBefore.outs,score:{...gameState.score}});
         if (stealResult) gameState._stolenAttempted = true;
         if (stealResult) observeReplay('steal', { success: stealResult.success, base: stealResult.base });
         if (stealResult && !stealResult.success && gameState.outs >= 3) {
@@ -2335,7 +2335,8 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
       const delta = Object.fromEntries(['atBats','hits','doubles','triples','homeruns','rbis','walks','hitByPitch','strikeouts','sacrificeBunts'].map(key=>[key,(after[key] || 0)-(observed.before[key] || 0)]));
       // 盗塁死や暴投サヨナラ、球数上限の未完了打席は対戦打席へ加えない。
       const completed = delta.atBats + delta.walks + delta.hitByPitch + delta.sacrificeBunts > 0;
-      observer.plateAppearance({ ...observed, delta, completed, outs: pitcher.gameStats.pitching.outs - (observed.resultStartOuts ?? pitcher.gameStats.pitching.outs) });
+      // `score` はオンラインのボックススコア（回ごとの得点）を組むための写し。記録にだけ使う
+      observer.plateAppearance({ ...observed, delta, completed, outs: pitcher.gameStats.pitching.outs - (observed.resultStartOuts ?? pitcher.gameStats.pitching.outs), score: { ...gameState.score } });
     }
 
     // 先発投手のダメージポイント積算（先発のみに適用）

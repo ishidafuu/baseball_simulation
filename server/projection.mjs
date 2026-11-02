@@ -9,7 +9,38 @@ import {
   statisticsContext,
 } from './recordedViews.mjs';
 import { recordForPlayer } from './recordedStats.mjs';
+import { weakestJoinableTeam } from '../src/online/membership.js';
+import { PYRAMID_LEAGUES } from '../src/online/pyramidLeague.js';
 import { requireOnline } from '../src/online/shared.js';
+
+// 付けた球団名の略称。⚠ **先頭の漢字（地名）を使う**。以前は先頭3文字で切っていて、
+// 「新潟ブルズ」が「新潟ブ」、他球団は「秋田」「福島」と地名だけで揃わなかった。
+// 漢字で始まらない名前（「ブルズ新潟」など）は先頭3文字のまま。
+export function shortName(name) {
+  const lead = String(name).match(/^\p{Script=Han}{2,3}/u)?.[0];
+  return lead || [...String(name)].slice(0, 3).join('');
+}
+
+function joinPreview(league) {
+  try {
+    const standings = Object.fromEntries(
+      (league.season?.standings || []).map((s) => [s.team, s]),
+    );
+    const team = weakestJoinableTeam(league, standings);
+    if (!team) return null;
+    const row = standings[team.name] || {};
+    return {
+      name: team.displayName || team.name,
+      league:
+        PYRAMID_LEAGUES.find((x) => x.id === team.league)?.name || team.league,
+      rank: team.rank || null,
+      wins: row.wins || 0,
+      losses: row.losses || 0,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const playerView = (p) => ({
   id: p.id,
@@ -143,6 +174,9 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
   if (!member)
     return {
       joinRequired: true,
+      // 参加すると引き継ぐ球団（参加画面で先に見せる）。⚠ 以前はどの球団になるかも
+      // 分からないまま球団名を入力させていた。決め方は参加時と同じ（`assertCanJoin`）
+      joinTeam: joinPreview(l),
       isAdmin: userId === adminId,
       revision: l.revision,
       writable: !!sessionId && bundle.sessions[userId] === sessionId,
@@ -185,7 +219,7 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
         {
           label: t.displayName || t.name,
           short: t.displayName
-            ? [...t.displayName].slice(0, 3).join('')
+            ? shortName(t.displayName)
             : t.abbreviation || t.name,
         },
       ]),

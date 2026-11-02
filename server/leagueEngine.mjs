@@ -508,6 +508,9 @@ function resolveTryout(league, plans) {
   }
   league.notices.unshift({
     type: 'tryout',
+    // ⚠ 初期編成とトライアウトは同じ処理で、お知らせも同じ type。画面で
+    //    「初期編成」と出し分けるために種類を残す（以前は初期編成も「トライアウト」と出ていた）
+    kind: phase.kind,
     year: league.season.year,
     picks: allPicked.map(({ team, player, round }) => ({
       team,

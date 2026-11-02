@@ -296,6 +296,7 @@ export function createRecorder(
         homeScore: result.homeScore,
         awayScore: result.awayScore,
         decisions: clone(result.decisions),
+        lineScore: lineScore(observer.events, game, result),
         teams: {},
         replay: observer.replayRecord?.frames.length
           ? observer.replayRecord
@@ -438,4 +439,33 @@ export function comparisonForSeason(season) {
         splitAdd(totals.splits[category], key, line);
   }
   return totals;
+}
+
+/**
+ * 回ごとの得点（スコアボード）。打席・走塁死の記録に付いた得点の写しの差から出す。
+ * ⚠ 記録の無い場面（暴投での得点のあと攻撃が終わる等）の取りこぼしは、
+ *    最終スコアとの差をその球団の最後の回に足して合わせる（合計は必ず一致させる）。
+ * ⚠ 写しを持たない古い記録では null（画面は表を出さない）。
+ */
+export function lineScore(events, game, result) {
+  if (!events?.length || !events.every((e) => e.score)) return null;
+  const innings = { [game.away]: [], [game.home]: [] };
+  let last = { home: 0, away: 0 };
+  for (const e of events) {
+    const side = e.offense === game.home ? 'home' : 'away';
+    const runs = innings[e.offense];
+    if (!runs) continue;
+    while (runs.length < e.inning) runs.push(0);
+    runs[e.inning - 1] += Math.max(0, e.score[side] - last[side]);
+    last = e.score;
+  }
+  for (const [team, total] of [
+    [game.away, result.awayScore],
+    [game.home, result.homeScore],
+  ]) {
+    const runs = innings[team];
+    const sum = runs.reduce((a, b) => a + b, 0);
+    if (runs.length && sum !== total) runs[runs.length - 1] += total - sum;
+  }
+  return innings;
 }
