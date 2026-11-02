@@ -46,6 +46,16 @@ try {
       await page.getByRole('button', { name: 'メニュー', exact: true }).click();
     await page.getByRole('button', { name: text, exact: true }).click();
     await waitIdle(page);
+    if (text === '編成') await onlinePanel(page);
+  };
+  // ⚠ 編成タブは一人用から移植した画面を既定で開く（画面を作り直すと開き直す）。
+  //    この検査で見るのはオンライン側だけのパネル（方針・采配）なので、出ていたら閉じる
+  const onlinePanel = async (page) => {
+    const close = page.getByRole('button', {
+      name: '方針・采配の設定へ（保存しない）',
+      exact: true,
+    });
+    if (await close.count()) await close.click();
   };
   async function login(page, player) {
     await page.goto(`${base}/online`);
@@ -265,6 +275,7 @@ try {
   lineupTab.on('pageerror', (e) => errors.push(e.message));
   await lineupTab.goto(`${base}/online`);
   await click(lineupTab, '編成');
+  await onlinePanel(p);
   await p.getByRole('button', { name: '2番を上げる', exact: true }).click();
   await click(lineupTab, '基本方針');
   await lineupTab.getByLabel('打撃方針').selectOption('patient');
@@ -320,8 +331,8 @@ try {
   a.on('pageerror', (e) => errors.push(e.message));
   await login(a, 1);
   await click(a, '管理');
-  // ⚠ ボタンの名前は「1時間進める」（1ターン＝1時間にしたときに変わった）
-  for (let i = 0; i < 3; i++) await click(a, '検証用：1時間進める');
+  // ⚠ ボタンの名前は「1ターン進める（ゲーム内1日）」（検証モードを足したときに変わった）
+  for (let i = 0; i < 3; i++) await click(a, '1ターン進める（ゲーム内1日）');
   await click(m, '更新');
   await m.getByRole('button', { name: '試合', exact: true }).click();
   await m.locator('.online-score').first().waitFor();
