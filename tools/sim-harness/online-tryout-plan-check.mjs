@@ -37,6 +37,7 @@ import {
   weightedScore,
   weightedRanked,
   weightFactor,
+  WEIGHT_MAX,
 } from '../../src/online/tryoutPlan.js';
 import { ROSTER_TARGETS, rosterCounts } from '../../src/utils/constants.js';
 
@@ -483,23 +484,20 @@ try {
     assert.deepEqual(picks.map((p) => p.id), ranked.slice(0, picks.length), '獲得予定が先頭に並ばない');
     const sc = picks.map((p) => weightedScore(p, DEFAULT_WEIGHTS));
     assert.ok(sc.every((v, i) => i === 0 || sc[i - 1] >= v), '獲得予定が評価の高い順でない');
-    // パワーだけを見る重みなら、獲得予定の内野手は残りの内野手よりパワーが高い
-    const onlyPower = Object.fromEntries(WEIGHT_FIELDS.map((f) => [f.key, 0]));
-    onlyPower.power = 5;
-    onlyPower.velocity = 5;
-    const pw = plannedPicks(weightedRanked(candidates, onlyPower, none), candidates, base.count, none);
-    const infield = (p) => ['first', 'second', 'third', 'short'].includes(p.position);
-    const minPicked = Math.min(...pw.filter(infield).map((p) => p.batting.power));
-    const maxLeft = Math.max(
-      ...candidates.filter((p) => infield(p) && !pw.includes(p)).map((p) => p.batting.power),
-    );
-    assert.ok(minPicked >= maxLeft, `パワー重視なのにパワーの低い内野手を取る: ${minPicked} < ${maxLeft}`);
-    // 若さだけを見る重みなら、獲得予定は候補全体より若い
-    const onlyYouth = Object.fromEntries(WEIGHT_FIELDS.map((f) => [f.key, 0]));
-    onlyYouth.youth = 5;
-    const young = plannedPicks(weightedRanked(candidates, onlyYouth, none), candidates, base.count, none);
-    const avg = (xs) => xs.reduce((n, p) => n + p.age, 0) / xs.length;
-    assert.ok(avg(young) < avg(candidates), '若さ重視なのに若い選手を取らない');
+    // パワーを重視（ほかは軽視）にすると、パワーを軽視（ほかは重視）より
+    // パワーの高い野手を取る。⚠ 「無視」は無いので、1項目だけで決まりはしない
+    const lowAll = Object.fromEntries(WEIGHT_FIELDS.map((f) => [f.key, 0]));
+    const highAll = Object.fromEntries(WEIGHT_FIELDS.map((f) => [f.key, WEIGHT_MAX]));
+    const picksWith = (w) =>
+      plannedPicks(weightedRanked(candidates, w, none), candidates, base.count, none);
+    const avgOf = (xs, f) => xs.reduce((n, p) => n + f(p), 0) / xs.length;
+    const fieldersOf = (xs) => xs.filter((p) => p.position !== 'pitcher');
+    const powerUp = avgOf(fieldersOf(picksWith({ ...lowAll, power: WEIGHT_MAX })), (p) => p.batting.power);
+    const powerDown = avgOf(fieldersOf(picksWith({ ...highAll, power: 0 })), (p) => p.batting.power);
+    assert.ok(powerUp > powerDown, `パワー重視が効いていない: ${powerUp} <= ${powerDown}`);
+    const youngUp = avgOf(picksWith({ ...lowAll, youth: WEIGHT_MAX }), (p) => p.age);
+    const youngDown = avgOf(picksWith({ ...highAll, youth: 0 }), (p) => p.age);
+    assert.ok(youngUp < youngDown, `若さ重視が効いていない: ${youngUp} >= ${youngDown}`);
     // 名簿がある球団（2年目以降のトライアウト）では、名簿の分だけ区分の空きが減る
     const roster10 = Array.from({ length: 10 }, (_, i) => ({ id: -200 - i, position: 'pitcher' }));
     const withRoster = plannedPicks(
@@ -509,24 +507,29 @@ try {
       roster10,
     );
     assert.equal(rosterCounts(withRoster).pitcher, 0, '投手が埋まっている球団に投手を勧める');
-    // 段階は番号をそのまま掛けない（普通＝1、重視＝1.5倍、最重視＝2倍）
+    // 段階は番号をそのまま掛けない（軽視0.6〜最重視1.6を0.2刻みの6段階。0倍は無い）
     assert.deepEqual(
       [0, 1, 2, 3, 4, 5].map(weightFactor),
-      [0, 0.5, 1, 1.25, 1.5, 2],
+      [0.6, 0.8, 1.0, 1.2, 1.4, 1.6],
       '段階の倍率が想定と違う',
     );
     {
-      // ミート「最重視」・パワー「普通」なら、評価は ミート2：パワー1 の平均
-      const w = Object.fromEntries(WEIGHT_FIELDS.map((f) => [f.key, 0]));
-      w.meet = 5;
-      w.power = 2;
-      const one = { position: 'first', batting: { meet: 80, power: 40 } };
-      assert.equal(weightedScore(one, w), (80 * 2 + 40 * 1) / 3, '重み付き平均になっていない');
+      // ミート「最重視」（1.6）・ほかは「軽視」（0.6）なら、評価はその重み付き平均
+      const w = { ...lowAll, meet: WEIGHT_MAX };
+      const one = {
+        position: 'first',
+        age: 25, // 若さ 50
+        batting: { meet: 80, power: 40, eye: 50 },
+        physical: { speed: 60, arm: 30 },
+        fielding: { defense: 70 },
+      };
+      const expected = (80 * 1.6 + (40 + 50 + 60 + 70 + 30 + 50) * 0.6) / (1.6 + 0.6 * 6);
+      assert.ok(Math.abs(weightedScore(one, w) - expected) < 1e-9, '重み付き平均になっていない');
     }
     // 壊れた重みは直す（0〜5の整数。知らない値は既定）
     assert.deepEqual(
       sanitizeWeights({ meet: 9, power: -3, eye: '2.7', speed: 'x' }),
-      { ...DEFAULT_WEIGHTS, meet: 5, power: 0, eye: 2, speed: DEFAULT_WEIGHTS.speed },
+      { ...DEFAULT_WEIGHTS, meet: WEIGHT_MAX, power: 0, eye: 2, speed: DEFAULT_WEIGHTS.speed },
     );
   }
 } finally {
