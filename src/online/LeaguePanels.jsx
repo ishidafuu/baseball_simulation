@@ -1285,6 +1285,18 @@ export function LineupPanel({
       {failedError && dirty && failed.current === plan && (
         <div role="alert" className="online-alert">
           <span>保存できませんでした：{failedError}</span>
+          {/* 通信の一時的な失敗なら、同じ内容をもう一度送れば済む */}
+          <button
+            className="online-link"
+            disabled={busy || readOnly}
+            onClick={() => {
+              failed.current = null;
+              setFailedError('');
+              save();
+            }}
+          >
+            もう一度保存する
+          </button>
           <button className="online-link" onClick={discardDraft}>
             編集を捨てて最新の内容に戻す
           </button>

@@ -2525,6 +2525,10 @@
 .online-roster-table td {
   font-variant-numeric: tabular-nums;
 }
+/* 左の選手名の列は固定。Tabやスクロールで列を寄せたとき、固定列の下に隠れないよう余白を取る */
+.online-roster-block .online-table-scroll {
+  scroll-padding-left: 200px;
+}
 .online .online-roster-table thead button {
   min-height: 32px;
   padding: 2px 4px;
@@ -2999,5 +3003,34 @@
   }
   .online button.online-primary:hover:enabled {
     background: var(--accent-strong);
+  }
+}
+
+/* 狭いスマホ（〜480px）の選手一覧。
+   ⚠ 左の固定列（名前・調子・札）が折り返さないと、320px幅では固定列だけで画面が埋まり、
+      成績の列が1つも見えなかった。固定列は画面の半分までにして、中身は2段に折り返す。
+      見出し行（自球団名・他球団を見る・表示の切替）も折り返して重ならないようにする */
+@media (max-width: 480px) {
+  .online-roster-table th:first-child {
+    min-width: 0;
+    width: 50vw;
+    max-width: 50vw;
+    white-space: normal;
+  }
+  .online-roster-table .online-roster-person {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+  }
+  .online-roster-block .online-table-scroll {
+    scroll-padding-left: 50vw;
+  }
+  .online-roster-toolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .online-roster-toolbar > div:first-child {
+    flex: 1 1 100%;
   }
 }

@@ -196,7 +196,7 @@ export default function MobileReplay({ game, close }) {
             setChosen(null);
           }}
         />
-        <button onClick={close} aria-label="試合成績を閉じる">
+        <button onClick={close} aria-label="試合結果を閉じる">
           閉じる
         </button>
       </div>

@@ -37,6 +37,7 @@ export function Segmented({ label, value, options, onChange, disabled, small }) 
         <button
           key={id}
           type="button"
+          data-value={id}
           aria-pressed={String(value) === String(id)}
           disabled={disabled}
           onClick={() => onChange(id)}

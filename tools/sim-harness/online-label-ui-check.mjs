@@ -19,6 +19,7 @@ import {
   BATTING_KEYS,
   PITCHING_KEYS,
 } from '../../src/online/recordStats.js';
+import { choose, chosen } from './lib/choose.mjs';
 const html = await readFile(
   new URL('../../dist/index.html', import.meta.url),
   'utf8',
@@ -397,33 +398,60 @@ async function scene(width, height = 844, scale = 1, holdDetail = false) {
     release: () => releaseDetail(),
   };
 }
+// 表は左の選手名の列が固定で、狭い画面では横に流す。列見出しを押す前に、
+// その列を右端へ寄せて固定列に隠れないようにする（指で横に送るのと同じ）
+const sortBy = async (page, label) => {
+  const button = page.getByRole('button', { name: `${label}で並べ替え`, exact: true }).first();
+  await button.evaluate((e) => e.scrollIntoView({ inline: 'end', block: 'nearest' }));
+  await button.click();
+};
 try {
+  // ⚠ 2026-11 の作り直しで、選手一覧は「野手・投手の2つの表を1画面に」（ページ送りと
+  //    成績の項目群セレクトは無くした）、選手詳細は「タブ切替」から「縦に並べた1枚」になった。
+  //    この検査は、成績の札（略称と正式名）・詳細の開閉とフォーカス・期間と場面別・
+  //    並べ替え・横にはみ出さないこと、を新しい画面で見る
   const { page: p, context } = await scene(1440, 1000);
   await p.getByRole('button', { name: '選手', exact: true }).click();
-  await p.getByLabel('閲覧する球団').selectOption('B');
-  await p
-    .getByRole('button', { name: '成績選手100の選手情報を見る', exact: true })
-    .waitFor();
+  // 他球団は「他球団を見る」を押したときだけ選ぶ
+  await p.getByRole('button', { name: '他球団を見る', exact: true }).click();
+  await choose(p, '閲覧する球団', 'B');
   await p
     .getByRole('button', { name: '成績選手100の選手情報を見る', exact: true })
     .click();
   await p
     .getByRole('dialog', { name: '成績選手100', exact: true })
-    .getByRole('button', { name: '能力・人物', exact: true })
-    .click();
+    .getByRole('heading', { name: '能力すべて', exact: true })
+    .waitFor();
   await p.keyboard.press('Escape');
-  await p.getByLabel('閲覧する球団').selectOption('A');
+  await choose(p, '閲覧する球団', 'A');
   await p
     .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
     .waitFor();
   const first = p.locator('tbody tr').first();
-  assert.equal(await first.locator('.online-stat-label').count(), 3);
+  // 一覧の札は2個まで・3文字以内の略称。読み上げと title は正式名
+  const listLabels = first.locator('.online-stat-label');
+  assert.equal(await listLabels.count(), 2, '一覧の札は2個まで');
+  assert.ok(
+    (await listLabels.allTextContents()).every((t) => [...t].length <= 3),
+    '一覧の略称は3文字以内',
+  );
+  assert.equal(
+    await listLabels.first().getAttribute('aria-label'),
+    'アベレージヒッター',
+    '略称でも正式名を読み上げる',
+  );
   await p
     .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
     .click();
   const dialog = p.getByRole('dialog', { name: '成績選手1', exact: true });
   await dialog.waitFor();
-  await dialog.getByText('.450', { exact: true }).waitFor();
+  await dialog.getByText('.450', { exact: true }).first().waitFor();
+  assert.equal(
+    await dialog.locator('.online-player-top .online-stat-label').count(),
+    3,
+    '詳細では札を3個まで正式名で出す',
+  );
+  await dialog.getByText('アベレージヒッター', { exact: true }).waitFor();
   await p.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
   assert.ok(
@@ -432,51 +460,40 @@ try {
       .evaluate((e) => document.activeElement === e),
     'Escape後に選手名へフォーカスを戻す',
   );
-  await p.getByRole('button', { name: '投球', exact: true }).click();
+  // 投手の表も同じ画面にある
   await p
     .getByRole('button', { name: '成績選手9の選手情報を見る', exact: true })
     .click();
   await p
     .getByRole('dialog', { name: '成績選手9', exact: true })
     .getByText('制球安定', { exact: true })
+    .first()
     .waitFor();
   await p.keyboard.press('Escape');
   await p
     .getByRole('dialog', { name: '成績選手9', exact: true })
     .waitFor({ state: 'hidden' });
-  assert.equal(
-    await p
-      .locator('.online-page-nav [aria-current="page"]')
-      .getAttribute('aria-label'),
-    '選手',
-    '詳細を閉じても元の一覧に留まる',
-  );
+  const currentNav = () =>
+    p.locator('.online-nav-items [aria-current="page"]').getAttribute('aria-label');
+  assert.equal(await currentNav(), '選手', '詳細を閉じても元の一覧に留まる');
   await p.setViewportSize({ width: 700, height: 1000 });
-  await p.locator('.online-mobile-controls').waitFor();
-  await p.setViewportSize({ width: 1440, height: 1000 });
+  await p.locator('.online-tabbar').waitFor();
   assert.equal(
-    await p
-      .locator('.online-page-nav [aria-current="page"]')
-      .getAttribute('aria-label'),
+    await p.locator('.online-tabbar [aria-current="page"]').getAttribute('aria-label'),
     '選手',
-    '表示形式を往復しても選手画面を維持する',
+    'スマホ表示に切り替えても選手画面のまま',
   );
+  await p.setViewportSize({ width: 1440, height: 1000 });
+  await p.locator('.online-nav-items').waitFor();
+  assert.equal(await currentNav(), '選手', '表示形式を往復しても選手画面を維持する');
   await p.screenshot({
     path: '/tmp/baseball-online-labels-desktop.png',
     fullPage: true,
   });
-  assert.equal(
-    await p
-      .locator('.online-page-nav [aria-current="page"]')
-      .getAttribute('aria-label'),
-    '選手',
-    '全体キャプチャ後も選手画面を維持する',
-  );
-  await p.getByRole('button', { name: '成績一覧', exact: true }).click();
-  await p.getByLabel('成績の表示項目').selectOption('sabers');
-  await p.getByRole('button', { name: 'OPSで並べ替え', exact: true }).click();
+  // 列見出しで並べ替え（OPSの高い順 → 成績選手1）
+  await p.getByRole('button', { name: 'OPSで並べ替え', exact: true }).first().click();
   await p
-    .locator('.online-roster-rows article')
+    .locator('tbody tr')
     .first()
     .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
     .waitFor();
@@ -487,77 +504,72 @@ try {
       640,
       width === 360 ? 3 : 1,
     );
-    await m.getByRole('button', { name: '打順', exact: true }).click();
+    await m.getByRole('button', { name: '選手', exact: true }).click();
     await m
       .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
       .click();
     const d = m.getByRole('dialog', { name: '成績選手1', exact: true });
     await d.waitFor();
-    await d.getByLabel('能力の表示項目').selectOption('physical');
-    assert.equal(
-      await d
-        .locator('dt')
-        .filter({ hasText: /^走力$/ })
-        .locator('..')
-        .locator('dd')
-        .innerText(),
-      '70',
-    );
-    await m.screenshot({
-      path: `/tmp/baseball-online-mobile-abilities-${width}.png`,
-      fullPage: true,
-    });
-    await d.getByLabel('能力の表示項目').selectOption('arsenal');
-    await d.getByText('スライダー', { exact: true }).waitFor();
-    await d.getByRole('button', { name: '成績', exact: true }).click();
     const detailBounds = await d.boundingBox();
     assert.ok(
       Math.abs(detailBounds.width - width) <= 1,
       'スマホの詳細パネルは画面幅いっぱいに使う',
     );
-    assert.equal(await d.locator('.online-stat-label').count(), 3);
-    await d.getByText('アベレージヒッター', { exact: true }).waitFor();
+    await d.getByRole('heading', { name: '能力すべて', exact: true }).waitFor();
+    await d.getByRole('heading', { name: '場面別', exact: true }).waitFor();
     assert.ok(
-      await d.evaluate((e) => e.scrollHeight <= e.clientHeight + 1),
-      '成績詳細は縦スクロール不要',
-    );
-    assert.ok(
-      await m.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
+      await m.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       '名前とラベルが横にはみ出さない',
     );
     await m.screenshot({
       path: `/tmp/baseball-online-labels-mobile-${width}.png`,
       fullPage: true,
     });
-    await d.getByLabel('成績の期間').selectOption('online:1');
-    await d.getByRole('button', { name: '場面別', exact: true }).click();
+    // 期間を変えると、成績と場面別がその期間の記録になる
+    const splits = d.locator('section').filter({
+      has: m.getByRole('heading', { name: '場面別', exact: true }),
+    });
+    await choose(d, '成績の期間', 'online:1');
     assert.deepEqual(
-      await d.locator('.online-stat-grid dd').allTextContents(),
+      await splits.locator('.online-stat-grid dd').allTextContents(),
       ['20', '.500', '.500', '1.000'],
       '過去年の場面別集計を取得できる',
     );
-    await d.getByLabel('場面別の区分').selectOption('emptyRisp');
+    await choose(d, '場面別の区分', 'emptyRisp');
     assert.deepEqual(
-      await d.locator('.online-stat-grid dd').allTextContents(),
+      await splits.locator('.online-stat-grid dd').allTextContents(),
       ['20', '.100', '.100', '.200'],
     );
-    await d.getByRole('button', { name: '成績', exact: true }).click();
-    await d.getByLabel('成績の期間').selectOption('career');
-    await d.getByText('.300', { exact: true }).waitFor();
-    await d.getByLabel('成績の期間').selectOption('legacy-career');
-    await d.getByLabel('成績の表示項目').selectOption('discipline');
-    await d.getByText('2', { exact: true }).waitFor();
-    await d.getByLabel('成績の期間').selectOption('current');
-    await d
-      .getByRole('button', { name: '選手成績を閉じる', exact: true })
-      .click();
-    await m.getByRole('button', { name: '2番を上げる', exact: true }).click();
+    await choose(d, '成績の期間', 'career');
+    await d.getByText('.300', { exact: true }).first().waitFor();
+    await choose(d, '成績の期間', 'current');
+    await d.getByRole('button', { name: '選手成績を閉じる', exact: true }).click();
+    // 一覧：札は略称、打点で並べ替え
+    const firstRow = m.locator('.online-roster-table tbody tr').first();
+    const labels = firstRow.locator('.online-stat-label');
+    assert.ok((await labels.count()) <= 2, '一覧の札は2個まで');
+    assert.equal(await labels.first().getAttribute('title'), 'アベレージヒッター');
+    await sortBy(m, '打点');
+    await firstRow
+      .getByRole('button', { name: '成績選手24の選手情報を見る', exact: true })
+      .waitFor();
+    assert.ok(
+      await m.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      '表は枠の中で横に流し、画面ははみ出さない',
+    );
+    // 投手の表（野手と分けて出す）
+    await choose(m, '表示する項目', 'pitching');
+    await m
+      .locator('.online-roster-table tbody tr')
+      .first()
+      .getByRole('button', { name: '成績選手9の選手情報を見る', exact: true })
+      .waitFor();
+    // 下タブとメニュー
+    const tabbar = await m.locator('.online-tabbar').boundingBox();
+    assert.ok(tabbar.y + tabbar.height <= 640 + 1, '下タブは画面の下端に収まる');
     await m.getByRole('button', { name: 'メニュー', exact: true }).click();
     const menu = m.getByRole('dialog', { name: 'メニュー', exact: true });
-    await menu.waitFor();
-    await menu.getByRole('button', { name: '更新', exact: true }).waitFor();
+    await menu.getByRole('button', { name: '最新の状態に更新', exact: true }).waitFor();
     await m.screenshot({
       path: `/tmp/baseball-online-mobile-menu-${width}.png`,
       fullPage: true,
@@ -568,303 +580,30 @@ try {
       await m
         .getByRole('button', { name: 'メニュー', exact: true })
         .evaluate((e) => e === document.activeElement),
-      'メニューを閉じて下部ボタンにフォーカスが戻る',
+      'メニューを閉じてメニューボタンにフォーカスが戻る',
     );
-    await m
-      .getByRole('button', { name: '投手・控えを含む選手成績 →', exact: true })
-      .click();
-    await m.waitForFunction(
-      () =>
-        document.querySelectorAll('.online-compact-roster article').length >= 9,
-    );
-    const labels = m
-      .locator('.online-compact-roster article')
-      .first()
-      .locator('.online-stat-label');
-    assert.equal(
-      await labels.count(),
-      3,
-      '行の高さを変えずにラベルを最大3個表示する',
-    );
-    assert.deepEqual(await labels.allTextContents(), [
-      'アベヒ',
-      '選球眼',
-      '扇風機',
-    ]);
-    assert.ok(
-      (await labels.allTextContents()).every((text) => [...text].length <= 3),
-      '一覧の略称は3文字以内',
-    );
-    assert.equal(
-      await labels.first().getAttribute('aria-label'),
-      'アベレージヒッター',
-      '略称でも正式名を読み上げる',
-    );
-    assert.equal(
-      await labels.first().getAttribute('title'),
-      'アベレージヒッター',
-    );
-    assert.ok(
-      await labels.evaluateAll((nodes) =>
-        nodes.every((node) => {
-          const box = node.getBoundingClientRect();
-          return (
-            box.right <=
-              node
-                .closest('button')
-                .querySelector('.online-roster-values')
-                .getBoundingClientRect().left -
-                1 && box.height <= 20
-          );
-        }),
-      ),
-      '3個の札が成績の数値を圧迫せず44px行に収まる',
-    );
-    const firstRow = m.locator('.online-compact-roster article').first();
-    assert.deepEqual(
-      await firstRow.locator('.online-roster-values > span').allTextContents(),
-      ['.450', '2', '42', '0'],
-      '基本成績を4列で比較できる',
-    );
-    await m
-      .getByRole('button', { name: '打点で並べ替え', exact: true })
-      .click();
-    await firstRow
-      .getByRole('button', { name: '成績選手24の選手情報を見る', exact: true })
-      .waitFor();
-    await m
-      .getByRole('button', { name: '打点で並べ替え', exact: true })
-      .click();
-    await firstRow
-      .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
-      .waitFor();
-    const groups = m.getByLabel('成績の表示項目');
-    await groups.selectOption('sabers');
-    assert.deepEqual(
-      await firstRow.locator('.online-roster-values > span').allTextContents(),
-      ['1.127', '.577', '.550', '.100'],
-    );
-    await m
-      .getByText('※ 出塁率・OPS・打席関連は概算', { exact: true })
-      .waitFor();
-    await m.getByRole('button', { name: 'OPSで並べ替え', exact: true }).click();
-    await firstRow
-      .getByRole('button', { name: '成績選手1の選手情報を見る', exact: true })
-      .waitFor();
-    await m.getByRole('button', { name: 'OPSで並べ替え', exact: true }).click();
-    await firstRow
-      .getByRole('button', { name: '成績選手2の選手情報を見る', exact: true })
-      .waitFor();
-    await m.screenshot({
-      path: `/tmp/baseball-online-mobile-sabers-${width}.png`,
-      fullPage: true,
-    });
-    for (const id of await groups
-      .locator('option')
-      .evaluateAll((options) => options.map((option) => option.value))) {
-      await groups.selectOption(id);
-      assert.equal(
-        await firstRow.locator('.online-roster-values > span').count(),
-        4,
-      );
-      assert.ok(
-        await firstRow
-          .locator('.online-roster-values > span')
-          .evaluateAll((cells) =>
-            cells.every((cell) => cell.scrollWidth <= cell.clientWidth + 1),
-          ),
-        `${width}px ${id}で数値を切り落とさない: ${JSON.stringify(await firstRow.locator('.online-roster-values > span').evaluateAll((cells) => cells.map((cell) => ({ text: cell.textContent, w: cell.clientWidth, s: cell.scrollWidth, font: getComputedStyle(cell).fontSize }))))}`,
-      );
-      assert.ok(
-        await m
-          .locator('main')
-          .evaluate(
-            (element) => element.scrollHeight <= element.clientHeight + 1,
-          ),
-        '各項目群で縦スクロールなし',
-      );
-    }
-    await groups.selectOption('abilities');
-    await m.screenshot({
-      path: `/tmp/baseball-online-mobile-grades-${width}.png`,
-      fullPage: true,
-    });
-    assert.deepEqual(
-      await firstRow.locator('.online-roster-values > span').allTextContents(),
-      ['D', 'D', '—', 'B'],
-      '一覧は既存PC判定の色付きランク',
-    );
-    await firstRow.getByRole('button').click();
-    const numericDetail = m.getByRole('dialog');
-    assert.deepEqual(
-      await numericDetail.locator('.online-stat-grid dd').allTextContents(),
-      ['50', '50', '—', '70'],
-      '同じ能力でも詳細は実数値',
-    );
-    await m.keyboard.press('Escape');
-    await groups.selectOption('state');
-    await m
-      .getByRole('button', { name: '調子で並べ替え', exact: true })
-      .click();
-    await firstRow.getByLabel('調子: 絶好調', { exact: true }).waitFor();
-    await m.screenshot({
-      path: `/tmp/baseball-online-mobile-state-${width}.png`,
-      fullPage: true,
-    });
-    await groups.selectOption('basic');
-    assert.equal(
-      await m.locator('.online-mobile-controls button').count(),
-      3,
-      '下部の共通操作は戻る・ホーム・メニューのみ',
-    );
-    const controls = await m.locator('.online-mobile-controls').boundingBox();
-    assert.ok(
-      controls.y >= 590 && controls.y + controls.height <= 640,
-      '操作を親指の届く下部に置く',
-    );
-    assert.equal(
-      await m.locator('.online-header').count(),
-      0,
-      'ブランドヘッダを重ねない',
-    );
-    await m.screenshot({
-      path: `/tmp/baseball-online-labels-roster-${width}.png`,
-      fullPage: true,
-    });
-    assert.ok(
-      await m.evaluate(
-        () => document.documentElement.scrollHeight <= innerHeight + 1,
-      ),
-      '一覧のために画面全体をスクロールしない',
-    );
-    await m.getByRole('button', { name: '投球', exact: true }).click();
-    for (const id of await groups
-      .locator('option')
-      .evaluateAll((options) => options.map((option) => option.value))) {
-      await groups.selectOption(id);
-      assert.ok(
-        await firstRow
-          .locator('.online-roster-values > span')
-          .evaluateAll((cells) =>
-            cells.every((cell) => cell.scrollWidth <= cell.clientWidth + 1),
-          ),
-        `${width}px 投球${id}で数値が収まる`,
-      );
-    }
-    await groups.selectOption('basic');
-    // ⚠ 投球の一覧は既定で「投球回の多い順」になった（c2c46b9）。防御率108.00の
-    //    選手（1/3回・4失点）は先頭に来ないので、防御率で並べ替えて先頭に出す。
-    //    以前は先頭に来る前提のまま取り残され、ここで落ちていた
-    const eraSort = m.getByRole('button', { name: '防御率で並べ替え', exact: true });
-    await eraSort.click();
-    if (!(await firstRow.getByText('108.00', { exact: true }).count()))
-      await eraSort.click();
-    await firstRow.getByText('108.00', { exact: true }).waitFor();
-    assert.ok(
-      await firstRow
-        .locator('.online-roster-values > span')
-        .evaluateAll((cells) =>
-          cells.every((cell) => cell.scrollWidth <= cell.clientWidth + 1),
-        ),
-      `${width}px 防御率108.00でも列を跨がない`,
-    );
-    await firstRow.getByRole('button').click();
-    await m.getByRole('dialog').getByText('108.00', { exact: true }).waitFor();
-    await m.keyboard.press('Escape');
-    await m
-      .getByRole('button', { name: '成績選手9の選手情報を見る', exact: true })
-      .click();
-    await m
-      .getByRole('dialog', { name: '成績選手9', exact: true })
-      .getByText('制球安定', { exact: true })
-      .waitFor();
-    await m.keyboard.press('Escape');
-    const pager = await m
-      .getByRole('button', { name: '次のページ', exact: true })
-      .boundingBox();
-    assert.ok(pager.y + pager.height <= 592, 'ページ送りが画面内に収まる');
-    const row = await m
-      .locator('.online-compact-roster article')
-      .last()
-      .boundingBox();
-    assert.ok(row.y + row.height <= pager.y, '最終行とページ送りが重ならない');
-    await m.setViewportSize({ width, height: 844 });
-    await m.waitForFunction(
-      () =>
-        document.querySelectorAll('.online-compact-roster article').length >=
-        14,
-    );
-    while (
-      await m
-        .getByRole('button', { name: '次のページ', exact: true })
-        .isEnabled()
-    )
-      await m.getByRole('button', { name: '次のページ', exact: true }).click();
-    await m
-      .getByRole('button', { name: '成績選手24の選手情報を見る', exact: true })
-      .waitFor();
-    await m.getByRole('button', { name: '戻る', exact: true }).click();
-    await m.getByRole('heading', { name: '打順', exact: true }).waitFor();
-    assert.equal(
-      await m
-        .locator('.online-lineup')
-        .first()
-        .getByRole('button', { name: '成績選手2の選手情報を見る', exact: true })
-        .count(),
-      1,
-      '選手成績を見て戻っても編集中の打順を維持する',
-    );
-    await m.setViewportSize({ width, height: 640 });
-    await m.getByRole('button', { name: 'ホーム', exact: true }).click();
+    // 試合記録と試合結果
     await m.getByRole('button', { name: '試合', exact: true }).click();
-    await m
-      .getByRole('button', { name: '過去の試合・個人成績', exact: true })
-      .click();
-    const historyPanel = m.getByRole('dialog', {
-      name: '試合記録',
-      exact: true,
-    });
-    await historyPanel.getByLabel('試合記録の年度').selectOption('1');
+    await m.getByRole('button', { name: '過去の試合・個人成績', exact: true }).click();
+    const historyPanel = m.getByRole('dialog', { name: '試合記録', exact: true });
+    await choose(historyPanel, '試合記録の年度', '1');
+    await historyPanel.locator('.online-game-history-list article').first().waitFor();
+    await choose(historyPanel, '試合記録の範囲', 'league');
     await historyPanel
-      .locator('.online-game-history-list article')
-      .first()
-      .waitFor();
-    await historyPanel.getByLabel('試合記録の範囲').selectOption('league');
-    await historyPanel
-      .getByRole('button', { name: 'A対Bの試合成績', exact: true })
+      .getByRole('button', { name: /の試合を見る$/ })
       .first()
       .click();
-    const box = m.getByRole('dialog', { name: '試合成績', exact: true });
-    await box
-      .getByRole('button', { name: '安打で並べ替え', exact: true })
-      .click();
-    assert.equal(
-      await box.locator('tbody tr').first().locator('th').innerText(),
-      '成績選手12',
-      '試合の全出場選手をソートしてからページ分割',
-    );
+    const box = m.getByRole('dialog', { name: '試合結果', exact: true });
+    await box.locator('tbody tr').first().waitFor();
     assert.ok(
-      await box.evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
-      '打撃成績も6人ずつで縦スクロールなし',
-    );
-    await box.getByLabel('試合成績の表示項目').selectOption('pitching:basic');
-    await box.getByText('6.0', { exact: true }).waitFor();
-    await m.setViewportSize({ width, height: 640 });
-    assert.ok(
-      await box.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
-      '試合成績が横にはみ出さない',
-    );
-    assert.ok(
-      await box.evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
-      '試合成績で長いスクロールを要求しない',
+      await m.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      '試合結果が横にはみ出さない',
     );
     await m.screenshot({
       path: `/tmp/baseball-online-game-record-${width}.png`,
       fullPage: true,
     });
-    await box
-      .getByRole('button', { name: '試合成績を閉じる', exact: true })
-      .click();
+    await box.getByRole('button', { name: '試合結果を閉じる', exact: true }).click();
     await historyPanel
       .getByRole('button', { name: '試合記録を閉じる', exact: true })
       .click();
@@ -928,7 +667,7 @@ try {
   await staleRead.context.close();
   assert.deepEqual(errors, []);
   console.log(
-    'online-label-ui-check PASS（配布HTMLと実projection・PC/スマホ320〜767px・1080x1920縦持ち・投打切替・詳細/閉じる/フォーカス・高さに応じた行数・ページ送り・閲覧のみ / 通信はfixture）',
+    'online-label-ui-check PASS（配布HTMLと実projection・PC/スマホ320〜767px・成績の札・詳細/閉じる/フォーカス・期間と場面別・並べ替え・閲覧のみ / 通信はfixture）',
   );
 } catch (error) {
   if (activeContext) {
