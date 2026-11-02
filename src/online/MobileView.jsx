@@ -59,6 +59,14 @@ export default function MobileView(props) {
     : TABS;
   const sub = SUB_TITLES[tab] && !(tab === 'decisions' && view.phase);
   const screen = tab === 'admin' && !view.isAdmin ? 'today' : tab;
+  // ⚠ 「‹」は**来た画面へ戻る**。以前はいつもホームへ飛び、試合タブから
+  //    順位表を開いて戻ると、試合タブを開き直す必要があった
+  const trail = useRef(['today']);
+  if (trail.current[trail.current.length - 1] !== screen) {
+    if (trail.current[trail.current.length - 2] === screen) trail.current.pop();
+    else trail.current = [...trail.current.slice(-9), screen];
+  }
+  const back = () => setTab(trail.current[trail.current.length - 2] || 'today');
   useEffect(() => {
     window.scrollTo?.(0, 0);
   }, [screen]);
@@ -69,7 +77,7 @@ export default function MobileView(props) {
           <button
             className="online-icon-button"
             aria-label="戻る"
-            onClick={() => setTab('today')}
+            onClick={back}
           >
             ‹
           </button>

@@ -584,12 +584,12 @@ try {
     );
     // 試合記録と試合結果
     await m.getByRole('button', { name: '試合', exact: true }).click();
-    await m.getByRole('button', { name: '過去の試合・個人成績', exact: true }).click();
-    const historyPanel = m.getByRole('dialog', { name: '試合記録', exact: true });
-    await choose(historyPanel, '試合記録の年度', '1');
-    await historyPanel.locator('.online-game-history-list article').first().waitFor();
-    await choose(historyPanel, '試合記録の範囲', 'league');
-    await historyPanel
+    // ⚠ 試合の入口は一覧1つ（2026-11。以前の「過去の試合・個人成績」パネルは無い）。
+    //    年度は2年目以降だけ選べる
+    if (await m.getByLabel('試合記録の年度', { exact: true }).count())
+      await choose(m, '試合記録の年度', '1');
+    await choose(m, '試合の表示範囲', 'league');
+    await m
       .getByRole('button', { name: /の試合を見る$/ })
       .first()
       .click();
@@ -604,9 +604,6 @@ try {
       fullPage: true,
     });
     await box.getByRole('button', { name: '試合結果を閉じる', exact: true }).click();
-    await historyPanel
-      .getByRole('button', { name: '試合記録を閉じる', exact: true })
-      .click();
     await c.close();
   }
   const switched = await scene(1440, 1000);

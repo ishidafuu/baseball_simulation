@@ -15,6 +15,7 @@ import {
   FatigueMark,
   TeamBadge,
   TeamName,
+  TeamLink,
   formatJst,
   gameDay,
   remaining,
@@ -102,7 +103,7 @@ export function NowCard({ view, setTab }) {
             <span>{gameDay(next.date)}</span>
             <span>
               {next.home === view.teamName ? 'vs' : '@'}{' '}
-              <TeamName team={opponent} />
+              <TeamLink team={opponent} />
             </span>
           </h2>
           {starter && (

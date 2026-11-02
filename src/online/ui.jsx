@@ -183,3 +183,36 @@ export function Sheet({ title, close, children, footer }) {
  */
 export const NotifyContext = React.createContext(() => {});
 export const useNotify = () => React.useContext(NotifyContext);
+
+/**
+ * 画面どうしをつなぐ口（球団名から選手一覧へ、選手から編成へ、など）。
+ * ⚠ 以前は見ている物から次の操作へ直接行けず、「選手タブ→他球団を見る→セレクト」
+ *    のように毎回たどり直していた。`openTeam` は選手一覧をその球団で開く。
+ */
+export const AppNavContext = React.createContext({
+  view: null,
+  go: null,
+  openTeam: null,
+  teamFocus: null,
+});
+export const useAppNav = () => React.useContext(AppNavContext);
+
+/** 押すとその球団の選手一覧へ移る球団名。`onNavigate` は移る前に閉じたい画面があれば */
+export function TeamLink({ team, short = false, onNavigate, children }) {
+  const nav = useAppNav();
+  if (!nav.openTeam) return children || <TeamName team={team} short={short} />;
+  return (
+    <button
+      type="button"
+      className="online-team-link"
+      aria-label={`${teamLabel(team)}の選手を見る`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onNavigate?.();
+        nav.openTeam(team);
+      }}
+    >
+      {children || <TeamName team={team} short={short} />}
+    </button>
+  );
+}

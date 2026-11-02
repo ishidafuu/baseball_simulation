@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { markHintSeen } from '../game/tutorial.js';
-
-const HINT_IDS = ['lineup-dnd', 'lineup-playing-time', 'rotation-dnd'];
 import { createPortal } from 'react-dom';
+import { markHintSeen } from '../game/tutorial.js';
 import { LineupSettingContent } from '../components/LineupSettingScreen.jsx';
 import { LEAGUE_SETTINGS } from '../teams-data.js';
 import { teamFromView, planFromTeam } from './lineupBridge.js';
@@ -24,6 +22,7 @@ import { teamLabel } from './gameText.js';
 //    ポータルで body 直下へ出せば、一人用の画面と同じ見え方になる。
 // ============================================================
 
+const HINT_IDS = ['lineup-dnd', 'lineup-playing-time', 'rotation-dnd'];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 export default function OnlineLineup({ view, busy, onSave, onClose }) {

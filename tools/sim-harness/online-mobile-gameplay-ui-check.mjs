@@ -216,11 +216,8 @@ try {
       .click();
     await page.getByRole('button', { name: 'ホーム', exact: true }).click();
     await page.getByRole('button', { name: '試合', exact: true }).click();
+    // ⚠ 試合の入口は一覧1つ（2026-11。以前の「過去の試合・個人成績」パネルは無い）
     await page
-      .getByRole('button', { name: '過去の試合・個人成績', exact: true })
-      .click();
-    const history = page.getByRole('dialog', { name: '試合記録', exact: true });
-    await history
       .getByRole('button', { name: /の試合を見る$/ })
       .first()
       .click();
@@ -359,9 +356,6 @@ try {
     });
     await box
       .getByRole('button', { name: '試合結果を閉じる', exact: true })
-      .click();
-    await history
-      .getByRole('button', { name: '試合記録を閉じる', exact: true })
       .click();
     assert.equal(attempts, sentAfterSave, '経過の閲覧で追加コマンドを送らない');
     assert.deepEqual(errors, []);

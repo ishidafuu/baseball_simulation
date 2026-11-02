@@ -163,7 +163,7 @@ export default function DesktopView(props) {
           <div className="online-form-width is-wide">
             <div className="online-lineup-tools">
               <button onClick={() => setDetailLineup(true)}>
-                ドラッグで組む（詳しい編成画面）
+                一人用と同じ詳しい編成画面を開く
               </button>
             </div>
             <LineupPanel key={`${view.year}:${view.teamName}`} {...props} />

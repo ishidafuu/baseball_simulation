@@ -2,12 +2,12 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import ReplayViewer from './ReplayViewer.jsx';
 import MobileReplay from './MobileReplay.jsx';
 import { ReadContext, useRead } from './useRead.js';
-import { PageNav } from './PageNav.jsx';
 import { inOnlineRoot } from './portal.js';
 import { formatStat } from './statsView.js';
 import { decisionText, ownOutcome, teamShort, teamLabel } from './gameText.js';
 import { POS } from './api.js';
-import { Segmented, TeamName, gameDay } from './ui.jsx';
+import { Segmented, TeamName, TeamLink, gameDay } from './ui.jsx';
+import { PlayerById } from './PlayerPerformance.jsx';
 function Panel({ title, close, children, wide = false, mobileReplay = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -177,7 +177,8 @@ function BoxScore({ game, ownTeam }) {
               <tr key={p.key || p.id} className={p.battingOrder ? '' : 'is-sub'}>
                 <th title={p.name}>
                   <span className="online-box-order">{p.battingOrder || ''}</span>
-                  <small>{POS[p.position] || ''}</small> {p.name}
+                  <small>{POS[p.position] || ''}</small>{' '}
+                  <PlayerById id={p.id} name={p.name} team={team} />
                 </th>
                 {BAT_COLUMNS.map(([key, , get]) => (
                   <td key={key}>{(get ? get(p.batting || {}) : p.batting?.[key]) ?? '—'}</td>
@@ -202,7 +203,7 @@ function BoxScore({ game, ownTeam }) {
             {pitchers.map((p) => (
               <tr key={p.key || p.id}>
                 <th title={p.name}>
-                  {p.name}
+                  <PlayerById id={p.id} name={p.name} team={team} category="pitching" />
                   {p.pitching?.wins ? <small className="online-box-mark is-win">勝</small> : null}
                   {p.pitching?.losses ? <small className="online-box-mark is-loss">敗</small> : null}
                   {p.pitching?.saves ? <small className="online-box-mark">S</small> : null}
@@ -268,7 +269,7 @@ export function usePrefetchGames(view, count = 3) {
 }
 // 試合カードそのものを押して開く。⚠ 以前は「個人成績」という小さなボタンで、
 // 試合の中身（スコアボード）が見られるとは分からなかった
-export function GameRecordButton({ game, year, ownTeam, children, className }) {
+export function GameRecordButton({ game, year, ownTeam, children, className, sequence }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -282,6 +283,7 @@ export function GameRecordButton({ game, year, ownTeam, children, className }) {
       {open && (
         <GameRecord
           id={game.gameId}
+          sequence={sequence}
           year={year}
           ownTeam={ownTeam}
           close={() => setOpen(false)}
@@ -290,9 +292,22 @@ export function GameRecordButton({ game, year, ownTeam, children, className }) {
     </>
   );
 }
-function GameRecord({ id, year, ownTeam, close }) {
+// ⚠ 一覧から開いたら、閉じずに前後の試合へ移れる（`sequence` は日付の古い順）。
+//    以前は1試合ごとに閉じて一覧から開き直していた
+function GameRecord({ id: openedId, sequence, year, ownTeam, close }) {
   const compact = window.matchMedia('(max-width: 767px)').matches;
   const [watch, setWatch] = useState(false);
+  const [index, setIndex] = useState(() =>
+    sequence ? sequence.findIndex((g) => String(g.gameId) === String(openedId)) : -1,
+  );
+  const id = index >= 0 ? sequence[index].gameId : openedId;
+  const canMove = index >= 0 && sequence.length > 1;
+  const step = (delta) => {
+    if (!canMove) return;
+    setWatch(false);
+    setIndex((i) => Math.min(sequence.length - 1, Math.max(0, i + delta)));
+  };
+  const swipe = useRef(null);
   const result = useGame(id, year),
     game = result.data;
   const outcome = game && ownOutcome(game, ownTeam);
@@ -307,16 +322,44 @@ function GameRecord({ id, year, ownTeam, close }) {
       {game && (
         <>
           {!watch && (
-            <div className={`online-game-summary ${outcome ? `is-${outcome.tone}` : ''}`}>
+            <div
+              className={`online-game-summary ${outcome ? `is-${outcome.tone}` : ''}`}
+              onTouchStart={(e) => {
+                const t = e.touches[0];
+                swipe.current = { x: t.clientX, y: t.clientY };
+              }}
+              onTouchEnd={(e) => {
+                const start = swipe.current;
+                swipe.current = null;
+                const t = e.changedTouches[0];
+                if (!start || !t) return;
+                const dx = t.clientX - start.x;
+                if (Math.abs(dx) > 60 && Math.abs(t.clientY - start.y) < 40)
+                  step(dx < 0 ? 1 : -1);
+              }}
+            >
               <small>{gameDay(game.date)}</small>
               <div>
-                <TeamName team={game.away} short />
+                <TeamLink team={game.away} short onNavigate={close} />
                 <strong>
                   {game.awayScore} – {game.homeScore}
                 </strong>
-                <TeamName team={game.home} short />
+                <TeamLink team={game.home} short onNavigate={close} />
               </div>
             </div>
+          )}
+          {canMove && !watch && (
+            <nav className="online-game-steps" aria-label="前後の試合">
+              <button disabled={index <= 0} onClick={() => step(-1)}>
+                ‹ 前の試合
+              </button>
+              <small>
+                {index + 1} / {sequence.length}
+              </small>
+              <button disabled={index >= sequence.length - 1} onClick={() => step(1)}>
+                次の試合 ›
+              </button>
+            </nav>
           )}
           {game.replay?.frames?.length > 0 && (
             <Segmented
@@ -336,101 +379,10 @@ function GameRecord({ id, year, ownTeam, close }) {
               <ReplayViewer game={game} />
             )
           ) : game.teams ? (
-            <BoxScore game={game} ownTeam={ownTeam} />
+            <BoxScore key={id} game={game} ownTeam={ownTeam} />
           ) : (
             <p>この試合は得点のみの記録です。</p>
           )}
-        </>
-      )}
-    </Panel>
-  );
-}
-export default function GameHistory({ view }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button className="online-history-button" onClick={() => setOpen(true)}>
-        過去の試合・個人成績
-      </button>
-      {open && <History view={view} close={() => setOpen(false)} />}
-    </>
-  );
-}
-function History({ view, close }) {
-  const [year, setYear] = useState(view.year),
-    [page, setPage] = useState(0),
-    [scope, setScope] = useState('own');
-  const result = useRead('games', { year, page, scope });
-  return (
-    <Panel title="試合記録" close={close}>
-      <div className="online-stat-tools">
-        <select
-          aria-label="試合記録の年度"
-          value={year}
-          onChange={(e) => {
-            setYear(Number(e.target.value));
-            setPage(0);
-          }}
-        >
-          {(view.seasonYears || [view.year]).map((n) => (
-            <option key={n} value={n}>
-              {n}年目
-            </option>
-          ))}
-        </select>
-<Segmented
-          label="試合記録の範囲"
-          value={scope}
-          options={[
-            ['own', '自球団'],
-            ['league', 'リーグ全体'],
-          ]}
-          onChange={(id) => {
-            setScope(id);
-            setPage(0);
-          }}
-        />
-      </div>
-      <RequestState result={result} />
-      {result.data && (
-        <>
-          <div className="online-game-history-list">
-            {result.data.games.map((g) => {
-              const outcome = ownOutcome(g, view.teamName);
-              return (
-                <article key={g.gameId}>
-                  <small>
-                    {g.date.month}/{g.date.day}
-                  </small>
-                  <span
-                    className={`online-outcome ${outcome ? `is-${outcome.tone}` : 'is-none'}`}
-                    aria-label={outcome ? `自球団の${outcome.mark}` : undefined}
-                  >
-                    {outcome?.mark || ''}
-                  </span>
-                  <span className="online-game-line">
-                    <span title={teamLabel(g.away)}>{teamShort(g.away)}</span>{' '}
-                    <b>
-                      {g.awayScore} – {g.homeScore}
-                    </b>{' '}
-                    <span title={teamLabel(g.home)}>{teamShort(g.home)}</span>
-                  </span>
-                  <GameRecordButton
-                    game={g}
-                    year={year}
-                    ownTeam={view.teamName}
-                  />
-                </article>
-              );
-            })}
-          </div>
-          {!result.data.count && <p>この年度の試合記録はありません。</p>}
-          <PageNav
-            page={page}
-            count={result.data.count}
-            size={result.data.size}
-            setPage={setPage}
-          />
         </>
       )}
     </Panel>

@@ -341,18 +341,23 @@ export function projectPlayerInfo(bundle, userId, id) {
 export function projectGames(
   bundle,
   userId,
-  { year, page = 0, scope = 'own' } = {},
+  { year, page = 0, scope = 'own', size = 6 } = {},
 ) {
   const l = bundle.league,
     member = l?.members.find((m) => m.userId === userId);
   requireOnline(member, '参加者ではありません', 403);
   year = Number(year || l.season.year);
   page = Number(page);
+  // ⚠ 1ページの件数は画面が選ぶ（試合一覧の「もっと見る」は20件ずつ）。既定は以前どおり6件
+  size = Number(size);
   requireOnline(
     Number.isSafeInteger(year) &&
       year > 0 &&
       Number.isSafeInteger(page) &&
       page >= 0 &&
+      Number.isSafeInteger(size) &&
+      size >= 1 &&
+      size <= 60 &&
       ['own', 'league'].includes(scope),
     '試合一覧の指定が不正です',
   );
@@ -379,8 +384,8 @@ export function projectGames(
     year,
     page,
     count: all.length,
-    size: 6,
-    games: all.slice(page * 6, page * 6 + 6),
+    size,
+    games: all.slice(page * size, page * size + size),
   };
 }
 export function projectGameInfo(bundle, userId, id, year) {

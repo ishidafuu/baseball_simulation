@@ -3034,3 +3034,247 @@
     flex: 1 1 100%;
   }
 }
+
+/* ===== 並べ替え（つまみ ≡ のドラッグ）と打順の行 ===== */
+/* ⚠ つまみは touch-action:none。付けないとスマホで指を動かすとスクロールに取られる */
+.online .online-drag-handle {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-sub);
+  background: transparent;
+  border-color: transparent;
+  touch-action: none;
+  cursor: grab;
+}
+.online .online-drag-handle:active {
+  cursor: grabbing;
+}
+.online [data-dragging] {
+  position: relative;
+  z-index: 5;
+  background: var(--surface-2);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.55);
+  border-radius: 10px;
+  opacity: 0.95;
+}
+.online [data-drop='before'] {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.online [data-drop='after'] {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.online-lineup-card .online-row-actions,
+.online-lineup-card li:hover .online-row-actions {
+  opacity: 1;
+}
+.online .online-order-list.is-batting .online-order-main {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+.online-order-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.online-short-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.online-short-stats small {
+  margin-right: 3px;
+  color: var(--ink-sub);
+}
+.online-lineup-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.online-lineup-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.online .online-lineup-actions button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.online-save-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.online-order-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.online .online-order-grid button {
+  display: grid;
+  gap: 0;
+  min-height: 52px;
+  padding: 4px;
+  overflow: hidden;
+}
+.online .online-order-grid button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.12);
+}
+.online-order-grid small {
+  font-size: 10px;
+  color: var(--ink-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.online-sheet footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ol-line);
+}
+.online-sheet footer button {
+  min-width: 120px;
+}
+.online .online-pick-list .online-short-stats {
+  grid-column: 1 / -1;
+}
+
+/* 獲得希望：順位の数字（押すと順位を選べる）と人数の±、つまみは常に見せる */
+.online .online-tryout-list .online-tryout-rank {
+  flex: 0 0 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--ol-raised);
+}
+.online .online-tryout-list.is-wanted li .online-row-actions {
+  opacity: 1;
+}
+.online-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.online-stepper > span {
+  margin-right: 4px;
+}
+.online-stepper small {
+  color: var(--ink-sub);
+  font-size: 12px;
+}
+.online .online-stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 20px;
+}
+.online-stepper output {
+  min-width: 44px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 押すと選手一覧へ移る球団名（見た目は文字のまま、下線だけ） */
+.online .online-team-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--ol-line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.online .online-team-link:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* 試合結果：前後の試合へ */
+.online-game-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+}
+.online-game-steps small {
+  color: var(--ink-sub);
+  font-variant-numeric: tabular-nums;
+}
+.online .online-game-steps button {
+  min-height: 40px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.online-results-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.online-results-tools .online-segments {
+  margin: 0;
+}
+/* 選手詳細：前後の選手へ */
+.online-player-dialog header > .online-icon-button[aria-label='前の選手'],
+.online-player-dialog header > .online-icon-button[aria-label='次の選手'] {
+  flex: none;
+  font-size: 22px;
+}
+.online-player-dialog header > div {
+  flex: 1;
+  min-width: 0;
+}
+.online .online-order-list.is-batting li {
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+}
+.online-order-list.is-batting .online-order-line .online-fatigue,
+.online-order-list.is-batting .online-order-line .online-condition {
+  flex: none;
+}
+.online-short-stats {
+  gap: 2px 8px;
+}
+.online-short-stats small {
+  font-size: 10px;
+  margin-right: 2px;
+}
+/* ドラッグ中は文字の選択をさせない */
+.online:has([data-dragging]) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 試合の成績表の選手名（押すと選手情報） */
+.online .online-record-table tbody th .online-player-name {
+  display: inline;
+  width: auto;
+  min-height: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}

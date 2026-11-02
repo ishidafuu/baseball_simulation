@@ -6,7 +6,7 @@ import DesktopView from './DesktopView.jsx';
 import MobileView from './MobileView.jsx';
 import { ReadContext } from './useRead.js';
 import { setTeamLabels, teamLabel, teamShort } from './gameText.js';
-import { NotifyContext, formatJst, gameDay } from './ui.jsx';
+import { NotifyContext, AppNavContext, formatJst, gameDay } from './ui.jsx';
 import { Drafts } from './Drafts.jsx';
 import {
   readAuth,
@@ -142,6 +142,8 @@ export default function OnlineApp() {
   const [busy, setBusy] = useState(false);
   // 表示幅でPC/スマホの部品が切り替わっても、選択中の画面は失わない。
   const [screen, setScreen] = useState('today');
+  // 球団名などから選手一覧を開いたときの「どの球団を見るか」（押すたびに n を進めて同じ球団でも開き直す）
+  const [teamFocus, setTeamFocus] = useState(null);
   const locked = useRef(false);
   const viewSequence = useRef(0);
   const refreshFlight = useRef(null);
@@ -566,6 +568,19 @@ export default function OnlineApp() {
               </p>
             )}
             <ReadContext.Provider value={readDetail}>
+              <AppNavContext.Provider
+                value={{
+                  view,
+                  go: setScreen,
+                  teamFocus,
+                  // 選手一覧が受け取ったら消す（次に選手タブを開いたときは自球団から）
+                  consumeTeamFocus: () => setTeamFocus(null),
+                  openTeam: (team) => {
+                    setTeamFocus((old) => ({ team, n: (old?.n || 0) + 1 }));
+                    setScreen('players');
+                  },
+                }}
+              >
               <Drafts
                 key={`${auth.userId}:${auth.sessionId}:${view.year}:${view.teamName}:${view.phase?.id || 'season'}`}
                 scope={`${auth.userId}:${auth.sessionId}:${view.year}:${view.teamName}:${view.phase?.id || 'season'}`}
@@ -576,6 +591,7 @@ export default function OnlineApp() {
                   <DesktopView {...shared} tab={screen} setTab={setScreen} />
                 )}
               </Drafts>
+              </AppNavContext.Provider>
             </ReadContext.Provider>
             </>
           )}

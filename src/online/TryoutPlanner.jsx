@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { POS } from './api.js';
 import { AbilityGrade, PlayerStatsButton } from './PlayerPerformance.jsx';
-import { PageNav } from './PageNav.jsx';
+import { Sheet } from './ui.jsx';
+import { useReorder } from './reorder.js';
 import { rosterGroup } from '../utils/constants.js';
 import {
   POSITION_GROUPS,
@@ -120,7 +121,8 @@ export default function TryoutPlanner({
   // ⚠ スマホでも同じ画面で最後まで決められるようにする（以前は「詳細はPCで」）。
   //    スマホでは獲得予定を上位10人だけ出し、候補探しは畳んでおく
   const [showAllWanted, setShowAllWanted] = useState(false);
-  const [dragIndex, setDragIndex] = useState(null);
+  // 順位を数字で選ぶシート（押した選手の、獲得予定の中の位置）
+  const [ranking, setRanking] = useState(null);
   const [group, setGroup] = useState('all');
   // ⚠ 既定は「評価値」。重みを変えたら、候補の並びもその重みで見えるようにする
   const [sortKey, setSortKey] = useState(WEIGHTED_SORT_KEY);
@@ -136,7 +138,10 @@ export default function TryoutPlanner({
   );
   const scoreOf = (p) => scores.get(p.id) ?? 0;
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
+  // ⚠ ページ送りにしない。候補は約360人で、12人ずつだと30ページ送ることになった。
+  //    「もっと見る」で続きを足していく
+  const [limit, setLimit] = useState(PAGE);
+  const setPage = () => setLimit(PAGE);
   const [showBench, setShowBench] = useState(false);
   // ⚠ お知らせは**出したときの希望順と組で持つ**。「標準案に戻す」など外から
   //    希望順が変わったら出さない（「作り直しました」が標準案の上に残っていた）
@@ -170,7 +175,7 @@ export default function TryoutPlanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scoreOf は scores から決まる
     [candidates, group, query, sortKey, scores],
   );
-  const shown = pool.slice(page * PAGE, page * PAGE + PAGE);
+  const shown = pool.slice(0, limit);
 
   const setRanked = (rankedIds) => {
     setNotice('');
@@ -184,7 +189,7 @@ export default function TryoutPlanner({
     setRanked(benchFromPlan(plan.rankedIds, candidates, count, roster, id));
   const shift = (index, delta) =>
     setRanked(shiftInPlan(plan.rankedIds, candidates, count, roster, index, delta));
-  // ドラッグで動かす（PC）。1つずつ隣と入れ替えるのと同じ結果にする
+  // ドラッグ・順位の指定で動かす。1つずつ隣と入れ替えるのと同じ結果にする
   const moveTo = (from, to) => {
     if (from === to) return;
     let ids = plan.rankedIds;
@@ -206,29 +211,45 @@ export default function TryoutPlanner({
     setRanked(next);
   };
 
+  // ⚠ 整数に丸めて範囲に収める。不正な値を送ると、サーバーの「獲得人数が不正です」で弾かれる
+  const setCount = (value) =>
+    onChange({
+      ...plan,
+      count: Math.max(0, Math.min(maxCount, Math.trunc(Number(value)) || 0)),
+    });
+  const visibleWanted = compact && !showAllWanted ? wanted.slice(0, 10) : wanted;
+  const { rowProps, handleProps } = useReorder({
+    count: visibleWanted.length,
+    disabled: busy,
+    onMove: moveTo,
+  });
+
   return (
     <div className="online-tryout">
       <div className="online-tryout-head">
-        <label>
-          獲得希望人数（最大{maxCount}人）
-          <input
-            type="number"
-            min="0"
-            max={maxCount}
-            value={plan.count}
-            onChange={(e) =>
-              onChange({
-                ...plan,
-                // ⚠ 整数に丸める。「2.5」や不正な値をそのまま送ると、
-                //    サーバーの「獲得人数が不正です」で弾かれる
-                count: Math.max(
-                  0,
-                  Math.min(maxCount, Math.trunc(Number(e.target.value)) || 0),
-                ),
-              })
-            }
-          />
-        </label>
+        {/* ⚠ 数字の入力欄にしない。スマホでキーボードが出て画面の半分が隠れていた */}
+        <div className="online-stepper" role="group" aria-label="獲得希望人数">
+          <span>
+            獲得希望人数<small>（最大{maxCount}人）</small>
+          </span>
+          <button
+            type="button"
+            aria-label="獲得希望人数を減らす"
+            disabled={busy || plan.count <= 0}
+            onClick={() => setCount(plan.count - 1)}
+          >
+            −
+          </button>
+          <output aria-live="polite">{plan.count}人</output>
+          <button
+            type="button"
+            aria-label="獲得希望人数を増やす"
+            disabled={busy || plan.count >= maxCount}
+            onClick={() => setCount(plan.count + 1)}
+          >
+            ＋
+          </button>
+        </div>
         <button type="button" disabled={busy} onClick={onReset}>
           標準案に戻す
         </button>
@@ -335,55 +356,32 @@ export default function TryoutPlanner({
           )}
           {wanted.length === 0 && <p>獲得希望人数を1人以上にしてください。</p>}
           <ol className="online-tryout-list is-wanted">
-            {(compact && !showAllWanted ? wanted.slice(0, 10) : wanted).map((id, i) => (
-              <li
-                key={id}
-                draggable={!compact && !busy}
-                data-drag-over={dragIndex !== null && dragIndex !== i ? true : undefined}
-                onDragStart={(e) => {
-                  setDragIndex(i);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                onDragEnd={() => setDragIndex(null)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (dragIndex !== null) moveTo(dragIndex, i);
-                  setDragIndex(null);
-                }}
-              >
-                <span className="online-tryout-rank">{i + 1}</span>
+            {visibleWanted.map((id, i) => (
+              <li key={id} {...rowProps(i)}>
+                {/* ⚠ 順位の数字を押すと、入れたい順位を選べる。以前は ↑↓ で1つずつで、
+                    20位を上位へ上げるのに19回押していた */}
+                <button
+                  type="button"
+                  className="online-tryout-rank"
+                  aria-label={`${byId.get(id)?.name}の希望順位（${i + 1}位）を変える`}
+                  disabled={busy}
+                  onClick={() => setRanking(i)}
+                >
+                  {i + 1}
+                </button>
                 <span className="online-tryout-person">
                   <Line player={byId.get(id)} score={scores.get(id)} />
                 </span>
-                {/* ⚠ 希望リストの隣ではなく**獲得予定の隣**と入れ替える。
-                    間に飛ばされた選手が挟まっていると、希望リストの中で
-                    1つ動かしても画面の並びが変わらず、壊れて見える */}
                 <span className="online-row-actions">
-                <button
-                  type="button"
-                  aria-label={`${byId.get(id)?.name}の希望順位を上げる`}
-                  disabled={i === 0 || busy}
-                  onClick={() => shift(i, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${byId.get(id)?.name}の希望順位を下げる`}
-                  disabled={i === wanted.length - 1 || busy}
-                  onClick={() => shift(i, 1)}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${byId.get(id)?.name}を控えへ回す`}
-                  disabled={busy}
-                  onClick={() => drop(id)}
-                >
-                  外す
-                </button>
+                  <button
+                    type="button"
+                    aria-label={`${byId.get(id)?.name}を控えへ回す`}
+                    disabled={busy}
+                    onClick={() => drop(id)}
+                  >
+                    外す
+                  </button>
+                  <button {...handleProps(i, `${byId.get(id)?.name}の希望順位を動かす`)}>≡</button>
                 </span>
               </li>
             ))}
@@ -511,10 +509,43 @@ export default function TryoutPlanner({
               </li>
             ))}
           </ul>
-          <PageNav page={page} count={pool.length} size={PAGE} setPage={setPage} />
+          {pool.length > limit && (
+            <button
+              type="button"
+              className="online-more"
+              onClick={() => setLimit(limit + PAGE * 2)}
+            >
+              もっと見る（残り{pool.length - limit}人）
+            </button>
+          )}
         </section>
         </PoolWrap>
       </div>
+      {ranking !== null && wanted[ranking] && (
+        <Sheet
+          title={`${byId.get(wanted[ranking])?.name}の希望順位`}
+          close={() => setRanking(null)}
+        >
+          <h3>何位にしますか（いま{ranking + 1}位）</h3>
+          <div className="online-order-grid" role="group" aria-label="希望順位">
+            {wanted.map((other, n) => (
+              <button
+                type="button"
+                key={other}
+                aria-pressed={n === ranking}
+                aria-label={`${n + 1}位にする`}
+                onClick={() => {
+                  moveTo(ranking, n);
+                  setRanking(null);
+                }}
+              >
+                <b>{n + 1}</b>
+                <small>{byId.get(other)?.name}</small>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

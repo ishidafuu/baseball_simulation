@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { POS } from './api.js';
 import { inOnlineRoot } from './portal.js';
-import { FatigueMark, Segmented } from './ui.jsx';
+import { FatigueMark, Segmented, useAppNav } from './ui.jsx';
 import PlayerAbilities from './PlayerAbilities.jsx';
-import { useRead } from './useRead.js';
+import { ReadContext, useRead } from './useRead.js';
 import SplitStats from './SplitStats.jsx';
 import { getAbilityRank, getRankColor } from '../utils/constants.js';
 import { AbilityRadar, playerRadarAxes } from '../components/AbilityRadar.jsx';
@@ -113,8 +113,24 @@ function Approximation({ columns, precise = false }) {
     <small className="online-stat-note">※ 出塁率・OPS・打席関連は概算</small>
   ) : null;
 }
-function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
+function Detail({ player: opened, list, initialCategory, initialGroup, initialPane, close }) {
   const dialog = useRef(null);
+  // ⚠ 一覧から開いたら、閉じずに前後の選手へ移れる（以前は閉じて開き直していた）
+  const [index, setIndex] = useState(() =>
+    list ? list.findIndex((p) => p.id === opened.id) : -1,
+  );
+  const player = index >= 0 ? list[index] : opened;
+  const canMove = index >= 0 && list.length > 1;
+  const step = (delta) => {
+    if (!canMove) return;
+    setIndex((i) => Math.min(list.length - 1, Math.max(0, i + delta)));
+  };
+  const swipe = useRef(null);
+  const nav = useAppNav();
+  const own = nav.view?.roster?.some((p) => p.id === player.id) && !player.publicOnly;
+  // ⚠ 試合結果などの上に重ねて開いたときは「編成で起用を変える」を出さない。
+  //    下の画面（試合結果）が開いたまま編成へ移ってしまう
+  const [nested] = useState(() => document.querySelectorAll('dialog[open]').length > 0);
   const [category, setCategory] = useState(initialCategory);
   const [periodId, setPeriodId] = useState('current');
   const info = useRead(player.detailAvailable ? 'player' : null, {
@@ -170,8 +186,35 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
       onClick={(event) => {
         if (event.target === dialog.current) dismiss();
       }}
+      onKeyDown={(event) => {
+        if (event.target.closest?.('select, input')) return;
+        if (event.key === 'ArrowLeft') step(-1);
+        if (event.key === 'ArrowRight') step(1);
+      }}
+      onTouchStart={(event) => {
+        const t = event.touches[0];
+        swipe.current = { x: t.clientX, y: t.clientY };
+      }}
+      onTouchEnd={(event) => {
+        const start = swipe.current;
+        swipe.current = null;
+        const t = event.changedTouches[0];
+        if (!start || !t) return;
+        const dx = t.clientX - start.x;
+        if (Math.abs(dx) > 70 && Math.abs(t.clientY - start.y) < 40) step(dx < 0 ? 1 : -1);
+      }}
     >
       <header>
+        {canMove && (
+          <button
+            className="online-icon-button"
+            aria-label="前の選手"
+            disabled={index <= 0}
+            onClick={() => step(-1)}
+          >
+            ‹
+          </button>
+        )}
         <div>
           <h2 id="online-player-title">{player.name}</h2>
           <small>
@@ -180,8 +223,35 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
             <ConditionMark player={player} />
             {CONDITION_TEXT[conditionValue(player)] || '調子未記録'} ·{' '}
             <FatigueMark player={player} />
+            {own && (
+              <>
+                {' · '}
+                <RoleMark player={player} lineup={nav.view.lineup} />
+              </>
+            )}
           </small>
+          {own && nav.go && !nested && (
+            <button
+              className="online-link"
+              onClick={() => {
+                dismiss();
+                nav.go('lineup');
+              }}
+            >
+              編成で起用を変える
+            </button>
+          )}
         </div>
+        {canMove && (
+          <button
+            className="online-icon-button"
+            aria-label="次の選手"
+            disabled={index >= list.length - 1}
+            onClick={() => step(1)}
+          >
+            ›
+          </button>
+        )}
         <button
           className="online-icon-button"
           onClick={dismiss}
@@ -267,6 +337,7 @@ export function PlayerStatsButton({
   panel = 'stats',
   children,
   className = '',
+  list,
 }) {
   const [open, setOpen] = useState(false);
   if (!player) return null;
@@ -282,6 +353,7 @@ export function PlayerStatsButton({
       {open && (
         <Detail
           player={player}
+          list={list}
           initialCategory={category}
           initialGroup={group}
           initialPane={panel}
@@ -405,6 +477,7 @@ function RosterTable({ title, players, columns, view, category }) {
                     <RoleMark player={player} lineup={view.lineup} />
                     <PlayerStatsButton
                       player={player}
+                      list={rows}
                       category={category}
                       className="online-roster-player-name"
                     >
@@ -513,5 +586,68 @@ export function CompactRoster({ view, desktop = false, teamSelector }) {
         precise={view.roster.every((p) => p.seasonStats?.batting?.measured)}
       />
     </section>
+  );
+}
+
+/**
+ * 試合の成績表などで、選手IDから選手情報を開く名前。
+ * ⚠ 自球団なら手元の名簿から、他球団なら押したときに球団の公開名簿を読んで開く
+ *   （以前は成績表の名前が押せず、気になった選手は選手タブから探し直していた）。
+ */
+const teamCache = new Map();
+export function PlayerById({ id, name, team, category = 'batting' }) {
+  const nav = useAppNav();
+  const read = useContext(ReadContext);
+  const [player, setPlayer] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const view = nav.view;
+  if (view && team === view.teamName) {
+    const mine = view.roster.find((p) => String(p.id) === String(id));
+    return mine ? (
+      <PlayerStatsButton player={mine} category={category}>
+        {name}
+      </PlayerStatsButton>
+    ) : (
+      <span>{name}</span>
+    );
+  }
+  if (!read || !view) return <span>{name}</span>;
+  const open = async () => {
+    setLoading(true);
+    try {
+      const key = `${team}:${view.revision}`;
+      let info = teamCache.get(key);
+      if (!info) {
+        info = await read('team', { team, revision: view.revision });
+        teamCache.set(key, info);
+      }
+      const found = info.roster.find((p) => String(p.id) === String(id));
+      if (found) setPlayer(found);
+    } catch {
+      /* 読めなければ開かない（名前はそのまま） */
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <>
+      <button
+        className="online-player-name"
+        onClick={open}
+        disabled={loading}
+        aria-label={`${name}の選手情報を見る`}
+      >
+        {name}
+      </button>
+      {player && (
+        <Detail
+          player={player}
+          initialCategory={category}
+          initialGroup="basic"
+          initialPane="stats"
+          close={() => setPlayer(null)}
+        />
+      )}
+    </>
   );
 }

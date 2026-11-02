@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { withDeadline } from './lib/deadline.mjs';
+import { raiseBatter } from './lib/choose.mjs';
 // ⚠ キャンプの主練習は2026-11からカード（role=radio）で選ぶ（以前はセレクト）
 const campGroup = (page) => page.getByRole('radiogroup', { name: '主練習', exact: true });
 const pickCamp = (page, label) =>
@@ -172,12 +173,20 @@ try {
   draft.page.on('dialog', (dialog) => dialog.accept());
   await click(draft.page, '手続き');
   await pickCamp(draft.page, '球速練習');
+  // ⚠ 2026-11 から下書きは**自動で保存する**（1.2秒後）。送る前に画面を移っても
+  //    選んだ内容は残り、離れている間に下書きとして送られる
   await click(draft.page, '今日');
   await click(draft.page, '手続き');
   assert.equal(await campValue(draft.page), '球速練習', '画面移動でも提出案を保持');
-  // スマホ幅でも同じ画面で、未保存であることが分かる
+  // スマホ幅でも同じ画面で、保存されたことが分かる
   await draft.page.setViewportSize({ width: 390, height: 844 });
-  await draft.page.getByText('● 未保存の変更があります', { exact: true }).waitFor();
+  await draft.page
+    .locator('.online-decision-bar .online-save-state', { hasText: '下書きは自動で保存済み' })
+    .waitFor({ timeout: 10000 });
+  const autoSent = draft.payloads.length;
+  assert.ok(autoSent >= 1, '選んだら下書きとして自動で送る');
+  assert.equal(draft.payloads.at(-1).plan.menu, 'velocity');
+  assert.equal(draft.payloads.at(-1).ready, false, '自動保存は「決定」にしない');
   await draft.page.reload();
   await click(draft.page, '手続き');
   assert.equal(await campValue(draft.page), '球速練習');
@@ -185,9 +194,10 @@ try {
   assert.equal(
     await campValue(draft.page),
     '球速練習',
-    '再読込・表示切替後も未保存案を復元',
+    '再読込・表示切替後も保存した下書きを表示',
   );
   draft.view.phase.id = '2:camp';
+  draft.view.phase.submission = null;
   draft.view.revision++;
   await click(draft.page, '更新');
   await draft.page.waitForFunction(() =>
@@ -195,7 +205,8 @@ try {
       .querySelector('.online-camp-card[aria-checked="true"] b')
       ?.textContent.startsWith('標準'),
   );
-  assert.equal(draft.payloads.length, 0, '復元するだけで自動送信しない');
+  await draft.page.waitForTimeout(1600);
+  assert.equal(draft.payloads.length, autoSent, '読み直すだけでは送らない');
   await draft.context.close();
 
   const lineupDraft = await scene();
@@ -232,7 +243,7 @@ try {
       .locator('.online-order-list.is-batting li .online-order-main')
       .first()
       .innerText();
-  await lineupDraft.page.getByRole('button', { name: '2番を上げる', exact: true }).click();
+  await raiseBatter(lineupDraft.page, 2);
   await lineupDraft.page
     .locator('.online-save-state', { hasText: '保存済み' })
     .waitFor({ timeout: 10000 });
@@ -249,7 +260,7 @@ try {
   await lineupDraft.page.reload();
   await lineupDraft.page.getByRole('button', { name: '編成', exact: true }).click();
   assert.match(await firstBatter(), /打者2/, 'スマホ幅・再読込でも同じ打順');
-  await lineupDraft.page.getByRole('button', { name: '2番を上げる', exact: true }).click();
+  await raiseBatter(lineupDraft.page, 2);
   await lineupDraft.page.getByRole('button', { name: '元に戻す', exact: true }).waitFor({ timeout: 10000 });
   await lineupDraft.page.getByRole('button', { name: '元に戻す', exact: true }).click();
   await lineupDraft.page
@@ -283,17 +294,22 @@ try {
   await campGroup(retry.page).waitFor();
   assert.equal(await retry.page.getByRole('alert').count(), 0);
   retry.hold = true;
+  // ⚠ 2026-11 から下書きは**自動で保存する**（「下書きを保存」ボタンは無い）。
+  //    自動保存の間も練習方針は選べる（押した操作が消えないように）。決定ボタンだけ止める
   await pickCamp(retry.page, '打撃練習');
-  await retry.page
-    .getByRole('button', { name: '下書きを保存', exact: true })
-    .click();
   await withDeadline(retry.commandStarted, '提出保存の開始');
   assert.ok(
-    await campGroup(retry.page).getByRole('radio').first().isDisabled(),
-    '提出の保存中は練習方針も変更できない',
+    !(await campGroup(retry.page).getByRole('radio').first().isDisabled()),
+    '自動保存の間も練習方針は選べる',
+  );
+  assert.ok(
+    await retry.page.getByRole('button', { name: 'この内容で決定', exact: true }).isDisabled(),
+    '自動保存の間は決定ボタンを押せない（送信が重ならない）',
   );
   retry.release();
-  await retry.page.getByText('キャンプの下書きを保存しました', { exact: true }).waitFor();
+  await retry.page
+    .locator('.online-decision-bar .online-save-state', { hasText: '下書きは自動で保存済み' })
+    .waitFor();
   assert.equal(await retry.page.locator('.online-edit-notice').count(), 0);
   await retry.context.close();
 
