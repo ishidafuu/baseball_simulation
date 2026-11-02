@@ -3,6 +3,7 @@ import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { validateRegulations, getPlayoffFormatDescription, canModifyRegulations } from '../season/regulationSettings.js';
 import { getValidTwoLeagueGameCounts } from '../season/scheduleGenerator.js';
 import { PHASE_INFO } from '../season/seasonManager.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 const RegulationsContent = ({ seasonData, setSeasonData, onConfirm }) => {
   const currentPhase = seasonData.phase || 'off_season';
@@ -60,11 +61,11 @@ const RegulationsContent = ({ seasonData, setSeasonData, onConfirm }) => {
   const handleSaveSettings = () => {
     const validation = validateRegulations(tempSettings);
     if (!validation.valid) {
-      alert('設定エラー:\n' + validation.errors.join('\n'));
+      showMessage('設定エラー:\n' + validation.errors.join('\n'));
       return;
     }
     setSeasonData({ ...seasonData, settings: tempSettings });
-    alert('レギュレーション設定を保存しました');
+    showMessage('レギュレーション設定を保存しました');
   };
 
   const SettingRow = ({ label, children }) => (
@@ -288,7 +289,7 @@ const RegulationsContent = ({ seasonData, setSeasonData, onConfirm }) => {
             onClick={() => {
               const validation = validateRegulations(tempSettings);
               if (!validation.valid) {
-                alert('設定エラー:\n' + validation.errors.join('\n'));
+                showMessage('設定エラー:\n' + validation.errors.join('\n'));
                 return;
               }
               setSeasonData(prev => ({ ...prev, settings: tempSettings }));

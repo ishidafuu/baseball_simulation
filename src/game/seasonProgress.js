@@ -10,6 +10,7 @@ import { WORLD_DATA } from '../corporate/worldData.js';
 import { generateToshitaikou, createMainTournament, autoPlayMainTournament, autoPlayQualifier, generateNihonSenshuken, generateClubSenshuken, createSenshukenMainTournament, generateRegionalTournament, autoPlayBracket } from '../corporate/toshitaikou.js';
 import { generateGrandChampionship, autoPlayGrandChampionship, processSpringPromotionRelegation, regenerateFallSchedules } from '../corporate/parallelWorldManager.js';
 import { getUserFallSchedule } from '../university/universityInit.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 // 注目度の中間更新月（2ヶ月ごと: 6月, 8月, 10月）
 const REPUTATION_UPDATE_MONTHS = new Set([6, 8, 10]);
@@ -235,7 +236,7 @@ export const handleProgressDate = (days, { seasonData, setSeasonData, setSelecte
   if (!seasonData) return;
 
   if ((seasonData.phase === SEASON_PHASES.REGULAR_SEASON || seasonData.phase === SEASON_PHASES.PLAYOFFS) && !checkUserLineupComplete(userTeamName)) {
-    alert('スタメンが9人揃っていません。スタメン設定画面で打順を設定してください。');
+    showMessage('スタメンが9人揃っていません。スタメン設定画面で打順を設定してください。');
     return;
   }
 
@@ -346,7 +347,7 @@ export const handleProgressToNextPhase = ({ seasonData, setSeasonData, setSelect
   if (!seasonData) return;
 
   if ((seasonData.phase === SEASON_PHASES.REGULAR_SEASON || seasonData.phase === SEASON_PHASES.PLAYOFFS) && !checkUserLineupComplete(userTeamName)) {
-    alert('スタメンが9人揃っていません。スタメン設定画面で打順を設定してください。');
+    showMessage('スタメンが9人揃っていません。スタメン設定画面で打順を設定してください。');
     return;
   }
 

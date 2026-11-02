@@ -35,12 +35,14 @@ if (online) {
   Promise.all([
     import('./App.jsx'),
     import('./components/AppErrorBoundary.jsx'),
-  ]).then(([{ default: App }, { default: AppErrorBoundary }]) =>
+    import('./components/GameDialog.jsx'),
+  ]).then(([{ default: App }, { default: AppErrorBoundary }, { GameDialogHost }]) =>
     root.render(
       <React.StrictMode>
         <AppErrorBoundary>
           <App />
         </AppErrorBoundary>
+        <GameDialogHost />
       </React.StrictMode>,
     ),
   );

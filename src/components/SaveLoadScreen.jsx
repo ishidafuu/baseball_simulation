@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { getEmergencyInfo, promoteEmergencyToSlot, clearEmergencySave, getBackupInfo, restoreBackup, getAutosaveInfo, exportSaveSlotToFile, importSaveFileToSlot } from '../game/saveSystem.js';
+import { askConfirm } from '../utils/gameDialog.js';
 
 // セーブ＆ロード画面（3スロット対応）
 const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, seasonData, onReturnToTitle, onSlotsChanged }) => {
@@ -24,7 +25,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
 
   const handleLoadAutosave = async () => {
     if (!onLoadAutosave) return;
-    if (!window.confirm('オートセーブをロードします。現在の進行データは失われます。よろしいですか？')) return;
+    if (!(await askConfirm('オートセーブをロードします。現在の進行データは失われます。よろしいですか？'))) return;
     setSaveStatus({ type: 'loading' });
     const result = await onLoadAutosave();
     setSaveStatus(result?.success ? { type: 'loaded' } : { type: 'error', message: result?.error || 'ロードに失敗しました' });
@@ -44,7 +45,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
   };
 
   const handleLoad = async (slotIndex, skipConfirm = false) => {
-    if (skipConfirm || window.confirm('現在の進行データは失われます。ロードしますか？')) {
+    if (skipConfirm || (await askConfirm('現在の進行データは失われます。ロードしますか？', { okLabel: 'ロードする' }))) {
       setSaveStatus({ type: 'loading' });
       const result = await onLoad(slotIndex);
       if (result?.success) {
@@ -71,7 +72,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
     input.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      if (saveSlots[slotIndex] && !window.confirm(`スロット${slotIndex + 1}を上書きします。よろしいですか？（上書き前のデータは「1つ前のセーブに戻す」で戻せます）`)) return;
+      if (saveSlots[slotIndex] && !(await askConfirm(`スロット${slotIndex + 1}を上書きします。よろしいですか？（上書き前のデータは「1つ前のセーブに戻す」で戻せます）`, { okLabel: '上書きする' }))) return;
       setSaveStatus({ type: 'loading' });
       const r = await importSaveFileToSlot(slotIndex, file);
       setSaveStatus(r.success ? { type: 'imported' } : { type: 'error', message: r.error });
@@ -83,7 +84,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
 
   // 緊急バックアップを指定スロットへ復元してロード
   const handleRestoreEmergency = async (slotIndex) => {
-    if (!window.confirm(`緊急バックアップをスロット${slotIndex + 1}へ復元してプレイします。よろしいですか？`)) return;
+    if (!(await askConfirm(`緊急バックアップをスロット${slotIndex + 1}へ復元してプレイします。よろしいですか？`))) return;
     const r = await promoteEmergencyToSlot(slotIndex);
     if (r.success) {
       clearEmergencySave();
@@ -97,7 +98,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
 
   // 1世代前のバックアップへ戻してロード
   const handleRestoreBackup = async (slotIndex) => {
-    if (!window.confirm(`スロット${slotIndex + 1}を1つ前のバックアップに戻してプレイします。現在のスロット内容は上書きされます。よろしいですか？`)) return;
+    if (!(await askConfirm(`スロット${slotIndex + 1}を1つ前のバックアップに戻してプレイします。現在のスロット内容は上書きされます。よろしいですか？`))) return;
     const r = await restoreBackup(slotIndex);
     if (r.success) {
       await handleLoad(slotIndex, true);
@@ -108,7 +109,7 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
   };
 
   const handleDelete = async (slotIndex) => {
-    if (window.confirm('セーブデータを削除しますか？この操作は取り消せません。')) {
+    if (await askConfirm('セーブデータを削除しますか？この操作は取り消せません。', { danger: true, okLabel: '削除する' })) {
       const success = await onDelete(slotIndex);
       setSaveStatus(success ? { type: 'deleted' } : { type: 'error', message: '削除に失敗しました' });
       setTimeout(() => setSaveStatus(null), 4000);
@@ -320,8 +321,8 @@ const SaveLoadScreen = ({ onSave, onLoad, onLoadAutosave, onDelete, saveSlots, s
       {/* タイトルへ戻るボタン */}
       <div className="text-center">
         <button
-          onClick={() => {
-            if (window.confirm('タイトル画面に戻りますか？セーブしていない進行データは失われます。')) {
+          onClick={async () => {
+            if (await askConfirm('タイトル画面に戻りますか？セーブしていない進行データは失われます。', { okLabel: 'タイトルへ戻る' })) {
               onReturnToTitle();
             }
           }}

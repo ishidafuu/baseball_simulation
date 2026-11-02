@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScreenShell } from './GameUIComponents.jsx';
 import { TEAMS_DATA } from '../teams-data.js';
 import { POSITION_NAMES, FORM_OPTIONS } from '../utils/constants.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 const EditScreen = ({ generateOptimalLineup, generatePitchingRotation, generateAllTeamsLineup, allTeams }) => {
   const [editingTeam, setEditingTeam] = useState(allTeams[0] || 'チームA');
@@ -78,7 +79,7 @@ const EditScreen = ({ generateOptimalLineup, generatePitchingRotation, generateA
     if (playerIndex !== -1) {
       TEAMS_DATA[editingTeam].players[playerIndex] = editFormData;
       cancelEdit();
-      alert(`${editFormData.name}の能力値を保存しました！`);
+      showMessage(`${editFormData.name}の能力値を保存しました！`);
     }
   };
 
@@ -94,7 +95,7 @@ const EditScreen = ({ generateOptimalLineup, generatePitchingRotation, generateA
       return;
     }
     if (TEAMS_DATA[trimmed]) {
-      alert('その名前は既に使われています');
+      showMessage('その名前は既に使われています');
       return;
     }
     TEAMS_DATA[trimmed] = TEAMS_DATA[editingTeam];
@@ -155,7 +156,7 @@ const EditScreen = ({ generateOptimalLineup, generatePitchingRotation, generateA
             onClick={() => {
               generateOptimalLineup(editingTeam);
               generatePitchingRotation(editingTeam);
-              alert(`${editingTeam}のAIオーダー編成と投手ローテーションを設定しました！`);
+              showMessage(`${editingTeam}のAIオーダー編成と投手ローテーションを設定しました！`);
             }}
             className="btn-secondary px-4 py-2 rounded transition"
           >

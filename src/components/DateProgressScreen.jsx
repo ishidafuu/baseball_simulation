@@ -35,6 +35,7 @@ import { decisionsFromResult } from '../game/pitcherDecisions.js';
 import { KoshienNoticeModal, PhaseTransitionModal } from './dateProgress/Modals.jsx';
 import { renderBracketWithLines as renderBracketWithLinesImpl } from './dateProgress/bracketRenderer.jsx';
 import { isDevToolsEnabled } from '../game/devTools.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 // 折りたたみ領域。閉じている間は children を描画しない（初回展開まで遅延）。
 // 27大学リーグ順位表やトーナメント等の重いDOMを、日程進行のたびに再構築するのを防ぐ。
@@ -487,7 +488,7 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
       return false;
     }
     if ((currentPhase === SEASON_PHASES.REGULAR_SEASON || currentPhase === SEASON_PHASES.PLAYOFFS) && !autoFillLineup()) {
-      alert('スタメンを自動補完できませんでした。ロスター管理で打順を設定してください。');
+      showMessage('スタメンを自動補完できませんでした。ロスター管理で打順を設定してください。');
       return false;
     }
 
@@ -1745,7 +1746,7 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
           押せると分かる手がかりが無く、「一番よく押す操作に押す場所が無い」状態だったため。
           帯は復活させず、**カレンダーの見出し行**（月送りの ◀▶ の隣）に置いてある
           ＝縦は1pxも増えない。この帯は実測66px使っていた。
-          再クリックの経路も残してある（覚えた人の手を止めないため）。 */}
+          サイドバーの再クリックで進む経路は撤去した（戻るつもりの再クリックで日が進む誤操作があったため）。 */}
       {/* ⚠ **「昨日の結果」パネルはここにあったが、日程進行が縦に長くなりすぎたため撤去した**。
           押した手応えを返すのが役目だったので、消したことで
           「押しても何が起きたか画面に返らない」が部分的に戻っている。
@@ -1755,7 +1756,9 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
       {/* 2カラムレイアウト: 左にカレンダー+本日の試合、右に順位表 */}
       <div className="flex gap-3">
         {/* 左カラム: カレンダー＋本日の試合 */}
-        <div className="w-[800px] shrink-0">
+        {/* ⚠ 幅を800px固定にしない。固定だと狭い画面で右の順位表が押し出され、横スクロールになっていた。
+            広い画面では800pxまで、狭い画面では順位表(420px)を残して縮む */}
+        <div className="flex-1 min-w-0 max-w-[800px]">
           <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-3 shadow-xl border border-gray-700/30 mb-3">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">

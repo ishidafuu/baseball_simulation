@@ -33,6 +33,14 @@ page.on('dialog', async (d) => {
   if (d.type() === 'alert') errors.push(`alert: ${d.message()}`);
   await d.accept();
 });
+// ゲーム内のお知らせ・確認（GameDialog.jsx。標準の alert/confirm から置き換えた）も同じ扱いにする:
+// 確認（キャンセルがある）は OK で進め、お知らせはエラーとして記録してから閉じる
+const gameDialog = page.locator('dialog.game-dialog[open]');
+await page.addLocatorHandler(gameDialog, async (d) => {
+  const buttons = d.getByRole('button');
+  if ((await buttons.count()) < 2) errors.push(`alert: ${await d.locator('p').innerText()}`);
+  await buttons.last().click();
+});
 
 const ui = driver(page);
 const shot = (name) => page.screenshot({ path: `/tmp/baseball-single-${name}.png` });

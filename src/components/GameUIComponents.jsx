@@ -531,7 +531,9 @@ export const Sidebar = ({
 
     <nav className="flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-0.5">
       <div className="text-xs uppercase tracking-widest text-gray-400 font-bold px-3 pt-1 pb-2">進行</div>
-      <SidebarButton view="dateprogress" icon="📅" label="日程進行" onActiveClick={() => advanceDayRef.current?.()} screenMode={screenMode} managementView={managementView} seasonData={seasonData} setScreenMode={setScreenMode} setManagementView={setManagementView} />
+      {/* ⚠ 表示中の「日程進行」をもう一度押しても日は進めない。以前は再クリックで1日進み、
+          画面を戻すつもりで押した人が意図せず日程を進めていた。進めるのはカレンダー見出しの「1日進める」だけ */}
+      <SidebarButton view="dateprogress" icon="📅" label="日程進行" screenMode={screenMode} managementView={managementView} seasonData={seasonData} setScreenMode={setScreenMode} setManagementView={setManagementView} />
       <SidebarButton view="roster" icon="📋" label="ロスター管理" screenMode={screenMode} managementView={managementView} seasonData={seasonData} setScreenMode={setScreenMode} setManagementView={setManagementView} />
       <SidebarButton view="stats" icon="📊" label="選手成績" screenMode={screenMode} managementView={managementView} seasonData={seasonData} setScreenMode={setScreenMode} setManagementView={setManagementView} />
       <SidebarButton view="ranking" icon="📰" label="能力ランキング" screenMode={screenMode} managementView={managementView} seasonData={seasonData} setScreenMode={setScreenMode} setManagementView={setManagementView} />
@@ -637,7 +639,7 @@ export const TeamPitcherPanel = ({ team, gameStarted }) => (
               <div className="text-base text-white mb-2 font-bold flex items-center gap-2">
                 <span>⚾</span>
                 <span>{pitcher.name}</span>
-                <span className="text-sm text-gray-300">#{pitcher.number || pitcher.id}</span>
+                {pitcher.number != null && pitcher.number !== '' && <span className="text-sm text-gray-300">#{pitcher.number}</span>}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
@@ -822,7 +824,7 @@ export const TeamMemberPanel = ({
                         {player.name}
                         <span className={`ml-0.5 text-xs ${CONDITION_COLORS[player.condition ?? CONDITION_LEVELS.NORMAL]}`}>{CONDITION_ICONS[player.condition ?? CONDITION_LEVELS.NORMAL]}</span>
                       </span>
-                      <span className="text-xs text-gray-400 font-mono font-bold">#{player.number || player.id}</span>
+                      {player.number != null && player.number !== '' && <span className="text-xs text-gray-400 font-mono font-bold">#{player.number}</span>}
 <span className="text-sm text-gray-300 font-semibold">{throwHand}{batHand}</span>
                       {isSubSelected && <span className="text-blue-300 animate-pulse">◀</span>}
                       {isSelected && <span className="text-blue-300 animate-pulse">◀</span>}

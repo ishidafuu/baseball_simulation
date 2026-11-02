@@ -190,3 +190,17 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+/* 一人用モードのお知らせ・確認（GameDialog.jsx）。ブラウザ標準の alert/confirm の代わり */
+.game-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #374151;
+  border-radius: 14px;
+  background: #111827;
+  color: #f3f4f6;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
+}
+.game-dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
