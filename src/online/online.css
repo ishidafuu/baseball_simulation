@@ -2776,13 +2776,14 @@
 .online-tryout-list li .online-row-actions {
   display: inline-flex;
 }
+/* ⚠ 隠すのは opacity で。visibility:hidden だとキーボードのTabで届かなくなる */
 @media (hover: hover) and (min-width: 768px) {
   .online-tryout-list.is-wanted li .online-row-actions {
-    visibility: hidden;
+    opacity: 0;
   }
   .online-tryout-list.is-wanted li:hover .online-row-actions,
   .online-tryout-list.is-wanted li:focus-within .online-row-actions {
-    visibility: visible;
+    opacity: 1;
   }
 }
 /* 詳しい編成（一人用の画面）は左ナビを覆わない */

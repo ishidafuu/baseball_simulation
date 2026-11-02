@@ -3,17 +3,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { withDeadline } from './lib/deadline.mjs';
-// ⚠ PCの編成タブは移植した画面が既定で開く（78bfd27）。方針・采配の設定・簡易の打順は
-//    その奥にあるので、開いていたら閉じる（開いていなければ何もしない）
-const closeFullLineup = async (page) => {
-  const button = page.getByRole('button', { name: '方針・采配の設定へ（保存しない）', exact: true });
-  // 描画を少し待つ（タブを押した直後はまだ無いことがある）
-  const shown = await button
-    .waitFor({ timeout: 3000 })
-    .then(() => true)
-    .catch(() => false);
-  if (shown) await button.click();
-};
+// ⚠ キャンプの主練習は2026-11からカード（role=radio）で選ぶ（以前はセレクト）
+const campGroup = (page) => page.getByRole('radiogroup', { name: '主練習', exact: true });
+const pickCamp = (page, label) =>
+  campGroup(page).getByRole('radio', { name: new RegExp(`^${label}`) }).click();
+const campValue = async (page) =>
+  (await campGroup(page).locator('[aria-checked="true"] b').innerText()).trim();
 const html = await readFile(
   new URL('../../dist/index.html', import.meta.url),
   'utf8',
@@ -111,10 +106,15 @@ async function scene({
         await new Promise((resolve) => {
           state.release = resolve;
         });
-      state.view.phase.submission = {
-        plan: payload.plan,
-        ready: payload.ready,
-      };
+      // 打順は手続きが無くても自動で保存される（2026-11）
+      if (payload.battingOrder) {
+        const { baseLineup, ...lineup } = payload;
+        state.view.lineup = { ...state.view.lineup, ...lineup };
+      } else
+        state.view.phase.submission = {
+          plan: payload.plan,
+          ready: payload.ready,
+        };
       state.view.revision++;
       value = { ok: true, revision: state.view.revision };
     } else throw new Error(`unexpected action ${action}`);
@@ -131,21 +131,28 @@ async function scene({
   return state;
 }
 async function click(page, text) {
+  // 2026-11 の作り直しで名前が変わったボタン（PCは左ナビ、スマホは☰メニューの中）
+  text = { 更新: '最新の状態に更新', 進行時刻: '進行のしくみ' }[text] || text;
+  // 画面幅を変えた直後は描き直しの途中なので、ボタンが出るのを少し待ってから判断する
   if (
-    ['更新', 'ログアウト', '進行時刻'].includes(text) &&
-    !(await page.getByRole('button', { name: text, exact: true }).count()) &&
-    (await page.getByRole('button', { name: 'メニュー', exact: true }).count())
+    ['最新の状態に更新', 'ログアウト', '進行のしくみ', 'リーグ便り'].includes(text) &&
+    !(await page
+      .getByRole('button', { name: text, exact: true })
+      .first()
+      .waitFor({ timeout: 1500 })
+      .then(() => true)
+      .catch(() => false))
   )
     await page.getByRole('button', { name: 'メニュー', exact: true }).click();
   await page.getByRole('button', { name: text, exact: true }).click();
-  await page
-    .getByText('処理中です。画面を閉じずにお待ちください…', { exact: true })
-    .waitFor({ state: 'hidden' });
+  // ⚠ 操作中は上端の細い進捗バーだけを出す（画面全体は止めない）
+  await page.waitForTimeout(150);
+  await page.locator('.online-progress').waitFor({ state: 'hidden' });
 }
 try {
   const oversized = await scene();
   await click(oversized.page, '手続き');
-  await oversized.page.getByLabel('球団の主練習（全4回）').waitFor();
+  await campGroup(oversized.page).waitFor();
   await oversized.page.evaluate(() =>
     sessionStorage.setItem(
       'baseball-online-draft:a:fixture:1:検証球団:1:camp',
@@ -164,34 +171,29 @@ try {
   const draft = await scene();
   draft.page.on('dialog', (dialog) => dialog.accept());
   await click(draft.page, '手続き');
-  await draft.page.getByLabel('球団の主練習（全4回）').selectOption('velocity');
+  await pickCamp(draft.page, '球速練習');
   await click(draft.page, '今日');
   await click(draft.page, '手続き');
-  assert.equal(
-    await draft.page.getByLabel('球団の主練習（全4回）').inputValue(),
-    'velocity',
-    '画面移動でも提出案を保持',
-  );
+  assert.equal(await campValue(draft.page), '球速練習', '画面移動でも提出案を保持');
+  // スマホ幅でも同じ画面で、未保存であることが分かる
   await draft.page.setViewportSize({ width: 390, height: 844 });
-  await draft.page.getByText('練習方針: 球速練習', { exact: false }).waitFor();
-  await draft.page
-    .getByText('編集中の内容（未保存）です。', { exact: false })
-    .waitFor();
+  await draft.page.getByText('● 未保存の変更があります', { exact: true }).waitFor();
   await draft.page.reload();
   await click(draft.page, '手続き');
-  await draft.page.getByText('練習方針: 球速練習', { exact: false }).waitFor();
+  assert.equal(await campValue(draft.page), '球速練習');
   await draft.page.setViewportSize({ width: 1280, height: 844 });
   assert.equal(
-    await draft.page.getByLabel('球団の主練習（全4回）').inputValue(),
-    'velocity',
+    await campValue(draft.page),
+    '球速練習',
     '再読込・表示切替後も未保存案を復元',
   );
   draft.view.phase.id = '2:camp';
   draft.view.revision++;
   await click(draft.page, '更新');
-  await draft.page.waitForFunction(
-    () =>
-      document.querySelector('.online-decision select')?.value === 'standard',
+  await draft.page.waitForFunction(() =>
+    document
+      .querySelector('.online-camp-card[aria-checked="true"] b')
+      ?.textContent.startsWith('標準'),
   );
   assert.equal(draft.payloads.length, 0, '復元するだけで自動送信しない');
   await draft.context.close();
@@ -223,38 +225,42 @@ try {
   }));
   await click(lineupDraft.page, '更新');
   await click(lineupDraft.page, '編成');
-  await closeFullLineup(lineupDraft.page);
-  await click(lineupDraft.page, '2番を上げる');
+  // ⚠ 打順は**自動で保存する**（2026-11。以前は「編成を保存」を押すまで下書きのまま）。
+  //    ↑を押すと1.2秒後に送られ、通知の「元に戻す」で戻せる
+  const firstBatter = () =>
+    lineupDraft.page
+      .locator('.online-order-list.is-batting li .online-order-main')
+      .first()
+      .innerText();
+  await lineupDraft.page.getByRole('button', { name: '2番を上げる', exact: true }).click();
+  await lineupDraft.page
+    .locator('.online-save-state', { hasText: '保存済み' })
+    .waitFor({ timeout: 10000 });
+  const saved = lineupDraft.payloads.at(-1);
+  assert.equal(
+    saved.battingOrder.find((e) => e.battingOrder === 1).playerId,
+    2,
+    '↑で打者2が1番になって保存される',
+  );
   await click(lineupDraft.page, '今日');
   await click(lineupDraft.page, '編成');
-  await closeFullLineup(lineupDraft.page);
-  assert.equal(
-    await lineupDraft.page
-      .getByLabel('1番の選手', { exact: true })
-      .inputValue(),
-    '2',
-  );
+  assert.match(await firstBatter(), /打者2/, '画面を移っても保存済みの打順');
   await lineupDraft.page.setViewportSize({ width: 390, height: 844 });
-  await lineupDraft.page
-    .getByRole('button', { name: '打者2の選手情報を見る', exact: true })
-    .waitFor();
   await lineupDraft.page.reload();
-  await click(lineupDraft.page, '打順');
-  await lineupDraft.page.setViewportSize({ width: 1280, height: 844 });
-  await closeFullLineup(lineupDraft.page);
+  await lineupDraft.page.getByRole('button', { name: '編成', exact: true }).click();
+  assert.match(await firstBatter(), /打者2/, 'スマホ幅・再読込でも同じ打順');
+  await lineupDraft.page.getByRole('button', { name: '2番を上げる', exact: true }).click();
+  await lineupDraft.page.getByRole('button', { name: '元に戻す', exact: true }).waitFor({ timeout: 10000 });
+  await lineupDraft.page.getByRole('button', { name: '元に戻す', exact: true }).click();
+  await lineupDraft.page
+    .locator('.online-save-state', { hasText: '保存済み' })
+    .waitFor({ timeout: 10000 });
+  await lineupDraft.page.waitForTimeout(1500);
+  assert.match(await firstBatter(), /打者2/, '「元に戻す」で1つ前の打順に戻る');
   assert.equal(
-    await lineupDraft.page
-      .getByLabel('1番の選手', { exact: true })
-      .inputValue(),
-    '2',
-    '編成もホーム移動・表示切替・再読込を通して保持',
-  );
-  await click(lineupDraft.page, '編集を戻す');
-  assert.equal(
-    await lineupDraft.page
-      .getByLabel('1番の選手', { exact: true })
-      .inputValue(),
-    '1',
+    lineupDraft.view.lineup.battingOrder.find((e) => e.battingOrder === 1).playerId,
+    2,
+    '「元に戻す」もサーバーへ保存される',
   );
   await lineupDraft.context.close();
 
@@ -274,19 +280,20 @@ try {
     .waitFor();
   retry.defaultsFail = false;
   await click(retry.page, '標準案を再取得');
-  await retry.page.getByLabel('球団の主練習（全4回）').waitFor();
+  await campGroup(retry.page).waitFor();
   assert.equal(await retry.page.getByRole('alert').count(), 0);
   retry.hold = true;
+  await pickCamp(retry.page, '打撃練習');
   await retry.page
     .getByRole('button', { name: '下書きを保存', exact: true })
     .click();
   await withDeadline(retry.commandStarted, '提出保存の開始');
   assert.ok(
-    await retry.page.getByLabel('球団の主練習（全4回）').isDisabled(),
+    await campGroup(retry.page).getByRole('radio').first().isDisabled(),
     '提出の保存中は練習方針も変更できない',
   );
   retry.release();
-  await retry.page.getByText('保存しました', { exact: true }).waitFor();
+  await retry.page.getByText('キャンプの下書きを保存しました', { exact: true }).waitFor();
   assert.equal(await retry.page.locator('.online-edit-notice').count(), 0);
   await retry.context.close();
 
@@ -298,7 +305,7 @@ try {
     })
     .waitFor();
   assert.equal(
-    await stale.page.locator('.online-decision select').count(),
+    await campGroup(stale.page).count(),
     0,
     '別の手続きの標準案を表示しない',
   );
@@ -306,18 +313,22 @@ try {
   stale.view.phase.id = '2:camp';
   stale.view.revision++;
   await click(stale.page, '更新');
-  await stale.page.getByLabel('球団の主練習（全4回）').waitFor();
+  await campGroup(stale.page).waitFor();
   await stale.context.close();
 
   const mobile = await scene({ mobile: true });
   await click(mobile.page, '手続き');
-  await mobile.page
-    .getByText('練習方針: 標準（投手は制球・野手は打撃）', { exact: false })
-    .waitFor();
+  // ⚠ スマホでもPCと同じカードで選べる（以前は「練習方針: …」と出すだけで変えられなかった）
+  await campGroup(mobile.page).waitFor();
+  assert.ok((await campValue(mobile.page)).startsWith('標準'));
   mobile.view.phase.submission = { plan: { menu: 'velocity' }, ready: false };
   mobile.view.revision++;
   await click(mobile.page, '更新');
-  await mobile.page.getByText('練習方針: 球速練習', { exact: false }).waitFor();
+  await mobile.page.waitForFunction(
+    () =>
+      document.querySelector('.online-camp-card[aria-checked="true"] b')
+        ?.textContent === '球速練習',
+  );
   await click(mobile.page, 'この内容で決定');
   assert.equal(mobile.payloads[0].plan.menu, 'velocity');
   assert.deepEqual(mobile.payloads[0].baseSubmission, {
@@ -338,18 +349,16 @@ try {
   }));
   await click(pages.page, '更新');
   await click(pages.page, '選手');
-  await click(pages.page, '次のページ');
-  await click(pages.page, '次のページ');
-  assert.equal(await pages.page.locator('tbody tr').count(), 1);
+  // ⚠ 選手一覧は2026-11からページ送りをやめ、野手・投手を1枚の表に並べる
+  //    （21人程度なら送るより見渡せる方がよい）。人数が減ったら表も縮むことを見る
+  await pages.page.waitForFunction(
+    () => document.querySelectorAll('tbody tr').length === 21,
+  );
   pages.view.roster = pages.view.roster.slice(0, 4);
   pages.view.revision++;
   await click(pages.page, '更新');
   await pages.page.waitForFunction(
     () => document.querySelectorAll('tbody tr').length === 4,
-  );
-  assert.equal(
-    (await pages.page.locator('.online-pager span').innerText()).trim(),
-    '1 / 1',
   );
   await pages.context.close();
 
@@ -366,8 +375,12 @@ try {
     })),
   }));
   await click(news.page, '更新');
-  await click(news.page, 'リーグ便り・過去のシーズン →');
-  await news.page.getByLabel('見るお知らせ').selectOption('notice:3');
+  await click(news.page, 'リーグ便り');
+  // 便りが5件以下ならボタンで並べる（6件以上はセレクト）
+  await news.page
+    .getByRole('group', { name: '表示する便り', exact: true })
+    .getByRole('button', { name: '4年 トライアウト', exact: true })
+    .click();
   await click(news.page, '次のページ');
   await click(news.page, '次のページ');
   news.view.notices = [news.view.notices[0]];
@@ -378,13 +391,14 @@ try {
     () => document.querySelectorAll('.online-news-list article').length === 1,
   );
   assert.equal(
-    await news.page.getByLabel('見るお知らせ').inputValue(),
-    'notice:0',
+    await news.page
+      .getByRole('group', { name: '表示する便り', exact: true })
+      .locator('[aria-pressed="true"]')
+      .innerText(),
+    '1年 初期編成',
   );
-  assert.equal(
-    (await news.page.locator('.online-pager span').innerText()).trim(),
-    '1 / 1',
-  );
+  // 1ページに収まるときはページ送り自体を出さない
+  assert.equal(await news.page.locator('.online-pager').count(), 0);
   assert.ok(
     await news.page.evaluate(
       () => document.documentElement.scrollHeight <= innerHeight * 1.3,

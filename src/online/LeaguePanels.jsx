@@ -117,14 +117,18 @@ export function Login({ local, login, busy }) {
         最大{MAX_MEMBERS}人で、1部・2部の12球団を育てる独立リーグ。1時間ごとに1日進み、留守の間もペナントは続きます。
       </p>
       {local ? (
-        <div className="online-actions">
-          <button disabled={busy} onClick={() => login({ user: 'player1' })}>
-            プレイヤー1で入る
-          </button>
-          <button disabled={busy} onClick={() => login({ user: 'player2' })}>
-            プレイヤー2で入る
-          </button>
-        </div>
+        <>
+          <div className="online-actions">
+            <button disabled={busy} onClick={() => login({ user: 'player1' })}>
+              プレイヤー1で入る
+            </button>
+            <button disabled={busy} onClick={() => login({ user: 'player2' })}>
+              プレイヤー2で入る
+            </button>
+          </div>
+          {/* ⚠ 検査（online-*-ui-check）はこの文言で検証モードの画面か確かめる */}
+          <small className="online-muted">ローカル検証モード（公開環境では無効）</small>
+        </>
       ) : (
         <form
           onSubmit={(e) => {
