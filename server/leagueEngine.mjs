@@ -194,6 +194,23 @@ function openPhase(league, kind, now) {
   league.season.pendingPhaseEvent = kind;
 }
 
+// 観戦記録の残し方。
+// ⚠ **既定は「人の球団の試合だけ・球団ごとに直近10試合」**。以前は既定で残さず、
+//    観戦の画面があるのに遊ぶ人は一度も見られなかった。全試合を残すと
+//    1試合約180KBで保存が破綻するので、人の試合に絞って古いものは捨てる。
+//    `ONLINE_RECORD_REPLAY=1`（または all）で全試合、`0`（または off）で残さない。
+export const REPLAY_KEEP_LATEST = 10;
+export function replayPolicy(league, env = process.env.ONLINE_RECORD_REPLAY) {
+  if (env === '0' || env === 'off') return { replay: false };
+  if (env === '1' || env === 'all') return { replay: true };
+  const humans = new Set((league.members || []).map((m) => m.teamName));
+  return {
+    replay: (game) => humans.has(game.home) || humans.has(game.away),
+    keepLatest: REPLAY_KEEP_LATEST,
+    tracked: (team) => humans.has(team),
+  };
+}
+
 export function createLeague({
   seed = 20261028,
   members,
@@ -491,6 +508,9 @@ function resolveTryout(league, plans) {
   }
   league.notices.unshift({
     type: 'tryout',
+    // ⚠ 初期編成とトライアウトは同じ処理で、お知らせも同じ type。画面で
+    //    「初期編成」と出し分けるために種類を残す（以前は初期編成も「トライアウト」と出ていた）
+    kind: phase.kind,
     year: league.season.year,
     picks: allPicked.map(({ team, player, round }) => ({
       team,
@@ -730,10 +750,7 @@ function advanceOneDay(league, key, now) {
     try {
       season = simulateScheduledGamesOnDate(
         league.season,
-        // ⚠ 観戦記録は既定で残さない（容量）。`ONLINE_RECORD_REPLAY=1` で有効
-        createRecorder(league, TEAMS_DATA, {
-          replay: process.env.ONLINE_RECORD_REPLAY === '1',
-        }),
+        createRecorder(league, TEAMS_DATA, replayPolicy(league)),
       ).data;
     } finally {
       for (const restore of restoreRotations) restore();

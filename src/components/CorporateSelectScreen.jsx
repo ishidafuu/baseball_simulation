@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RANK_COLORS, RANK_LABELS, RANK_ORDER } from '../utils/constants.js';
 import SelectShell from './select/SelectShell.jsx';
 import { REGIONS, CORPORATE_TEAMS, getTeamsByRegion, RANK_ABILITY_RANGE, setTeamDisplayName, resetTeamDisplayName, setTeamOverride, resetTeamOverrides, getAllTeamsEffective, getAllMasterTeamsEffective, addCustomTeam, updateCustomTeam, deleteTeam, restoreTeam, getDeletedTeams, clearGameSessionTeams, addGameSessionCustomTeam } from '../corporate/corporateTeamsData.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 const TYPE_LABELS = {
   corporate: { label: '企業', color: 'bg-blue-800 text-blue-200' },
@@ -183,7 +184,7 @@ const CorporateTeamSelectScreen = ({ onSelect, onBack }) => {
 
   const handleCreateTeam = () => {
     if (!createForm.name.trim() || !createForm.city.trim()) {
-      alert('チーム名と都市名を入力してください');
+      showMessage('チーム名と都市名を入力してください');
       return;
     }
     const newTeam = addGameSessionCustomTeam({
@@ -460,7 +461,7 @@ const CorporateNameEditScreen = ({ onBack }) => {
 
   const handleAdd = () => {
     if (!addForm.name.trim() || !addForm.city.trim()) {
-      alert('チーム名と都市名を入力してください');
+      showMessage('チーム名と都市名を入力してください');
       return;
     }
     addCustomTeam({

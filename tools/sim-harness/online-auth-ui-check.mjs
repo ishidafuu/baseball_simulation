@@ -325,7 +325,7 @@ try {
 
   const expired = await fixture({ expired: true, hold: false });
   await expired.page
-    .getByText('管理者がPCからリーグを作成するまでお待ちください。', {
+    .getByText('管理者がリーグを作成するまでお待ちください。', {
       exact: true,
     })
     .waitFor();

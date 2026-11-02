@@ -7,6 +7,7 @@ import { createSeasonStats, createCareerStats } from '../players.js';
 import { importDraftedPlayers, convertDraftedPlayerToSandboxPlayer } from '../game/saveSystem.js';
 import { getObRegistry, convertObToPlayer } from '../game/obRegistry.js';
 import { reservePlayerIds } from '../state/playerIds.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 /**
  * 箱庭モード用のデフォルト選手を作成
@@ -155,7 +156,7 @@ const SandboxSetupScreen = ({ allTeams, onComplete, generateOptimalLineup, gener
       });
       addManyToRoster(TEAMS_DATA[activeTeam], converted);
       forceUpdate();
-      alert(`${converted.length}名のドラフト指名選手を「${activeTeam}」にインポートしました`);
+      showMessage(`${converted.length}名のドラフト指名選手を「${activeTeam}」にインポートしました`);
     });
   };
 
@@ -191,7 +192,7 @@ const SandboxSetupScreen = ({ allTeams, onComplete, generateOptimalLineup, gener
           <button
             onClick={() => {
               if (!canStart()) {
-                alert('全チーム最低16人の選手が必要です');
+                showMessage('全チーム最低16人の選手が必要です');
                 return;
               }
               onComplete();

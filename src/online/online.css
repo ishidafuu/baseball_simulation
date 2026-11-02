@@ -6,7 +6,7 @@
   font:
     15px/1.6 -apple-system,
     BlinkMacSystemFont,
-    'Hiragino Kaku Gothic ProN',
+    "Hiragino Kaku Gothic ProN",
     sans-serif;
 }
 .online *,
@@ -77,20 +77,6 @@
 .online a:hover {
   text-decoration: underline;
 }
-.online-header {
-  background: var(--surface-1);
-  color: #f1f5f9;
-  padding: 18px max(22px, calc((100vw - 1200px) / 2));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-.online-header nav {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
 .online-brand {
   font-size: 24px;
   letter-spacing: 0.06em;
@@ -103,11 +89,6 @@
   letter-spacing: 0.04em;
   color: #cad5e2;
 }
-.online main {
-  max-width: 1240px;
-  padding: 20px 22px 50px;
-  margin: auto;
-}
 .online-card {
   background: var(--surface-2);
   color: #f1f5f9;
@@ -118,14 +99,6 @@
   box-shadow: 0 3px 9px #10203912;
   min-width: 0;
 }
-.online-season {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin: 16px 0 10px;
-}
-.online-season p,
 .online-eyebrow {
   font-size: 12px;
   font-weight: 650;
@@ -134,40 +107,12 @@
 .online-card .online-eyebrow {
   color: var(--accent);
 }
-.online-season h1 {
-  margin-bottom: 0;
-}
-.online-season small {
-  font-size: 12px;
-  font-weight: 500;
-  display: inline-block;
-  padding: 3px 9px;
-  margin-left: 8px;
-  border-radius: 16px;
-  color: #e5ecf6;
-  background: var(--surface-1);
-  vertical-align: middle;
-}
-.online-next {
-  text-align: right;
-  font-size: 11px;
-}
-.online-next strong {
-  display: inline-block;
-  margin: 0 12px;
-  font-size: 17px;
-}
 .online-muted {
   font-size: 13px;
   color: var(--ink-sub);
 }
 .online-card .online-muted {
   color: #d0d9e5;
-}
-.online-dev {
-  color: var(--ink-sub);
-  font-size: 11px;
-  margin-bottom: 5px !important;
 }
 .online-alert {
   background: #5b3028;
@@ -179,18 +124,6 @@
 }
 .online-alert button {
   margin-left: 12px;
-}
-.online-success {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  padding: 9px 16px;
-  background: #1f453a;
-  color: #c7f2dc;
-  border: 1px solid #6aa08d;
-  border-radius: 8px;
-  z-index: 30;
-  box-shadow: 0 3px 12px #0003;
 }
 .online-dashboard {
   display: grid;
@@ -252,33 +185,12 @@
   font-size: 11px;
   color: #c4d4e5;
 }
-.online-score {
-  padding: 14px 0;
-  border-bottom: 1px solid #536b85;
-}
-.online-score small {
-  color: #d0d9e5;
-  font-size: 12px;
-}
-.online-score div {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 10px;
-}
-.online-score div span:last-child {
-  text-align: right;
-}
-.online-score strong {
-  font-size: 24px;
-  color: #fff;
-}
 .online label {
   display: block;
   margin: 14px 0;
   font-size: 14px;
 }
-.online input:not([type='checkbox']),
+.online input:not([type="checkbox"]),
 .online select {
   width: 100%;
   border-radius: 8px;
@@ -288,7 +200,7 @@
   border: 1px solid #71839b;
   min-height: 44px;
 }
-.online input[type='number'] {
+.online input[type="number"] {
   max-width: 110px;
   display: block;
 }
@@ -298,7 +210,7 @@
   gap: 10px;
   margin: 8px 0;
 }
-.online input[type='checkbox'] {
+.online input[type="checkbox"] {
   width: 19px;
   height: 19px;
   accent-color: var(--accent-strong);
@@ -317,20 +229,6 @@
 /* 参加画面の「参加する」と「ログインし直す」が隙間なく接していた */
 .online-login form + button {
   margin-top: 12px;
-}
-.online-ready {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 0;
-  list-style: none;
-  margin: 12px 0;
-}
-.online-ready li {
-  background: var(--surface-1);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 13px;
 }
 /* 初期編成・トライアウトの希望リスト。
    ⚠ 左＝獲得予定（並べ替える）／右＝候補を探す（絞り込んで指名する）。
@@ -396,11 +294,12 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 0;
-  border-bottom: 1px solid #536b85;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ol-line, #536b85);
 }
 .online-tryout-list li[data-wanted] {
   background: var(--accent-soft);
+  border-radius: 6px;
 }
 .online-tryout-rank {
   flex: 0 0 24px;
@@ -483,7 +382,7 @@
 .online .online-tryout-weights label {
   margin: 0;
 }
-.online .online-tryout-weights input[type='range'] {
+.online .online-tryout-weights input[type="range"] {
   min-height: 28px;
   padding: 0;
   border: 0;
@@ -510,50 +409,15 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.online-lineup {
-  display: grid;
-  grid-template-columns: 20px 20px minmax(0, 1fr) 44px 44px;
-  gap: 8px;
-  align-items: center;
-  margin: 6px 0;
-}
-.online-lineup button {
-  padding: 6px;
-}
-.online-working {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 20px;
-  background: #172736;
-  color: #fff;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  z-index: 40;
-  width: max-content;
-  max-width: 94vw;
-}
-.online-page-nav,
 .online-segments {
   display: flex;
   gap: 8px;
   margin-bottom: 18px;
 }
-.online-page-nav {
-  margin: 18px 0 22px;
-}
-.online-page-nav button {
-  min-width: 86px;
-}
-.online-page-nav button[aria-current],
-.online-segments button[aria-pressed='true'] {
+.online-segments button[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: var(--accent);
-}
-.online-page-nav button[aria-current] {
-  background: var(--surface-1);
 }
 .online-dot {
   display: inline-block;
@@ -566,18 +430,6 @@
 }
 .online-spaced {
   margin-top: 24px !important;
-}
-.online-clock-info {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: var(--ink-sub);
-  font-size: 12px;
-}
-.online-clock-info button {
-  min-height: 32px;
-  padding: 3px 10px;
-  font-size: 12px;
 }
 .online-pager {
   display: flex;
@@ -634,62 +486,19 @@
   .online {
     font-size: 14px;
   }
-  .online-header {
-    padding: 10px 12px;
-    gap: 10px;
-  }
   .online-brand {
     font-size: 18px;
   }
   .online-brand span {
     font-size: 10px;
   }
-  .online-header nav {
-    gap: 10px;
-    font-size: 11px;
-  }
-  .online-header button {
-    padding: 6px 9px;
-    font-size: 11px;
-  }
-  .online main {
-    padding: 8px 12px 88px;
-  }
   .online-card {
     padding: 16px 12px;
     border-radius: 10px;
     margin-bottom: 12px;
   }
-  .online-season {
-    align-items: center;
-    margin: 8px 0 4px;
-    gap: 8px;
-  }
   .online h1 {
     font-size: 23px;
-  }
-  .online-season h1 small {
-    font-size: 10px;
-    padding: 2px 6px;
-    margin-left: 5px;
-  }
-  .online-season p {
-    font-size: 10px;
-    margin-bottom: 3px;
-  }
-  .online-next strong {
-    display: block;
-    margin: 1px 0 3px;
-    font-size: 14px;
-  }
-  .online-next {
-    flex-shrink: 0;
-    font-size: 10px;
-  }
-  .online-next button {
-    min-height: 32px;
-    padding: 3px 12px;
-    font-size: 12px;
   }
   .online table {
     font-size: 12px;
@@ -700,11 +509,6 @@
   }
   .online-rank {
     margin-right: 6px;
-  }
-  .online-lineup {
-    grid-template-columns: 16px 16px minmax(0, 1fr) 44px 44px;
-    gap: 5px;
-    margin: 3px 0;
   }
   .online-lineup-card .online-muted {
     margin-bottom: 6px;
@@ -717,81 +521,11 @@
   .online-login h1 {
     font-size: 23px;
   }
-  .online-score {
-    padding: 12px 0;
-  }
-  .online-score div {
-    font-size: 12px;
-    gap: 5px;
-  }
-  .online-score strong {
-    font-size: 23px;
-  }
   .online-alert {
     font-size: 12px;
   }
   .online-alert button {
     margin: 6px 0 0;
-  }
-  .online-clock-info {
-    margin-bottom: 12px;
-    font-size: 11px;
-  }
-  .online-clock-info button {
-    min-height: 32px;
-  }
-  .online-next-action {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    background: var(--surface-1);
-    color: #fff;
-    font-size: 13px;
-  }
-  .online-news-link {
-    display: block;
-    width: 100%;
-    text-align: left;
-  }
-  .online-back {
-    margin-bottom: 10px;
-  }
-  .online-success {
-    top: 70px;
-    right: 12px;
-    font-size: 12px;
-  }
-  .online-lineup-card .online-actions,
-  .online-decision .online-actions {
-    position: fixed;
-    bottom: 65px;
-    left: 0;
-    right: 0;
-    z-index: 15;
-    background: var(--surface-1);
-    padding: 10px 12px;
-    margin: 0;
-    border-top: 1px solid #63778f;
-  }
-  .online-lineup-card .online-actions button,
-  .online-decision .online-actions button {
-    flex: 1;
-  }
-  .online:has(.online-lineup-card:not([hidden])) main,
-  .online:has(.online-decision) main {
-    padding-bottom: 150px;
-  }
-  .online-ready {
-    gap: 6px;
-    margin: 8px 0;
-  }
-  .online-ready li {
-    font-size: 11px;
-    padding: 5px 7px;
   }
   .online-decision p {
     font-size: 12px;
@@ -802,55 +536,6 @@
   .online-pager {
     margin-top: 12px;
   }
-}
-/* PCの主ナビは既存管理画面と同じ左列。詳細操作は選んだ画面だけに置く。 */
-.online-desktop .online-header {
-  margin-left: 224px;
-  padding: 16px 22px;
-}
-.online-desktop main {
-  max-width: 1240px;
-  margin-left: 224px;
-  margin-right: auto;
-}
-.online-desktop .online-page-nav {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 224px;
-  margin: 0;
-  padding: 20px 12px;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--surface-1);
-  border-right: 1px solid #536b85;
-}
-.online-desktop .online-page-nav button {
-  text-align: left;
-  border: 0;
-  border-left: 3px solid transparent;
-  border-radius: 7px;
-  padding-left: 15px;
-}
-.online-desktop .online-page-nav button[aria-current] {
-  border-left-color: var(--accent);
-  background: #103d49;
-}
-.online-nav-context {
-  color: #f1f5f9;
-  margin: 0 0 18px;
-  padding: 0 6px 18px;
-  border-bottom: 1px solid #536b85;
-}
-.online-nav-context strong {
-  display: block;
-  font-size: 14px;
-  color: var(--accent);
-}
-.online-nav-context small {
-  font-size: 11px;
-  color: #cbd5e1;
 }
 
 .online-overlay {
@@ -950,13 +635,6 @@
 .online-player-dialog::backdrop {
   background: #0f172ab3;
 }
-.online-player-dialog header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 12px;
-  margin-bottom: 16px;
-}
 .online-player-dialog h2 {
   margin: 0 0 5px;
   font-size: 18px;
@@ -988,84 +666,6 @@
   font-size: 12px;
   line-height: 1.4;
 }
-.online-mobile:has(.online-compact-roster) .online-season,
-.online-mobile:has(.online-compact-roster) .online-clock-info {
-  display: none;
-}
-
-/* スマホの対人画面は一枚の面。常設する操作は戻る・ホームだけ。 */
-.online-mobile.online-compact-shell {
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--surface-2);
-  color: #f1f5f9;
-}
-.online-mobile.online-compact-shell main {
-  height: 100dvh;
-  min-height: 0;
-  max-width: none;
-  padding: 0 0 calc(48px + env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-.online-compact-shell main > * {
-  flex-shrink: 0;
-}
-.online-mobile.online-compact-shell .online-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 8px 12px;
-  margin: 0;
-}
-.online-mobile-overview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  padding: 8px 12px;
-}
-.online-mobile-overview strong {
-  width: 100%;
-  font-size: 15px;
-}
-.online-mobile-overview small {
-  align-self: center;
-  color: #cbd5e1;
-}
-.online-home-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 0 12px 6px;
-}
-.online-home-actions .online-dot {
-  margin-left: 6px;
-}
-.online-compact-shell .online-news-link {
-  border: 0;
-  border-radius: 0;
-  padding: 4px 12px;
-  font-size: 13px;
-}
-.online-compact-shell:has(.online-lineup-card:not([hidden])) main,
-.online-compact-shell:has(.online-decision) main {
-  padding-bottom: calc(112px + env(safe-area-inset-bottom));
-}
-.online-compact-shell .online-lineup-card .online-actions,
-.online-compact-shell .online-decision .online-actions {
-  bottom: calc(48px + env(safe-area-inset-bottom));
-  padding-bottom: 10px;
-}
-.online-mobile.online-compact-shell .online-compact-roster {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0 12px;
-}
 .online-roster-toolbar {
   display: flex;
   align-items: center;
@@ -1085,96 +685,18 @@
   background: transparent;
   padding: 4px 14px;
 }
-.online-roster-toolbar .online-segments button[aria-pressed='true'] {
+.online-roster-toolbar .online-segments button[aria-pressed="true"] {
   border-bottom: 2px solid var(--accent);
-}
-.online-roster-columns {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #cbd5e1;
-  min-height: 44px;
-  border-bottom: 1px solid #668196;
-}
-.online-roster-rows {
-  flex: 1;
-  min-height: 0;
-}
-.online-compact-roster .online-roster-rows article {
-  height: 44px;
-  padding: 0;
-  border-bottom: 1px solid #536b85;
-}
-.online .online-roster-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 44px;
-  height: 44px;
-  text-decoration: none;
-  gap: 8px;
 }
 .online-roster-person {
   display: block;
   min-width: 0;
   flex: 1;
 }
-.online-roster-name {
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px;
-  line-height: 20px;
-}
 .online-roster-player-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.online-roster-name .online-condition,
-.online-roster-name small {
-  flex-shrink: 0;
-}
-.online-lineup-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.online-lineup-picker select {
-  min-width: 0;
-  flex: 1;
-}
-.online-lineup-picker .online-player-name {
-  flex-shrink: 0;
-}
-.online-player-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.online-player-tabs button {
-  min-width: 80px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.online-player-tabs button[aria-pressed='true'] {
-  color: var(--accent);
-  border-bottom: 2px solid var(--accent);
-}
-.online-ability-select {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-}
-.online-ability-select select {
-  width: auto;
-  min-width: 140px;
-  padding: 4px 8px;
 }
 .online-player-abilities .online-stat-grid dd {
   font-size: 16px;
@@ -1227,16 +749,6 @@
 }
 .online-zone-legend {
   text-align: center;
-}
-.online-team-brief {
-  font-size: 12px;
-  padding: 4px 12px;
-}
-.online-team-brief p {
-  margin: 0 0 3px;
-}
-.online-team-brief .online-player-name {
-  min-height: 32px;
 }
 .online-card-heading select {
   width: auto;
@@ -1301,46 +813,6 @@
   font-size: 11px;
   padding: 4px;
 }
-.online-roster-name small {
-  font-size: 11px;
-  margin-left: 8px;
-  color: #cbd5e1;
-}
-.online-roster-values {
-  display: grid;
-  grid-template-columns: repeat(4, 34px);
-  gap: 4px;
-  width: 148px;
-  flex: 0 0 148px;
-  text-align: right;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.online-roster-values > span {
-  white-space: nowrap;
-}
-.online-roster-values .online-stat-percent {
-  font-size: 11px;
-}
-.online-roster-values .online-stat-condition {
-  font-size: 11px;
-}
-.online-roster-columns button {
-  min-width: 0;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  height: 44px;
-  font-size: 10px;
-  background: transparent;
-  position: relative;
-}
-.online-roster-columns > button {
-  font-size: 11px;
-}
-.online-roster-columns button[aria-pressed='true'] {
-  color: var(--accent);
-}
 .online-sort-direction {
   position: absolute;
   bottom: 0;
@@ -1377,9 +849,6 @@
   min-height: 18px;
   color: #cbd5e1;
 }
-.online-roster-row .online-stat-label {
-  padding: 1px 3px;
-}
 .online-condition {
   display: inline-block;
   width: 14px;
@@ -1405,26 +874,8 @@
 .online-condition-unknown {
   color: #bdc8d4;
 }
-.online-desktop .online-roster-values {
-  width: 48%;
-  flex-basis: 48%;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  font-size: 14px;
-}
-.online-desktop .online-roster-columns button {
-  font-size: 12px;
-}
 .online-desktop .online-compact-roster {
   padding: 12px 0;
-}
-.online-desktop .online-roster-rows {
-  height: auto;
-}
-.online-roster-row .online-stat-labels {
-  display: flex;
-  flex-wrap: nowrap;
-  margin: 0;
-  line-height: 18px;
 }
 .online-compact-roster .online-pager {
   margin: 0;
@@ -1453,34 +904,6 @@
 }
 .online-mobile .online-stat-grid dt {
   font-size: 11px;
-}
-.online-compact-shell .online-card-heading p {
-  margin: 0;
-  font-size: 12px;
-}
-.online-mobile.online-compact-shell .online-card td,
-.online-mobile.online-compact-shell .online-card th {
-  padding: 7px 4px;
-}
-
-.online-mobile-controls {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  display: flex;
-  height: calc(48px + env(safe-area-inset-bottom));
-  padding: 0 0 env(safe-area-inset-bottom);
-  background: var(--surface-1);
-}
-.online-mobile-controls button {
-  flex: 1;
-  height: 48px;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  font-size: 24px;
 }
 .online-roster-toolbar h2 {
   font-size: 14px;
@@ -1538,23 +961,6 @@
 }
 .online-check-info .online-check {
   flex: 1;
-}
-
-/* 試合カード：日付・自球団の勝敗・成績ボタンを1行、責任投手は区切り付きの1行。 */
-.online-score header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-}
-.online-score div span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.online-score .online-score-decisions {
-  display: block;
-  margin-top: 4px;
-  line-height: 1.5;
 }
 .online .online-record-button {
   min-height: 36px;
@@ -1624,11 +1030,8 @@
   color: #cbd5e1;
   font-weight: 650;
 }
-.online-record-table th button[aria-pressed='true'] {
+.online-record-table th button[aria-pressed="true"] {
   color: var(--accent);
-}
-.online-player-dialog header {
-  margin-bottom: 8px;
 }
 .online-player-dialog .online-stat-note {
   margin: 2px 0 8px;
@@ -1667,118 +1070,386 @@
 }
 
 /* 球団を切り替えて同じ一覧を使い、スマホで縦に積み増さない。 */
-.online-team-roster { min-width: 0; }
-.online-team-selector { display: flex; gap: 8px; align-items: center; padding: 4px 0 8px; }
-.online-team-selector select { min-width: 0; max-width: 100%; }
-.online-team-selector small { white-space: nowrap; }
-.online-mobile.online-compact-shell .online-team-roster { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.online-mobile .online-team-selector { padding: 4px 12px; }
-.online-mobile .online-team-selector select { flex: 1; width: 0; }
-.online-mobile .online-team-roster > .online-compact-roster { flex: 1; min-height: 0; }
+.online-team-roster {
+  min-width: 0;
+}
+.online-team-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0 8px;
+}
+.online-team-selector select {
+  min-width: 0;
+  max-width: 100%;
+}
+.online-team-selector small {
+  white-space: nowrap;
+}
+.online-mobile .online-team-selector {
+  padding: 4px 12px;
+}
+.online-mobile .online-team-selector select {
+  flex: 1;
+  width: 0;
+}
+.online-mobile .online-team-roster > .online-compact-roster {
+  flex: 1;
+  min-height: 0;
+}
 
-.online-mobile .online-roster-toolbar > div:first-child select { width: 126px; max-width: 100%; font-size: 12px; padding: 3px; min-height: 28px; }
+.online-mobile .online-roster-toolbar > div:first-child select {
+  width: 126px;
+  max-width: 100%;
+  font-size: 12px;
+  padding: 3px;
+  min-height: 28px;
+}
 /* ⚠ 球団の切り替えがあるときは、選択欄と「今季 · 24人」を縦に積む。
    左の欄は幅60pxに固定されていたので、選択欄が入るとはみ出して
    右の「基本」の選択欄の下に人数が潜り込んでいた */
-.online-mobile .online-roster-toolbar > div:first-child:has(select) { flex: 0 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.online-mobile .online-roster-toolbar > div:first-child:has(select) {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
 
 /* 通常ゲームと同じ球場SVG・左右のメンバー表・電光掲示板で観戦する。 */
-.online-replay-launch { display: flex; gap: 8px; margin-bottom: 8px; }
-.online-replay-dialog { width: min(1740px, 97vw); max-width: 97vw; height: 95dvh; max-height: 95dvh; }
-.online-replay-controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.online-replay-controls input { flex: 1; min-width: 100px; }
-.online-replay-board { margin: 8px 0; padding: 8px; background: #020203; color: #fb923c; border: 2px solid #374151; border-radius: 8px; font-family: monospace; }
-.online-replay-board table { width: 100%; text-align: center; }
-.online-replay-board th, .online-replay-board td { padding: 3px; color: #fb923c; }
-.online-replay-board > strong { font-size: 18px; color: #fdba74; }
-.online-replay-board p { margin: 4px 0 0; }
-.online-replay-layout { display: grid; grid-template-columns: 3fr 5fr 3fr; gap: 10px; align-items: start; }
-.online-replay-team { padding: 8px; background: var(--surface-2); min-width: 0; border-radius: 8px; }
-.online-replay-team h3 { font-size: 15px; margin: 0 0 8px; }
-.online-replay-team ol { margin: 0; padding: 0; list-style: none; }
-.online-replay-team li { display: grid; grid-template-columns: 20px 24px 1fr 24px 24px; align-items: center; gap: 3px; min-height: 34px; border-bottom: 1px solid #ffffff18; }
-.online-replay-team li button { border: 0; padding: 3px 0; background: transparent; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.online-replay-active { background: var(--accent-soft); }
-.online-replay-team details { margin-top: 10px; }
-.online-replay-team details > button { display: block; padding: 4px; }
-.online-replay-center { min-width: 0; }
-.online-replay-center svg { max-height: 330px; }
-.online-replay-batter { background: var(--surface-2); padding: 8px; border-radius: 8px; }
-.online-replay-batter small { margin-left: 10px; }
-.online-replay-batter dl { display: flex; gap: 16px; margin: 6px 0 0; }
-.online-replay-batter dd { margin: 0; font-variant-numeric: tabular-nums; }
-.online-replay-log { max-height: 120px; overflow: auto; padding: 6px; background: var(--surface-2); margin: 8px 0; }
-.online-replay-log p { margin: 2px 0; font-size: 12px; }
-@media (max-width: 767px) { .online-replay-launch { display: none; } }
-
-.online-tactics-grid, .online-pitcher-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
-.online-tactics-grid label, .online-pitcher-role-grid label { display: grid; gap: 6px; min-width: 0; }
-.online-tactics-grid select, .online-pitcher-role-grid select { width: 100%; }
-.online-pregame-settings > p { color: #cbd5e1; font-size: 13px; }
-
-.online-replay-center { position: relative; }
-.online-replay-pitch-zone { position: absolute; right: 0; top: 0; z-index: 1; }
-.online-replay-applied { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.online-replay-applied dd { margin: 0; }
-.online-desktop .online-compact-roster[data-wide='true'] .online-roster-values { width: 75%; flex-basis: 75%; grid-template-columns: repeat(12, minmax(0, 1fr)); }
-.online-desktop .online-compact-roster[data-wide='true'] .online-roster-person { max-width: 25%; }
-.online-desktop .online-compact-roster[data-wide='true'] .online-roster-columns > button { width: 25%; }
-.online-desktop .online-compact-roster[data-wide='true'] .online-roster-columns button { font-size: 11px; padding-left: 2px; padding-right: 2px; }
-
-.online-replay-dialog > header { position: sticky; top: 0; z-index: 6; background: var(--surface-2); }
-.online-replay-dialog > .online-replay-launch { position: sticky; top: 56px; z-index: 5; background: var(--surface-2); }
-.online-replay-dialog .online-replay-controls { position: sticky; top: 108px; z-index: 4; background: var(--surface-2); padding: 4px 0; }
-@media (min-width: 768px) { .online-game-dialog:not(.online-replay-dialog) { width: min(1240px, 96vw); max-width: 96vw; } }
-.online-replay-controls select { width: auto; flex: 0 0 110px; }
-.online-replay-controls input[type='range'] { width: auto; flex: 1; min-width: 140px; }
-.online-replay-controls button { min-height: 34px; font-size: 12px; padding: 4px 8px; }
-/* スマホの采配は項目ごとのパネル。共通の下書きを使い、画面移動では送信しない。 */
-.online-mobile-panel { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; padding: 12px; border: 0; color: #f1f5f9; background: var(--surface-2); }
-.online-mobile-panel[open] { display: flex; flex-direction: column; gap: 8px; }
-.online-mobile-panel::backdrop { background: #0009; }
-.online-mobile-panel > header { flex: 0 0 auto; }
-.online-mobile-panel > header h2 { font-size: 18px; margin: 0; }
-.online-mobile-panel-content { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
-.online-mobile-panel-content > select { flex-shrink: 0; }
-.online-mobile-tactic-fields { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; }
-.online-mobile-tactic-fields:empty { display: none; }
-.online-mobile-tactic-fields label { display: grid; gap: 3px; font-size: 13px; margin: 0; }
-.online-mobile-panel select { font-size: 16px; }
-.online-mobile-tactic-note { font-size: 12px; margin: 0 !important; color: #cbd5e1; }
-.online-mobile-role-list { flex: 1; min-height: 0; }
-.online-mobile-role-list article { min-height: 58px; padding: 6px 0; border-bottom: 1px solid #ffffff24; }
-.online-mobile-role-list article > div { display: flex; align-items: center; gap: 8px; }
-.online-mobile-role-list small { font-size: 12px; }
-.online-mobile-panel > footer { flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom); }
-.online-mobile-panel > footer > small { display: block; font-size: 12px; margin-bottom: 6px; }
-.online-mobile-panel > footer > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-/* モバイルの試合経過は、回/表示粒度とページ送りで全投球を確認できる。 */
-.online-mobile-replay { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 6px; }
-.online-mobile-replay-tools { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
-.online-mobile-replay-tools select { width: 85px; padding: 4px; flex-shrink: 0; }
-.online-mobile-replay-tools button { flex: 1; padding: 4px; font-size: 12px; white-space: nowrap; }
-.online-mobile-play-state { padding: 8px; border-radius: 5px; background: #020203; color: #fb923c; flex-shrink: 0; }
-.online-mobile-play-state > strong { display: block; text-align: center; font-size: 16px; }
-.online-mobile-play-state p { margin: 3px 0; font-size: 11px; }
-.online-mobile-play-state p span { display: block; overflow-wrap: anywhere; }
-.online-mobile-runners { display: flex; gap: 6px; font-size: 11px; }
-.online-mobile-runners span { flex: 1; text-align: center; color: #b1bdcd; }
-.online-mobile-runners .is-occupied { color: #facc15; }
-.online-mobile-play-list { flex: 1; min-height: 44px; overflow: hidden; }
-.online-mobile-play-list button { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px; width: 100%; height: 44px; border-radius: 0; border: 0; border-bottom: 1px solid #ffffff24; padding: 4px; align-items: center; gap: 4px; text-align: left; font-size: 12px; }
-.online-mobile-play-list button > span, .online-mobile-play-list button > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.online-mobile-play-list button[aria-current='true'] { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
-.online-mobile-replay > small { font-size: 11px; flex-shrink: 0; }
-.online-mobile-replay .online-pager { flex-shrink: 0; margin: 0; padding: 0; min-height: 44px; }
-.online-mobile-replay-footer { display: flex; gap: 8px; flex-shrink: 0; }
-.online-mobile-replay-footer .online-pager { flex: 1; }
-.online-replay-launch button[aria-pressed='true'], .online-mobile-replay-tools button[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: #67e8f9; }
+.online-replay-launch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.online-replay-dialog {
+  width: min(1740px, 97vw);
+  max-width: 97vw;
+  height: 95dvh;
+  max-height: 95dvh;
+}
+.online-replay-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.online-replay-controls input {
+  flex: 1;
+  min-width: 100px;
+}
+.online-replay-board {
+  margin: 8px 0;
+  padding: 8px;
+  background: #020203;
+  color: #fb923c;
+  border: 2px solid #374151;
+  border-radius: 8px;
+  font-family: monospace;
+}
+.online-replay-board table {
+  width: 100%;
+  text-align: center;
+}
+.online-replay-board th,
+.online-replay-board td {
+  padding: 3px;
+  color: #fb923c;
+}
+.online-replay-board > strong {
+  font-size: 18px;
+  color: #fdba74;
+}
+.online-replay-board p {
+  margin: 4px 0 0;
+}
+.online-replay-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 3fr);
+  gap: 10px;
+  align-items: start;
+}
+.online-replay-team {
+  padding: 8px;
+  background: var(--surface-2);
+  min-width: 0;
+  border-radius: 8px;
+}
+.online-replay-team h3 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+.online-replay-team ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.online-replay-team li {
+  display: grid;
+  grid-template-columns: 20px 24px 1fr 24px 24px;
+  align-items: center;
+  gap: 3px;
+  min-height: 34px;
+  border-bottom: 1px solid #ffffff18;
+}
+.online-replay-team li button {
+  border: 0;
+  padding: 3px 0;
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.online-replay-active {
+  background: var(--accent-soft);
+}
+.online-replay-team details {
+  margin-top: 10px;
+}
+.online-replay-team details > button {
+  display: block;
+  padding: 4px;
+}
+.online-replay-center {
+  min-width: 0;
+}
+.online-replay-center svg {
+  max-height: 330px;
+}
+.online-replay-batter {
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 8px;
+}
+.online-replay-batter small {
+  margin-left: 10px;
+}
+.online-replay-batter dl {
+  display: flex;
+  gap: 16px;
+  margin: 6px 0 0;
+}
+.online-replay-batter dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.online-replay-log {
+  max-height: 120px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--surface-2);
+  margin: 8px 0;
+}
+.online-replay-log p {
+  margin: 2px 0;
+  font-size: 12px;
+}
 @media (max-width: 767px) {
-  .online-game-dialog .online-replay-launch { display: flex; margin: 0 0 4px; gap: 4px; }
-  .online-game-dialog .online-replay-launch button { flex: 1; padding: 4px 8px; min-height: 36px; font-size: 12px; }
-  .online-game-dialog.online-mobile-replay-dialog { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); overflow: hidden; }
-  .online-mobile-replay-dialog[open] { display: flex; flex-direction: column; }
-  .online-mobile-replay-dialog > header, .online-mobile-replay-dialog > .online-replay-launch { flex-shrink: 0; }
+  .online-replay-launch {
+    display: none;
+  }
+}
+
+.online-replay-center {
+  position: relative;
+}
+.online-replay-pitch-zone {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 1;
+}
+.online-replay-applied {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.online-replay-applied dd {
+  margin: 0;
+}
+.online-desktop .online-compact-roster[data-wide="true"] .online-roster-person {
+  max-width: 25%;
+}
+
+.online-replay-dialog > header {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--surface-2);
+}
+.online-replay-dialog > .online-replay-launch {
+  position: sticky;
+  top: 56px;
+  z-index: 5;
+  background: var(--surface-2);
+}
+.online-replay-dialog .online-replay-controls {
+  position: sticky;
+  top: 108px;
+  z-index: 4;
+  background: var(--surface-2);
+  padding: 4px 0;
+}
+@media (min-width: 768px) {
+  .online-game-dialog:not(.online-replay-dialog) {
+    width: min(1240px, 96vw);
+    max-width: 96vw;
+  }
+}
+.online-replay-controls select {
+  width: auto;
+  flex: 0 0 110px;
+}
+.online-replay-controls input[type="range"] {
+  width: auto;
+  flex: 1;
+  min-width: 140px;
+}
+.online-replay-controls button {
+  min-height: 34px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+/* モバイルの試合経過は、回/表示粒度とページ送りで全投球を確認できる。 */
+.online-mobile-replay {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 6px;
+}
+.online-mobile-replay-tools {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.online-mobile-replay-tools select {
+  width: 85px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.online-mobile-replay-tools button {
+  flex: 1;
+  padding: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.online-mobile-play-state {
+  padding: 8px;
+  border-radius: 5px;
+  background: #020203;
+  color: #fb923c;
+  flex-shrink: 0;
+}
+.online-mobile-play-state > strong {
+  display: block;
+  text-align: center;
+  font-size: 16px;
+}
+.online-mobile-play-state p {
+  margin: 3px 0;
+  font-size: 11px;
+}
+.online-mobile-play-state p span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.online-mobile-runners {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+.online-mobile-runners span {
+  flex: 1;
+  text-align: center;
+  color: #b1bdcd;
+}
+.online-mobile-runners .is-occupied {
+  color: #facc15;
+}
+.online-mobile-play-list {
+  flex: 1;
+  min-height: 44px;
+  overflow: hidden;
+}
+.online-mobile-play-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+  width: 100%;
+  height: 44px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid #ffffff24;
+  padding: 4px;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+  font-size: 12px;
+}
+.online-mobile-play-list button > span,
+.online-mobile-play-list button > b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.online-mobile-play-list button[aria-current="true"] {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.online-mobile-replay > small {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.online-mobile-replay .online-pager {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  min-height: 44px;
+}
+.online-mobile-replay-footer {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.online-mobile-replay-footer .online-pager {
+  flex: 1;
+}
+.online-replay-launch button[aria-pressed="true"],
+.online-mobile-replay-tools button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: #67e8f9;
+}
+@media (max-width: 767px) {
+  .online-game-dialog .online-replay-launch {
+    display: flex;
+    margin: 0 0 4px;
+    gap: 4px;
+  }
+  .online-game-dialog .online-replay-launch button {
+    flex: 1;
+    padding: 4px 8px;
+    min-height: 36px;
+    font-size: 12px;
+  }
+  .online-game-dialog.online-mobile-replay-dialog {
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow: hidden;
+  }
+  .online-mobile-replay-dialog[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  .online-mobile-replay-dialog > header,
+  .online-mobile-replay-dialog > .online-replay-launch {
+    flex-shrink: 0;
+  }
 }
 
 /* 起用の札（スタメン・先発・リリーフ）。
@@ -1817,4 +1488,1793 @@
 .online-full-width {
   width: 100%;
   margin-bottom: 10px;
+}
+
+/* ============================================================
+   2026-11 見直し：暗い地＋浮いたカード、ボタンの3段階、球団色
+   ⚠ **地色はオンラインの中だけ暗くする**（`.online` の中でトークンを上書き）。
+      一人用の地色（灰色＝新聞の紙）は変えない。オンラインは一人用のタイトル画面の
+      雰囲気（暗い背景・大きな文字・主ボタン1つ）に寄せる、という方針。
+      元に戻すなら、この下の `.online { --… }` の上書きを消せばよい。
+   ============================================================ */
+.online {
+  --surface-0: #0b1420;
+  --surface-1: #122136;
+  --surface-2: #172a42;
+  --ol-raised: #1f3655;
+  --ol-line: rgba(148, 163, 184, 0.18);
+  --ol-line-strong: rgba(148, 163, 184, 0.34);
+  --ink: #e8eef6;
+  --ink-sub: #9fb1c6;
+  --ol-win: #34d399;
+  --ol-loss: #f87171;
+  --ol-draw: #94a3b8;
+  --ol-warn: #fbbf24;
+  --ol-side: 248px;
+  --ol-tabbar: 60px;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #16304f 0%, transparent 60%),
+    var(--surface-0);
+  color: var(--ink);
+}
+.online main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 22px 60px;
+}
+.online-card {
+  background: var(--surface-2);
+  border: 1px solid var(--ol-line);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+}
+.online-card .online-muted,
+.online-muted {
+  color: var(--ink-sub);
+}
+.online td,
+.online th {
+  border-bottom-color: var(--ol-line);
+}
+.online thead {
+  color: var(--ink-sub);
+  font-size: 12px;
+}
+.online-eyebrow,
+.online-card .online-eyebrow {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+/* ボタンの3段階：主（その画面で1つ・塗り）／副（枠線）／文字リンク */
+.online button {
+  background: transparent;
+  border-color: var(--ol-line-strong);
+  color: var(--ink);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.online button:hover:enabled {
+  background: rgba(148, 163, 184, 0.12);
+}
+.online button.online-primary {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #04212a;
+}
+.online button.online-link {
+  min-height: 32px;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+}
+.online button.online-link:hover:enabled {
+  background: none;
+  text-decoration: underline;
+}
+.online button.online-icon-button {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0;
+  border: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+.online button.online-more {
+  width: 100%;
+  margin-top: 10px;
+  border-style: dashed;
+  color: var(--ink-sub);
+}
+/* 押したボタンだけに回転の印（画面全体は止めない） */
+.online button.is-pending {
+  position: relative;
+  color: transparent !important;
+}
+.online button.is-pending::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-sub);
+  border-top-color: transparent;
+  animation: online-spin 0.7s linear infinite;
+}
+.online button.online-primary.is-pending::after {
+  border-color: #04212a;
+  border-top-color: transparent;
+}
+@keyframes online-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.online-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 90;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: online-progress 1s linear infinite;
+}
+@keyframes online-progress {
+  from {
+    background-position: -50% 0;
+  }
+  to {
+    background-position: 150% 0;
+  }
+}
+.online-skeleton {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+  margin: 24px auto;
+}
+.online-skeleton div {
+  height: 120px;
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--ol-raised) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: online-shimmer 1.4s linear infinite;
+}
+.online-skeleton div:first-child {
+  height: 180px;
+}
+@keyframes online-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.online-stale {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--ol-raised);
+  color: var(--ink-sub);
+}
+/* 通知。⚠ 画面の下（スマホは下タブのすぐ上）。ボタンに重ねない */
+.online-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #e8eef6;
+  color: #0b1420;
+  font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  animation: online-toast-in 0.2s ease-out;
+}
+.online-toast .online-link {
+  color: #0369a1 !important;
+  font-weight: 700;
+}
+@keyframes online-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+.online-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+.online-alert .online-link {
+  color: #fecaca;
+}
+.online-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+}
+.online-header nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+.online-brand {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+.online-brand span {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-sub);
+}
+.online-narrow {
+  max-width: 580px;
+  margin: 40px auto;
+}
+.online-login {
+  border-color: var(--ol-line-strong);
+}
+.online-login h1 {
+  font-size: 30px;
+}
+.online-login form + button {
+  margin-top: 8px;
+}
+.online-join-team {
+  display: grid;
+  gap: 2px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ol-raised);
+}
+.online-join-team span {
+  font-size: 12px;
+  color: var(--ink-sub);
+}
+.online-join-team strong {
+  font-size: 22px;
+}
+.online-join-team small {
+  color: var(--ink-sub);
+}
+
+/* セグメント（2〜5択） */
+.online-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  margin: 0 0 14px;
+  border-radius: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--ol-line);
+}
+.online .online-segments button {
+  min-height: 36px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink-sub);
+  font-size: 13px;
+}
+.online .online-segments button[aria-pressed="true"] {
+  background: var(--ol-raised);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.online .online-segments.is-small {
+  margin: 0;
+}
+.online .online-segments.is-small button {
+  min-height: 32px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.online-card-heading {
+  flex-wrap: wrap;
+}
+.online-card-heading .online-segments {
+  margin: 0;
+}
+
+/* 球団の丸マーク（色は球団名から） */
+.online-team-badge {
+  --team-hue: 200;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: hsl(var(--team-hue) 62% 42%);
+  box-shadow: inset 0 0 0 2px hsl(var(--team-hue) 70% 60% / 0.6);
+}
+.online-team-badge.is-sm {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+.online-team-badge.is-lg {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+.online-team-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.online-team-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 疲労（3段階） */
+.online-fatigue {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--ink-sub);
+}
+.online-fatigue.is-0 {
+  color: var(--ol-win);
+  background: rgba(52, 211, 153, 0.12);
+}
+.online-fatigue.is-1 {
+  color: var(--ol-warn);
+  background: rgba(251, 191, 36, 0.14);
+}
+.online-fatigue.is-2 {
+  color: var(--ol-loss);
+  background: rgba(248, 113, 113, 0.16);
+}
+.online-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #04212a;
+  background: var(--accent);
+}
+
+/* いまやること */
+.online-now {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1d3a5f, #142a46);
+  border: 1px solid var(--ol-line-strong);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.online-now.is-action {
+  background: linear-gradient(135deg, #0e4a5c, #133150);
+  border-color: rgba(34, 211, 238, 0.5);
+}
+.online-now h2 {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+.online-now-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.online-now-match > span:first-child {
+  font-size: 15px;
+  color: var(--ink-sub);
+}
+.online-now-starter {
+  font-size: 14px;
+}
+.online-now .online-primary,
+.online-now > button {
+  margin-top: 6px;
+}
+.online-deadline {
+  font-size: 14px;
+  color: var(--ink-sub);
+}
+.online-deadline.is-urgent {
+  color: #fcd34d;
+}
+.online-phase-progress p {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.online-phase-progress ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.online-phase-progress li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 4px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(148, 163, 184, 0.12);
+}
+.online-phase-progress li small {
+  color: var(--ink-sub);
+}
+.online-phase-progress li.is-ready small {
+  color: var(--ol-win);
+}
+.online-last-game {
+  margin-bottom: 16px;
+}
+.online-last-game .online-eyebrow {
+  margin-left: 4px;
+}
+.online-news-teaser {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 14px 16px !important;
+  border-radius: 14px !important;
+  text-align: left;
+  white-space: normal !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--ol-line) !important;
+}
+.online-news-teaser .online-eyebrow {
+  margin: 0;
+  flex: none;
+}
+.online-news-teaser span:nth-child(2) {
+  flex: 1;
+}
+
+/* 試合カード（勝ちは緑・負けは赤の色帯） */
+.online-score-list {
+  display: grid;
+  gap: 8px;
+}
+.online .online-score {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--ol-line);
+  border-left: 4px solid transparent;
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: var(--ink);
+  text-align: left;
+  white-space: normal;
+}
+.online .online-score.is-own {
+  background: var(--ol-raised);
+  border-left-color: var(--accent);
+}
+.online .online-score.is-win {
+  border-left-color: var(--ol-win);
+}
+.online .online-score.is-loss {
+  border-left-color: var(--ol-loss);
+}
+.online .online-score.is-draw {
+  border-left-color: var(--ol-draw);
+}
+.online-score-date {
+  font-size: 12px;
+  color: var(--ink-sub);
+}
+.online-score-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.online-score-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.online-score-team > span:not(.online-team-badge) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.online-score-team.is-home {
+  justify-content: flex-end;
+}
+.online-score-teams strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.online-score-decisions {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--ink-sub);
+}
+.online-outcome {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(148, 163, 184, 0.2);
+}
+.online-outcome.is-win {
+  background: var(--ol-win);
+  color: #052e1c;
+}
+.online-outcome.is-loss {
+  background: var(--ol-loss);
+  color: #3b0a0a;
+}
+.online-last-game .online-score {
+  min-height: 84px;
+  padding: 16px;
+}
+.online-last-game .online-score-teams strong {
+  font-size: 30px;
+}
+
+/* 順位表 */
+.online-standings th:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.online-standing-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.online-standings td {
+  font-variant-numeric: tabular-nums;
+}
+.online-own {
+  background: rgba(34, 211, 238, 0.1);
+}
+
+/* 編成（打順・投手） */
+.online-save-state {
+  font-size: 12px;
+  color: var(--ink-sub);
+}
+.online-order-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.online-order-list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ol-line);
+}
+.online-pitcher-editor .online-order-list li {
+  grid-template-columns: 26px minmax(0, 1fr) auto auto auto;
+}
+.online-pitcher-editor ul.online-order-list li {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+.online-order-no {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--ol-raised);
+}
+.online .online-order-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 6px;
+  border: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+.online-order-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.online-pos {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  border: 1px solid var(--ol-line-strong);
+}
+.online-pick-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.online-row-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+.online .online-row-actions button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+.online-order-list li.is-pitcher-slot {
+  opacity: 0.6;
+}
+.online-ability-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.online-ability-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+.online-ability-bar small {
+  color: var(--ink-sub);
+}
+.online-ability-track {
+  display: inline-block;
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+.online-ability-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.online-tactics section {
+  margin-bottom: 16px;
+}
+.online-tactics h3,
+.online-pitcher-editor h3 {
+  margin: 12px 0 8px;
+  font-size: 14px;
+  color: var(--ink-sub);
+}
+.online-setting {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+.online-setting select {
+  max-width: 260px;
+}
+
+/* 下から出るシート（スマホ）／中央のダイアログ（PC） */
+.online-sheet {
+  width: min(560px, calc(100% - 24px));
+  max-height: min(80dvh, 720px);
+  padding: 0;
+  border: 1px solid var(--ol-line-strong);
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.online-sheet:not([open]) {
+  display: none;
+}
+.online-sheet::backdrop {
+  background: rgba(2, 6, 23, 0.6);
+}
+.online-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 6px 16px;
+}
+.online-sheet header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.online-sheet-body {
+  padding: 0 16px 16px;
+  overflow-y: auto;
+}
+.online-sheet h3 {
+  margin: 10px 0 8px;
+  font-size: 13px;
+  color: var(--ink-sub);
+}
+.online-position-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.online .online-position-grid button {
+  display: grid;
+  gap: 0;
+  min-height: 52px;
+  padding: 4px;
+}
+.online .online-position-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.12);
+}
+.online-position-grid small {
+  font-size: 10px;
+  color: var(--ink-sub);
+}
+.online-pick-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.online .online-pick-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+}
+.online-pick-list .online-ability-row {
+  grid-column: 1 / -1;
+}
+.online-pick-name {
+  display: grid;
+  min-width: 0;
+}
+.online-pick-name small {
+  color: var(--ink-sub);
+  font-size: 11px;
+}
+
+/* 手続き */
+.online-decision-head {
+  margin-bottom: 14px;
+}
+.online-decision-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 16px -22px -22px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--ol-line);
+  border-radius: 0 0 14px 14px;
+  background: var(--surface-2);
+}
+.online-decision-bar .online-save-state {
+  margin-right: auto;
+}
+.online-camp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+.online .online-camp-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 2px 10px;
+  padding: 12px;
+  text-align: left;
+  white-space: normal;
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+.online .online-camp-card[aria-checked="true"] {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.12);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.online-camp-icon {
+  grid-row: span 2;
+  font-size: 22px;
+}
+.online-camp-card small {
+  color: var(--ink-sub);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.online-camp-card .online-tag {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 4px;
+}
+.online-release-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.online-release-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ol-line);
+}
+.online-release-list .online-check {
+  margin: 0;
+}
+.online .online-tryout-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.online .online-tryout-head label {
+  margin: 0;
+}
+.online-tryout-list.is-wanted li[draggable="true"] {
+  cursor: grab;
+}
+.online-tryout-list.is-wanted li[data-drag-over]:hover {
+  box-shadow: 0 -2px 0 var(--accent) inset;
+}
+.online-tryout-pool-fold {
+  margin-top: 14px;
+}
+.online-tryout-pool-fold summary {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--ol-line-strong);
+  cursor: pointer;
+}
+
+/* 試合結果（スコアボード） */
+.online .online-game-summary {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border-top: 4px solid transparent;
+}
+.online .online-game-summary.is-win {
+  border-top-color: var(--ol-win);
+}
+.online .online-game-summary.is-loss {
+  border-top-color: var(--ol-loss);
+}
+.online-game-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.online-game-summary strong {
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+}
+.online-line-score-wrap,
+.online-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.online table.online-line-score {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.online-line-score th,
+.online-line-score td {
+  padding: 6px 4px;
+  min-width: 24px;
+}
+.online-line-score th:first-child {
+  min-width: 80px;
+}
+.online-line-score .is-total {
+  font-weight: 800;
+  color: var(--accent);
+}
+.online-box-decisions {
+  margin: 10px 0;
+  font-size: 13px;
+  color: var(--ink-sub);
+}
+.online-box-heading {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  color: var(--ink-sub);
+}
+.online-box-order {
+  display: inline-block;
+  width: 16px;
+  color: var(--ink-sub);
+}
+.online-record-table tr.is-sub th {
+  padding-left: 16px;
+}
+.online-box-mark {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: rgba(148, 163, 184, 0.2);
+}
+.online-box-mark.is-win {
+  background: var(--ol-win);
+  color: #052e1c;
+}
+.online-box-mark.is-loss {
+  background: var(--ol-loss);
+  color: #3b0a0a;
+}
+
+/* 選手一覧（全員を1画面・横に流れる表） */
+.online-roster-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.online-roster-toolbar .online-segments {
+  margin: 0;
+}
+.online-roster-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.online-roster-block h3 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+}
+.online-roster-block h3 small {
+  color: var(--ink-sub);
+  font-weight: 400;
+}
+.online table.online-roster-table {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.online-roster-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  min-width: 190px;
+}
+.online-roster-table td {
+  font-variant-numeric: tabular-nums;
+}
+/* 左の選手名の列は固定。Tabやスクロールで列を寄せたとき、固定列の下に隠れないよう余白を取る */
+.online-roster-block .online-table-scroll {
+  scroll-padding-left: 200px;
+}
+.online .online-roster-table thead button {
+  min-height: 32px;
+  padding: 2px 4px;
+  border: 0;
+  font-size: 12px;
+  color: var(--ink-sub);
+}
+.online .online-roster-table thead button[aria-pressed="true"] {
+  color: var(--accent);
+}
+.online-roster-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.online-roster-person small {
+  color: var(--ink-sub);
+}
+.online-roster-person .online-stat-labels {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+/* 選手詳細（スマホは全画面・縦スクロール） */
+.online-player-sheet {
+  width: min(720px, calc(100% - 24px));
+  padding: 0;
+}
+.online-player-sheet > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 10px 18px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--ol-line);
+}
+.online-player-sheet > header h2 {
+  margin: 0 0 2px;
+  font-size: 20px;
+}
+.online-player-sheet > header small {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-sub);
+}
+.online-player-body {
+  padding: 0 18px 24px;
+}
+.online-player-body > section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ol-line);
+}
+.online-player-body h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.online-player-top {
+  display: grid;
+  justify-items: center;
+}
+.online-ability-all section h3 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--ink-sub);
+}
+
+/* 便り */
+.online-news-summary {
+  font-size: 13px;
+  color: var(--ink-sub);
+}
+.online-news-list article.is-own b {
+  color: var(--accent);
+}
+.online-condition-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.online-condition-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ol-line);
+}
+.online-condition-list li .online-role-mark {
+  min-width: 40px;
+}
+
+/* ---------------- PC ---------------- */
+.online-desktop.online-in-league main {
+  max-width: none;
+  padding: 0;
+}
+.online-desktop-layout {
+  display: block;
+}
+.online-side {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--ol-side);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 14px;
+  background: rgba(9, 17, 29, 0.92);
+  border-right: 1px solid var(--ol-line);
+  overflow-y: auto;
+  z-index: 20;
+}
+.online-side .online-brand {
+  margin: 0 6px 6px;
+}
+.online-nav-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.online-nav-context strong {
+  display: block;
+  font-size: 15px;
+}
+.online-nav-context small {
+  font-size: 12px;
+  color: var(--ink-sub);
+}
+.online-nav-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 0 8px 6px;
+  font-size: 13px;
+}
+.online-nav-status small {
+  grid-column: 2;
+  color: var(--ink-sub);
+  font-size: 11px;
+}
+.online-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ol-draw);
+}
+.online-status-dot.is-running {
+  background: var(--ol-win);
+}
+.online-status-dot.is-waiting {
+  background: var(--ol-warn);
+}
+.online-status-dot.is-error {
+  background: var(--ol-loss);
+}
+.online-nav-items {
+  display: grid;
+  gap: 2px;
+}
+.online .online-nav-items button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  text-align: left;
+  color: var(--ink-sub);
+}
+.online .online-nav-items button[aria-current] {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 3px 0 0 var(--accent) inset;
+}
+.online-nav-items kbd {
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: inherit;
+  color: var(--ink-sub);
+  border: 1px solid var(--ol-line);
+}
+.online-nav-footer {
+  display: grid;
+  justify-items: start;
+  gap: 0;
+  margin-top: auto;
+  padding: 10px 8px 0;
+  border-top: 1px solid var(--ol-line);
+  font-size: 13px;
+}
+.online-nav-footer a {
+  padding: 6px 2px;
+  color: var(--ink-sub);
+}
+.online-nav-footer .online-link {
+  color: var(--ink-sub) !important;
+}
+.online-nav-footer small {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ol-warn);
+}
+.online-content {
+  margin-left: var(--ol-side);
+  padding: 22px 28px 60px;
+  max-width: calc(1320px + var(--ol-side));
+}
+.online-desktop.online-in-league > main > .online-alert {
+  margin: 12px 28px 0 calc(var(--ol-side) + 28px);
+}
+.online-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+.online-form-width.is-wide {
+  max-width: 980px;
+}
+.online-lineup-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.online-lineup-card .online-row-actions {
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.online-lineup-card li:hover .online-row-actions,
+.online-lineup-card li:focus-within .online-row-actions,
+.online-lineup-card.is-mobile .online-row-actions {
+  opacity: 1;
+}
+.online-tryout-list li .online-row-actions {
+  display: inline-flex;
+}
+/* ⚠ 隠すのは opacity で。visibility:hidden だとキーボードのTabで届かなくなる */
+@media (hover: hover) and (min-width: 768px) {
+  .online-tryout-list.is-wanted li .online-row-actions {
+    opacity: 0;
+  }
+  .online-tryout-list.is-wanted li:hover .online-row-actions,
+  .online-tryout-list.is-wanted li:focus-within .online-row-actions {
+    opacity: 1;
+  }
+}
+/* 詳しい編成（一人用の画面）は左ナビを覆わない */
+.online-lineup-layer {
+  left: var(--ol-side, 248px);
+  background: #0b1420 !important;
+}
+@media (max-width: 1100px) {
+  .online-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------- スマホ ---------------- */
+@media (max-width: 767px) {
+  .online-mobile.online-in-league main {
+    padding: 0 0 calc(var(--ol-tabbar) + 24px + env(safe-area-inset-bottom));
+  }
+  .online-mobile-top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 14px;
+    background: rgba(11, 20, 32, 0.94);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--ol-line);
+  }
+  .online-mobile-title {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+  }
+  .online-mobile-title strong {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .online-mobile-title small {
+    font-size: 11px;
+    color: var(--ink-sub);
+  }
+  .online-mobile-body {
+    padding: 12px;
+  }
+  .online-mobile .online-card {
+    padding: 14px 12px;
+    margin-bottom: 12px;
+  }
+  .online-mobile .online-alert {
+    margin: 8px 12px;
+  }
+  .online-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    height: calc(var(--ol-tabbar) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(11, 20, 32, 0.96);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--ol-line);
+  }
+  .online .online-tabbar button {
+    position: relative;
+    flex: 1;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0;
+    min-height: 0;
+    padding: 4px 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 11px;
+    color: var(--ink-sub);
+  }
+  .online-tabbar button span[aria-hidden] {
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  .online .online-tabbar button[aria-current] {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .online-tabbar .online-dot {
+    position: absolute;
+    top: 8px;
+    right: calc(50% - 18px);
+    background: var(--ol-warn);
+  }
+  .online-toast {
+    bottom: calc(var(--ol-tabbar) + 12px + env(safe-area-inset-bottom));
+  }
+  /* 決定バーが出ている画面では、通知がボタンを隠さないよう、その上に出す */
+  .online:has(.online-decision-bar) .online-toast {
+    bottom: calc(var(--ol-tabbar) + 120px + env(safe-area-inset-bottom));
+  }
+  .online-now {
+    padding: 16px;
+  }
+  .online-now h2 {
+    font-size: 19px;
+  }
+  .online .online-now > button {
+    width: 100%;
+  }
+  .online-decision-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--ol-tabbar) + env(safe-area-inset-bottom));
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 0;
+    z-index: 25;
+  }
+  .online-decision-bar .online-save-state {
+    width: 100%;
+  }
+  .online-decision-bar button {
+    flex: 1;
+  }
+  .online-mobile:has(.online-decision-bar) .online-mobile-body {
+    padding-bottom: 120px;
+  }
+  .online-setting {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .online-order-list li {
+    grid-template-columns: 24px minmax(0, 1fr) auto auto;
+    gap: 4px;
+  }
+  .online-pitcher-editor ol.online-order-list li {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+  }
+  .online-pitcher-editor ul.online-order-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .online-pitcher-editor ol.online-order-list li > select,
+  .online-pitcher-editor ol.online-order-list li > .online-segments {
+    grid-column: 2;
+  }
+  .online-pitcher-editor li > select {
+    min-height: 36px;
+    padding: 4px 8px;
+  }
+  .online-pitcher-editor .online-order-main {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .online-sheet {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 18px 18px 0 0;
+    max-height: 86dvh;
+  }
+  .online-player-sheet,
+  .online-player-dialog.online-player-sheet {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .online-roster-table th:first-child {
+    min-width: 150px;
+  }
+  .online-score-teams strong {
+    font-size: 18px;
+  }
+  .online .online-score {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 10px;
+  }
+  .online-release-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .online-release-list .online-ability-row {
+    grid-column: 1 / -1;
+  }
+  .online-mobile-menu-panel hr {
+    border: 0;
+    border-top: 1px solid var(--ol-line);
+    margin: 6px 0;
+  }
+}
+
+/* ダイアログ共通の見出し（タイトルと閉じるを1行に） */
+.online-player-dialog > header,
+.online-game-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.online-player-dialog > header h2 {
+  margin: 0;
+}
+@media (hover: none) {
+  .online button:hover:enabled {
+    background: transparent;
+  }
+  .online button.online-primary:hover:enabled {
+    background: var(--accent-strong);
+  }
+}
+
+/* 狭いスマホ（〜480px）の選手一覧。
+   ⚠ 左の固定列（名前・調子・札）が折り返さないと、320px幅では固定列だけで画面が埋まり、
+      成績の列が1つも見えなかった。固定列は画面の半分までにして、中身は2段に折り返す。
+      見出し行（自球団名・他球団を見る・表示の切替）も折り返して重ならないようにする */
+@media (max-width: 480px) {
+  .online-roster-table th:first-child {
+    min-width: 0;
+    width: 50vw;
+    max-width: 50vw;
+    white-space: normal;
+  }
+  .online-roster-table .online-roster-person {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+  }
+  .online-roster-block .online-table-scroll {
+    scroll-padding-left: 50vw;
+  }
+  .online-roster-toolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .online-roster-toolbar > div:first-child {
+    flex: 1 1 100%;
+  }
+}
+
+/* ===== 並べ替え（つまみ ≡ のドラッグ）と打順の行 ===== */
+/* ⚠ つまみは touch-action:none。付けないとスマホで指を動かすとスクロールに取られる */
+.online .online-drag-handle {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-sub);
+  background: transparent;
+  border-color: transparent;
+  touch-action: none;
+  cursor: grab;
+}
+.online .online-drag-handle:active {
+  cursor: grabbing;
+}
+.online [data-dragging] {
+  position: relative;
+  z-index: 5;
+  background: var(--surface-2);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.55);
+  border-radius: 10px;
+  opacity: 0.95;
+}
+.online [data-drop='before'] {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.online [data-drop='after'] {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.online-lineup-card .online-row-actions,
+.online-lineup-card li:hover .online-row-actions {
+  opacity: 1;
+}
+.online .online-order-list.is-batting .online-order-main {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+.online-order-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.online-short-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.online-short-stats small {
+  margin-right: 3px;
+  color: var(--ink-sub);
+}
+.online-lineup-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.online-lineup-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.online .online-lineup-actions button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.online-save-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.online-order-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.online .online-order-grid button {
+  display: grid;
+  gap: 0;
+  min-height: 52px;
+  padding: 4px;
+  overflow: hidden;
+}
+.online .online-order-grid button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.12);
+}
+.online-order-grid small {
+  font-size: 10px;
+  color: var(--ink-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.online-sheet footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ol-line);
+}
+.online-sheet footer button {
+  min-width: 120px;
+}
+.online .online-pick-list .online-short-stats {
+  grid-column: 1 / -1;
+}
+
+/* 獲得希望：順位の数字（押すと順位を選べる）と人数の±、つまみは常に見せる */
+.online .online-tryout-list .online-tryout-rank {
+  flex: 0 0 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--ol-raised);
+}
+.online .online-tryout-list.is-wanted li .online-row-actions {
+  opacity: 1;
+}
+.online-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.online-stepper > span {
+  margin-right: 4px;
+}
+.online-stepper small {
+  color: var(--ink-sub);
+  font-size: 12px;
+}
+.online .online-stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 20px;
+}
+.online-stepper output {
+  min-width: 44px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 押すと選手一覧へ移る球団名（見た目は文字のまま、下線だけ） */
+.online .online-team-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--ol-line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.online .online-team-link:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* 試合結果：前後の試合へ */
+.online-game-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+}
+.online-game-steps small {
+  color: var(--ink-sub);
+  font-variant-numeric: tabular-nums;
+}
+.online .online-game-steps button {
+  min-height: 40px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.online-results-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.online-results-tools .online-segments {
+  margin: 0;
+}
+/* 選手詳細：前後の選手へ */
+.online-player-dialog header > .online-icon-button[aria-label='前の選手'],
+.online-player-dialog header > .online-icon-button[aria-label='次の選手'] {
+  flex: none;
+  font-size: 22px;
+}
+.online-player-dialog header > div {
+  flex: 1;
+  min-width: 0;
+}
+.online .online-order-list.is-batting li {
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+}
+.online-order-list.is-batting .online-order-line .online-fatigue,
+.online-order-list.is-batting .online-order-line .online-condition {
+  flex: none;
+}
+.online-short-stats {
+  gap: 2px 8px;
+}
+.online-short-stats small {
+  font-size: 10px;
+  margin-right: 2px;
+}
+/* ドラッグ中は文字の選択をさせない */
+.online:has([data-dragging]) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 試合の成績表の選手名（押すと選手情報） */
+.online .online-record-table tbody th .online-player-name {
+  display: inline;
+  width: auto;
+  min-height: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
 }

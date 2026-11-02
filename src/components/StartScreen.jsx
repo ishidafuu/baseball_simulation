@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getEmergencyInfo, promoteEmergencyToSlot, clearEmergencySave, getAutosaveInfo, isAutosaveEnabled, setAutosaveEnabled } from '../game/saveSystem.js';
 import { isTutorialEnabled, setTutorialEnabled, resetTutorialProgress } from '../game/tutorial.js';
 import { getUiScale, cycleUiScale, UI_SCALE_LABEL } from '../game/uiSettings.js';
+import { askConfirm } from '../utils/gameDialog.js';
 
 /**
  * タイトル画面の球場パレット。
@@ -211,7 +212,7 @@ const StartScreen = ({ onNewGame, onSandbox, onContinue, onEdit, onEditCorporate
   };
 
   const handleRestoreEmergency = async (slotIndex) => {
-    if (!window.confirm(`緊急バックアップをスロット${slotIndex + 1}へ復元してプレイします。よろしいですか？`)) return;
+    if (!(await askConfirm(`緊急バックアップをスロット${slotIndex + 1}へ復元してプレイします。よろしいですか？`))) return;
     const r = await promoteEmergencyToSlot(slotIndex);
     if (r.success) {
       clearEmergencySave();

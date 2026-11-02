@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Standings,
   Results,
@@ -7,159 +7,179 @@ import {
   LineupPanel,
 } from './LeaguePanels.jsx';
 import TeamRoster from './TeamRoster.jsx';
-import OnlineLineup from './OnlineLineup.jsx';
-import { CompactRoster, TeamBrief } from './PlayerPerformance.jsx';
-import { formatGameDate } from './shared.js';
-import { dateTime, STATUS } from './api.js';
+import { CompactRoster } from './PlayerPerformance.jsx';
+import Admin from './AdminPanel.jsx';
+import { NowCard, LastGame, LatestNews } from './Home.jsx';
+import { STATUS } from './api.js';
 import { teamLabel } from './gameText.js';
+import { TeamBadge, gameDay } from './ui.jsx';
+
+// スマホの画面。
+// ⚠ **下に4つのタブ（ホーム / 試合 / 編成 / 選手）を常に出す**。以前は
+//    「← ⌂ ☰」だけで、いまどこにいるか分からず、画面間の移動が必ずホーム経由だった。
+// ⚠ 手続きはホームの「いまやること」から入る（手続き中だけタブにも出す）。
+// ⚠ **「PCで」と言わない**。手続き・控えの入れ替え・管理もスマホで最後までできる。
+// 下タブの印（線画のSVG。絵文字だと端末ごとに色や形が変わる）
+const ICON_PATHS = {
+  today: 'M4 11 12 4l8 7v9h-5v-6H9v6H4z',
+  games: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM7 6c2 2 2 10 0 12M17 6c-2 2-2 10 0 12',
+  lineup: 'M5 6h14M5 12h14M5 18h14',
+  decisions: 'M6 3h9l3 3v15H6zM9 12l2 2 4-4',
+  players: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+};
+const Icon = ({ id }) => (
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <path
+      d={ICON_PATHS[id]}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+const TABS = [
+  ['today', 'ホーム'],
+  ['games', '試合'],
+  ['lineup', '編成'],
+  ['players', '選手'],
+];
+const SUB_TITLES = {
+  decisions: '手続き',
+  news: 'リーグ便り',
+  standings: '順位表',
+  admin: 'リーグ管理',
+};
 export default function MobileView(props) {
-  const { view, local, loading, reloadView, logout, showTimes, tab, setTab } =
-    props;
-  const [playersFrom, setPlayersFrom] = useState('today');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [fullLineup, setFullLineup] = useState(false);
-  const tabs = [
-    ['today', '今日'],
-    ['games', '試合'],
-    ['lineup', '打順'],
-    ['decisions', '手続き'],
-  ];
+  const { view, tab, setTab } = props;
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const tabs = view.phase
+    ? [...TABS.slice(0, 3), ['decisions', '手続き'], TABS[3]]
+    : TABS;
+  const sub = SUB_TITLES[tab] && !(tab === 'decisions' && view.phase);
+  const screen = tab === 'admin' && !view.isAdmin ? 'today' : tab;
+  // ⚠ 「‹」は**来た画面へ戻る**。以前はいつもホームへ飛び、試合タブから
+  //    順位表を開いて戻ると、試合タブを開き直す必要があった
+  const trail = useRef(['today']);
+  if (trail.current[trail.current.length - 1] !== screen) {
+    if (trail.current[trail.current.length - 2] === screen) trail.current.pop();
+    else trail.current = [...trail.current.slice(-9), screen];
+  }
+  const back = () => setTab(trail.current[trail.current.length - 2] || 'today');
+  useEffect(() => {
+    window.scrollTo?.(0, 0);
+  }, [screen]);
   return (
     <>
-      {tab === 'today' && (
-        <>
-          <section className="online-mobile-overview">
-            <strong>{teamLabel(view.teamName)}</strong>
-            <span>
-              {formatGameDate(view.currentDate)} · {STATUS[view.status]}
-            </span>
-            <small>次の進行 {dateTime(view.nextAdvanceAt)}</small>
-          </section>
-          <TeamBrief view={view} />
-          <nav className="online-home-actions" aria-label="オンラインの画面">
-            {tabs
-              .filter(([id]) => id !== 'today')
-              .map(([id, label]) => (
-                <button key={id} aria-label={label} onClick={() => setTab(id)}>
-                  {label}
-                  {id === 'decisions' && view.phase && (
-                    <span className="online-dot" aria-label="未完了の手続き" />
-                  )}
-                </button>
-              ))}
-            <button
-              onClick={() => {
-                setPlayersFrom('today');
-                setTab('players');
-              }}
-            >
-              選手成績
-            </button>
-          </nav>
-          <Standings view={view} />
-          <button className="online-news-link" onClick={() => setTab('news')}>
-            リーグ便り・過去のシーズン →
+      <header className="online-mobile-top">
+        {sub ? (
+          <button
+            className="online-icon-button"
+            aria-label="戻る"
+            onClick={back}
+          >
+            ‹
           </button>
-        </>
-      )}
-      {tab === 'games' && <Results view={view} compact />}
-      {tab === 'players' && (
-        <TeamRoster view={view}>
-          {(shown, selector) => (
-            <CompactRoster
-              key={shown.teamName}
-              view={shown}
-              teamSelector={selector}
-            />
-          )}
-        </TeamRoster>
-      )}
-      {tab === 'news' && (
-        <>
-          <Notices view={view} compact />
-        </>
-      )}
-      {(tab === 'lineup' || tab === 'players') && (
-        <div hidden={tab === 'players'}>
-          {/* ⚠ **手続き中でも開けること**。以前は「決定待ちです」で塞いでいたが、
-              打順や投手起用はいつ決めてもよく、止める理由が無い */}
-          {fullLineup ? (
-            <OnlineLineup
-              view={view}
-              busy={props.busy}
-              onClose={() => setFullLineup(false)}
-              onSave={async (plan, baseLineup) => {
-                // ⚠ **失敗したら閉じない**（PCと同じ）。閉じると編集がまるごと消える
-                const result = await props.run(() =>
-                  props.command('lineup', { ...plan, baseLineup }),
-                );
-                if (result?.ok) setFullLineup(false);
-                return result;
-              }}
-            />
-          ) : (
-            <>
-              {/* ⚠ スマホからも移植した画面へ入れるようにする。横に長い画面なので
-                  既定では開かず、押したときだけ出す（PCは既定で開く） */}
-              <button
-                className="online-primary online-full-width"
-                onClick={() => setFullLineup(true)}
-              >
-                打順・守備・投手起用を開く（横向き推奨）
-              </button>
-              <LineupPanel
-                key={`${view.year}:${view.teamName}`}
-                {...props}
-                mobile
-                onShowRoster={() => {
-                  setPlayersFrom('lineup');
-                  setTab('players');
-                }}
-                hidden={tab === 'players'}
-              />
-            </>
-          )}
-        </div>
-      )}
-      {tab === 'decisions' &&
-        (view.phase ? (
-          <PhasePanel key={view.phase.id} {...props} mobile />
         ) : (
-          <section className="online-card">
-            <h2>手続き</h2>
-            <p>現在、決定待ちの手続きはありません。</p>
-          </section>
-        ))}
-      <nav className="online-mobile-controls" aria-label="画面操作">
+          <TeamBadge team={view.teamName} />
+        )}
+        <div className="online-mobile-title">
+          <strong>{sub ? SUB_TITLES[tab] : teamLabel(view.teamName)}</strong>
+          <small>
+            {view.year}年目 · {gameDay(view.currentDate)} ·{' '}
+            {STATUS[view.status]}
+          </small>
+        </div>
         <button
-          aria-label="戻る"
-          disabled={tab === 'today'}
-          onClick={() => setTab(tab === 'players' ? playersFrom : 'today')}
+          className="online-icon-button"
+          aria-label="メニュー"
+          onClick={() => setMenuOpen(true)}
         >
-          ←
-        </button>
-        <button aria-label="ホーム" onClick={() => setTab('today')}>
-          ⌂
-        </button>
-        <button aria-label="メニュー" onClick={() => setMenuOpen(true)}>
           ☰
         </button>
+      </header>
+      <div className="online-mobile-body">
+        {screen === 'today' && (
+          <>
+            <NowCard view={view} setTab={setTab} />
+            <LastGame view={view} />
+            <Standings
+              view={view}
+              around
+              title="順位"
+              onShowAll={() => setTab('standings')}
+            />
+            <LatestNews view={view} open={() => setTab('news')} />
+          </>
+        )}
+        {screen === 'games' && <Results view={view} compact />}
+        {screen === 'players' && (
+          <TeamRoster view={view}>
+            {(shown, selector) => (
+              <CompactRoster
+                key={shown.teamName}
+                view={shown}
+                teamSelector={selector}
+              />
+            )}
+          </TeamRoster>
+        )}
+        {screen === 'lineup' && (
+          <LineupPanel key={`${view.year}:${view.teamName}`} {...props} mobile />
+        )}
+        {screen === 'decisions' &&
+          (view.phase ? (
+            <PhasePanel key={view.phase.id} {...props} mobile />
+          ) : (
+            <section className="online-card">
+              <p className="online-empty">
+                いま決める手続きはありません。土日に手続きがあると、ここに出ます。
+              </p>
+            </section>
+          ))}
+        {screen === 'news' && <Notices view={view} compact />}
+        {screen === 'standings' && <Standings view={view} />}
+        {screen === 'admin' && <Admin {...props} />}
+      </div>
+      <nav className="online-tabbar" aria-label="オンラインの画面">
+        {tabs.map(([id, label]) => (
+          <button
+            key={id}
+            aria-label={label}
+            aria-current={screen === id ? 'page' : undefined}
+            onClick={() => setTab(id)}
+          >
+            <Icon id={id} />
+            {label}
+            {id === 'decisions' &&
+              !view.members.find((m) => m.teamName === view.teamName)?.ready && (
+                <span className="online-dot" aria-label="未決定の手続き" />
+              )}
+          </button>
+        ))}
       </nav>
       {menuOpen && (
         <MobileMenu
-          loading={loading}
-          local={local}
+          {...props}
+          go={(id) => setTab(id)}
           close={() => setMenuOpen(false)}
-          reloadView={reloadView}
-          showTimes={showTimes}
-          logout={logout}
         />
       )}
     </>
   );
 }
 
-function MobileMenu({ close, loading, local, reloadView, showTimes, logout }) {
+function MobileMenu({
+  view,
+  close,
+  go,
+  loading,
+  local,
+  reloadView,
+  showTimes,
+  logout,
+}) {
   const dialog = useRef(null);
   useEffect(() => {
     const node = dialog.current;
@@ -190,16 +210,27 @@ function MobileMenu({ close, loading, local, reloadView, showTimes, logout }) {
     >
       <header>
         <h2 id="online-menu-title">メニュー</h2>
-        <button onClick={() => act()} aria-label="メニューを閉じる">
-          閉じる
+        <button
+          className="online-icon-button"
+          onClick={() => act()}
+          aria-label="メニューを閉じる"
+        >
+          ×
         </button>
       </header>
       <div>
+        <button onClick={() => act(() => go('decisions'))}>手続き</button>
+        <button onClick={() => act(() => go('news'))}>リーグ便り</button>
+        <button onClick={() => act(() => go('standings'))}>順位表</button>
+        {view.isAdmin && (
+          <button onClick={() => act(() => go('admin'))}>リーグ管理</button>
+        )}
+        <hr />
         <button disabled={loading} onClick={() => act(reloadView)}>
-          更新
+          最新の状態に更新
         </button>
-        <button onClick={() => act(showTimes)}>進行時刻</button>
-        <a href="/">一人用</a>
+        <button onClick={() => act(showTimes)}>進行のしくみ</button>
+        <a href="/">一人用モードへ</a>
         <button disabled={loading} onClick={() => act(logout)}>
           ログアウト
         </button>

@@ -76,6 +76,7 @@ import ManagementScreen from './components/ManagementScreen.jsx';
 import GameFlowScreens from './components/GameFlowScreens.jsx';
 import { Sidebar, RenderBases, AccordionSection, TeamPitcherPanel, TeamMemberPanel } from './components/GameUIComponents.jsx';
 import { PlayerEditColumn } from './components/PlayerEditColumn.jsx';
+import { showMessage } from './utils/gameDialog.js';
 
     // ========================================================================
     // App.jsx セクション構成 (行番号はおおよその目安)
@@ -4195,7 +4196,7 @@ if (newOuts === 3) {
                           <button onClick={() => {
                             const usedTypes = editingPlayer.pitching.arsenal.map(b => b.type);
                             const availableTypes = Object.keys(ballEffects).filter(type => !usedTypes.includes(type));
-                            if (availableTypes.length === 0) { alert('すべての球種を習得済みです'); return; }
+                            if (availableTypes.length === 0) { showMessage('すべての球種を習得済みです'); return; }
                             const newArsenal = [...editingPlayer.pitching.arsenal, {
                               id: Math.max(...editingPlayer.pitching.arsenal.map(b => b.id)) + 1,
                               type: availableTypes[0], level: 50

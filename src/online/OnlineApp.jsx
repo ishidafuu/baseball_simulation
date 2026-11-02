@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { formatGameDate, PROGRESSION_TIMES } from './shared.js';
 import './online.css';
-import { api, AUTH_KEY, dateTime, STATUS } from './api.js';
+import { api, AUTH_KEY } from './api.js';
 import { Login, JoinLeague } from './LeaguePanels.jsx';
 import DesktopView from './DesktopView.jsx';
 import MobileView from './MobileView.jsx';
 import { ReadContext } from './useRead.js';
-import { setTeamLabels, teamLabel } from './gameText.js';
+import { setTeamLabels, teamLabel, teamShort } from './gameText.js';
+import { NotifyContext, AppNavContext, formatJst, gameDay } from './ui.jsx';
 import { Drafts } from './Drafts.jsx';
 import {
   readAuth,
@@ -41,29 +41,109 @@ function useMobile() {
   }, []);
   return mobile;
 }
+// 操作ごとの通知の文言。⚠ **一律に「保存しました」と出さないこと**。
+// リーグの作成・参加・手続きの決定・管理操作でも同じ文言が出て、何が起きたか分からなかった。
 const COMMAND_MESSAGES = {
-  create: 'リーグを作成しました',
-  join: 'リーグに参加しました',
-  migrate: '保存を新しい形式に移しました',
-  pause: '進行を停止しました',
-  resume: '進行を再開しました',
-  backup: 'バックアップを取りました',
-  restore: 'バックアップから戻しました',
-  step: 'ターンを進めました',
-  testmode: '検証モードを切り替えました',
-  resolve: '手続きを締め切りました',
+  create: () => 'リーグを作成しました',
+  join: (view) => `${teamLabel(view?.teamName) || '球団'}で参加しました`,
+  migrate: () => '保存を新しい形式に移しました',
+  pause: () => '進行を停止しました',
+  resume: () => '進行を再開しました',
+  backup: () => 'バックアップを取りました',
+  restore: () => 'バックアップから戻しました',
+  step: (view, payload) =>
+    payload?.turns > 1 ? `${payload.turns}日ぶん進めました` : '1日進めました',
+  resolve: () => '手続きを締め切りました',
+  testmode: (view, payload) =>
+    payload?.on ? '検証モードにしました' : '検証モードを外しました',
+  lineup: () => '打順・起用を保存しました',
+  submit: (view, payload) => {
+    const label = view?.phase?.label || '手続き';
+    if (!payload?.ready) return `${label}の下書きを保存しました`;
+    const waiting = (view?.members || []).filter(
+      (m) => m.teamName !== view.teamName && !m.ready,
+    ).length;
+    return waiting
+      ? `${label}を決定しました。他の人を待っています（あと${waiting}人）`
+      : `${label}を決定しました`;
+  },
 };
+// 送ったあと全体を読み直すまで待たず、手元の画面を先に書き換える操作。
+// ⚠ 書き換えは**サーバーが受け付けた後**に行う（失敗したら何も変えない）。
+//    続く読み直しは裏で走らせ、届いたら差し替える。
+const OPTIMISTIC = {
+  lineup: (view, payload) => {
+    const { baseLineup, ...lineup } = payload;
+    return { ...view, lineup: { ...view.lineup, ...lineup } };
+  },
+  submit: (view, payload) =>
+    view.phase?.id === payload.phaseId
+      ? {
+          ...view,
+          phase: {
+            ...view.phase,
+            submission: { plan: payload.plan, ready: !!payload.ready },
+          },
+          members: view.members.map((m) =>
+            m.teamName === view.teamName ? { ...m, ready: !!payload.ready } : m,
+          ),
+        }
+      : view,
+};
+// 前回のビューを端末に残し、開いた瞬間はそれを出す（届いたら差し替える）。
+// ⚠ **残したビューでは操作させない**（`stale` の間は書き込み不可）。古い revision の
+//    まま送ると、別の端末の変更を上書きしかねない。
+const VIEW_CACHE = 'baseball-online-view-cache:';
+function readCachedView(auth) {
+  try {
+    const raw = auth && localStorage.getItem(VIEW_CACHE + auth.userId);
+    if (!raw) return null;
+    const view = JSON.parse(raw);
+    setTeamLabels(view.teamLabels);
+    return { ...view, writable: false, stale: true };
+  } catch {
+    return null;
+  }
+}
+function storeCachedView(auth, view) {
+  try {
+    if (!auth || !view || view.joinRequired || view.setupRequired) return;
+    localStorage.setItem(VIEW_CACHE + auth.userId, JSON.stringify(view));
+  } catch {
+    /* 容量超過などは無視（次回は普通に読み込む） */
+  }
+}
+// 新しく終わった自球団の試合を1行にする（自動で読み直したときの通知）。
+function newResultText(before, after) {
+  if (!before || !after || before.year !== after.year) return '';
+  const seen = new Set(before.results.map((g) => g.gameId || g.id));
+  const own = after.results.filter(
+    (g) =>
+      !seen.has(g.gameId || g.id) &&
+      (g.home === after.teamName || g.away === after.teamName),
+  );
+  const last = own[own.length - 1];
+  if (!last) return '';
+  const home = last.home === after.teamName;
+  const mine = home ? last.homeScore : last.awayScore;
+  const theirs = home ? last.awayScore : last.homeScore;
+  const mark = mine > theirs ? '○' : mine < theirs ? '●' : '△';
+  return `${last.date.month}/${last.date.day}の試合が終わりました ${mark}${mine}-${theirs} 対${teamShort(home ? last.away : last.home)}`;
+}
 
 export default function OnlineApp() {
   const [auth, setAuth] = useState(readAuth);
   const [config, setConfig] = useState(null);
-  const [view, setView] = useState(null);
+  const [view, setViewState] = useState(() => readCachedView(readAuth()));
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  // 通知は `{ text, undo? }`。⚠ 画面下（スマホは下タブのすぐ上）に出し、ボタンに重ねない
+  const [toast, setToast] = useState(null);
   const [showTimes, setShowTimes] = useState(false);
   const [busy, setBusy] = useState(false);
   // 表示幅でPC/スマホの部品が切り替わっても、選択中の画面は失わない。
   const [screen, setScreen] = useState('today');
+  // 球団名などから選手一覧を開いたときの「どの球団を見るか」（押すたびに n を進めて同じ球団でも開き直す）
+  const [teamFocus, setTeamFocus] = useState(null);
   const locked = useRef(false);
   const viewSequence = useRef(0);
   const refreshFlight = useRef(null);
@@ -71,14 +151,32 @@ export default function OnlineApp() {
   const mobile = useMobile();
   const authRef = useRef(auth);
   authRef.current = auth;
+  const viewRef = useRef(view);
+  const notify = useCallback((text, options = {}) => {
+    if (text) setToast({ text, id: Date.now(), ...options });
+  }, []);
+  // ビューを受け取る口を1つにする（端末への保存と、試合結果の通知をここで行う）
+  const setView = useCallback(
+    (next, { announce = false } = {}) => {
+      const before = viewRef.current;
+      viewRef.current = next;
+      setViewState(next);
+      if (next && !next.stale) storeCachedView(authRef.current, next);
+      if (announce && before && !before.stale) {
+        const text = newResultText(before, next);
+        if (text) notify(text);
+      }
+    },
+    [notify],
+  );
   const saveAuth = useCallback((value) => {
     localStorage.setItem(AUTH_KEY, JSON.stringify(value));
     authRef.current = value;
     viewSequence.current++;
     setAuth(value);
-    setView(null);
+    setView(readCachedView(value));
     setScreen('today');
-  }, []);
+  }, [setView]);
   const renewAuth = useCallback(async (expected) => {
     const pending = refreshFlight.current;
     if (
@@ -115,12 +213,13 @@ export default function OnlineApp() {
         setAuth(next);
       } else {
         viewSequence.current++;
-        setView((old) => (old ? { ...old, writable: false } : old));
+        const old = viewRef.current;
+        if (old) setView({ ...old, writable: false });
       }
     };
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
-  }, []);
+  }, [setView]);
   useEffect(() => {
     let cancelled = false;
     api('config')
@@ -134,17 +233,20 @@ export default function OnlineApp() {
       cancelled = true;
     };
   }, []);
-  const reload = useCallback(async () => {
-    const current = authRef.current;
-    if (!current) return;
-    const sequence = ++viewSequence.current;
-    const result = await api('view', current);
-    if (
-      sameSession(authRef.current, current) &&
-      sequence === viewSequence.current
-    )
-      setView(viewForSession(result, current));
-  }, []);
+  const reload = useCallback(
+    async ({ announce = false } = {}) => {
+      const current = authRef.current;
+      if (!current) return;
+      const sequence = ++viewSequence.current;
+      const result = await api('view', current);
+      if (
+        sameSession(authRef.current, current) &&
+        sequence === viewSequence.current
+      )
+        setView(viewForSession(result, current), { announce });
+    },
+    [setView],
+  );
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
@@ -158,7 +260,7 @@ export default function OnlineApp() {
         const sequence = ++viewSequence.current;
         const result = await api('view', auth);
         if (!cancelled && sequence === viewSequence.current)
-          setView(viewForSession(result, auth));
+          setView(viewForSession(result, auth), { announce: true });
       } catch (e) {
         if (!cancelled) setError(e.message);
       }
@@ -172,7 +274,20 @@ export default function OnlineApp() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', poll);
     };
-  }, [auth]);
+  }, [auth, setView]);
+  // 次の進行時刻（または手続きの締め切り）を過ぎたら、待たずに読み直す。
+  // ⚠ 1分ごとの読み直しだけだと、試合が終わってから最大1分は古い画面のまま。
+  //    進行の処理に数秒かかるので、時刻の20秒後に読む
+  const nextAt = view?.nextAdvanceAt || view?.phase?.deadline || null;
+  useEffect(() => {
+    if (!auth || !nextAt) return;
+    const wait = new Date(nextAt).getTime() + 20000 - Date.now();
+    if (!(wait > 0) || wait > 6 * 3600000) return;
+    const timer = setTimeout(() => {
+      if (!locked.current) reload({ announce: true }).catch(() => {});
+    }, wait);
+    return () => clearTimeout(timer);
+  }, [auth, nextAt, reload]);
   useEffect(() => {
     if (!auth?.refreshToken) return;
     let cancelled = false;
@@ -225,14 +340,19 @@ export default function OnlineApp() {
     [renewAuth],
   );
   // 結果を `{ ok, error }` で返す。⚠ 失敗しても例外は外へ出さない（文言は上の帯に出す）。
-  //    呼ぶ側が成否で振る舞いを変えたいとき（全画面の編成を閉じるか）に使う
+  //    呼ぶ側が成否で振る舞いを変えたいとき（編成を閉じるか）に使う。
+  // ⚠ **画面全体は止めない**。以前は「処理中です。画面を閉じずにお待ちください…」を
+  //    出して全入力を止めていた。いまは押したボタンにだけ回転の印を付け、
+  //    画面上端に細い帯を出す（同時に2つ送らないための排他は残す）。
   const run = async (fn) => {
     if (locked.current) return { ok: false, error: '別の操作を処理中です' };
     locked.current = true;
     viewSequence.current++;
+    const pressed =
+      document.activeElement?.tagName === 'BUTTON' ? document.activeElement : null;
+    pressed?.classList.add('is-pending');
     setBusy(true);
     setError('');
-    setMessage('');
     try {
       await fn();
       return { ok: true };
@@ -245,11 +365,12 @@ export default function OnlineApp() {
       }
       return { ok: false, error: e.message };
     } finally {
+      pressed?.classList.remove('is-pending');
       locked.current = false;
       setBusy(false);
     }
   };
-  const command = async (type, payload) => {
+  const command = async (type, payload, { quiet = false } = {}) => {
     const current = authRef.current;
     const checkSession = (credentials) => {
       if (!sameSession(readAuth(), credentials))
@@ -263,23 +384,34 @@ export default function OnlineApp() {
         ? await renewAuth(current)
         : current;
     checkSession(credentials);
-    await api('command', credentials, {
+    const accepted = await api('command', credentials, {
       requestId: crypto.randomUUID(),
-      revision: view?.revision || 0,
+      revision: viewRef.current?.revision || 0,
       type,
       payload,
     });
+    const patch = OPTIMISTIC[type];
+    if (patch && viewRef.current) {
+      // 先に手元を書き換えて操作を返し、全体の読み直しは裏で行う
+      // ⚠ サーバーが返した新しい revision を手元にも入れる。古いままだと、
+      //    裏の読み直しが届く前に次の操作をしたとき、版のずれで弾かれる
+      const patched = patch(viewRef.current, payload);
+      if (Number.isFinite(accepted?.revision)) patched.revision = accepted.revision;
+      setView(patched);
+      reload().catch((e) => setError(e.message));
+      if (!quiet) notify(COMMAND_MESSAGES[type]?.(patched, payload));
+      return;
+    }
     await reload();
-    // ⚠ 操作ごとに文言を変える。作成や参加でも「保存しました」と出ていた
-    setMessage(COMMAND_MESSAGES[type] || '保存しました');
+    if (!quiet) notify(COMMAND_MESSAGES[type]?.(viewRef.current, payload) || '保存しました');
   };
   const login = (fields) =>
     run(async () => saveAuth(await api('login', null, fields)));
   useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => setMessage(''), 3500);
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), toast.undo ? 6000 : 4000);
     return () => clearTimeout(timer);
-  }, [message]);
+  }, [toast]);
   useEffect(() => {
     if (showTimes) timesDialog.current?.showModal();
   }, [showTimes]);
@@ -302,143 +434,130 @@ export default function OnlineApp() {
         setScreen('today');
       }
     });
-  const compactMobile = mobile && view && !view.setupRequired;
+  const inLeague =
+    view && !view.setupRequired && !view.joinRequired && !view.versionMismatch;
+  const shared = {
+    view,
+    local: config?.local,
+    allowStep: config?.allowStep,
+    loading: busy,
+    reloadView: () => run(() => reload({ announce: true })),
+    logout,
+    showTimes: () => setShowTimes(true),
+    auth,
+    busy: busy || !view?.writable,
+    run,
+    command,
+  };
   return (
-    <div
-      className={`online ${mobile ? 'online-mobile' : 'online-desktop'} ${compactMobile ? 'online-compact-shell' : ''}`}
-    >
-      {!compactMobile && (
-        <header className="online-header">
-          <a href="/online" className="online-brand">
-            NEXT STAGE <span>オンラインペナント</span>
-          </a>
-          <nav>
-            <a href="/">一人用</a>
-            {auth && (
-              <button onClick={logout} disabled={busy}>
-                ログアウト
-              </button>
-            )}
-          </nav>
-        </header>
-      )}
-      <main>
-        {config?.local && !compactMobile && (
-          <p className="online-dev">ローカル検証モード（公開環境では無効）</p>
+    <NotifyContext.Provider value={notify}>
+      <div
+        className={`online ${mobile ? 'online-mobile' : 'online-desktop'} ${inLeague ? 'online-in-league' : ''}`}
+        aria-busy={busy || undefined}
+      >
+        {busy && <div className="online-progress" role="progressbar" aria-label="送信中" />}
+        {!inLeague && (
+          <header className="online-header">
+            <a href="/online" className="online-brand">
+              NEXT STAGE <span>オンラインペナント</span>
+            </a>
+            <nav>
+              <a href="/">一人用</a>
+              {auth && (
+                <button className="online-link" onClick={logout} disabled={busy}>
+                  ログアウト
+                </button>
+              )}
+            </nav>
+          </header>
         )}
-        {error && (
-          <div role="alert" className="online-alert">
-            {error}
-            {(!config || auth) && (
-              <button
-                onClick={() =>
-                  run(
-                    config
-                      ? reload
-                      : async () => setConfig(await api('config')),
-                  )
-                }
-                disabled={busy}
-              >
-                {config ? '最新状態を確認' : '接続を再確認'}
-              </button>
-            )}
-          </div>
-        )}
-        {message && (
-          <p role="status" className="online-success">
-            {message}
-          </p>
-        )}
-        {!config ? (
-          <p>接続を確認しています…</p>
-        ) : !auth ? (
-          <Login local={config.local} login={login} busy={busy} />
-        ) : !view ? (
-          <p>リーグを読み込んでいます…</p>
-        ) : view.joinRequired ? (
-          <JoinLeague
-            busy={busy || !view.writable}
-            logout={logout}
-            join={(payload) => run(() => command('join', payload))}
-          />
-        ) : view.versionMismatch ? (
-          /* ⚠ 古い形のリーグ。**黙って表示しないこと**。以前は版の印が無く、
-             4球団の頃のリーグが2部制のコードでそのまま出ていた。
-             ⚠ `canMigrate` が false でも管理者には押させる。保存済みのビューを
-             返す経路では中身を見られないので判定できず、ここで隠すと
-             「取り込めるのにボタンが無い」が起きる。押せば理由が返る */
-          <section className="online-card">
-            <h1>ゲームの更新を取り込みます</h1>
-            <p>
-              保存されている世界の形が、いまのゲームと違います。取り込むまで試合は進みません。
-            </p>
-            {view.reason && <p className="online-muted">{view.reason}</p>}
-            {view.isAdmin ? (
-              <>
+        <main>
+          {error && (
+            <div role="alert" className="online-alert">
+              <span>{error}</span>
+              {(!config || auth) && (
+                <button
+                  className="online-link"
+                  onClick={() =>
+                    run(
+                      config
+                        ? reload
+                        : async () => setConfig(await api('config')),
+                    )
+                  }
+                  disabled={busy}
+                >
+                  {config ? '最新状態を確認' : '接続を再確認'}
+                </button>
+              )}
+            </div>
+          )}
+          {!config && !view ? (
+            <Skeleton />
+          ) : !auth ? (
+            config ? (
+              <Login local={config.local} login={login} busy={busy} />
+            ) : (
+              <Skeleton />
+            )
+          ) : !view ? (
+            <Skeleton />
+          ) : view.joinRequired ? (
+            <JoinLeague
+              view={view}
+              busy={busy || !view.writable}
+              logout={logout}
+              join={(payload) => run(() => command('join', payload))}
+            />
+          ) : view.versionMismatch ? (
+            /* ⚠ 古い形のリーグ。**黙って表示しないこと**。以前は版の印が無く、
+               4球団の頃のリーグが2部制のコードでそのまま出ていた。
+               ⚠ `canMigrate` が false でも管理者には押させる。保存済みのビューを
+               返す経路では中身を見られないので判定できず、ここで隠すと
+               「取り込めるのにボタンが無い」が起きる。押せば理由が返る */
+            <section className="online-card online-narrow">
+              <h1>ゲームの更新を取り込みます</h1>
+              <p>
+                保存されている世界の形が、いまのゲームと違います。取り込むまで試合は進みません。
+              </p>
+              {view.reason && <p className="online-muted">{view.reason}</p>}
+              {view.isAdmin ? (
+                <>
+                  <button
+                    className="online-primary"
+                    disabled={busy || !view.writable}
+                    onClick={() => run(() => command('migrate'))}
+                  >
+                    更新を取り込む
+                  </button>
+                  <p className="online-muted online-spaced">
+                    次の正時の自動処理でも取り込まれます。取り込めない形式だった場合は、押すと理由が表示されます。
+                  </p>
+                </>
+              ) : (
+                <p>管理者が取り込むまでお待ちください。自動でも取り込まれます。</p>
+              )}
+            </section>
+          ) : view.setupRequired ? (
+            <section className="online-card online-narrow">
+              <h1>リーグの準備</h1>
+              <p>1部6球団・2部6球団の12球団でスタートします。</p>
+              {/* ⚠ スマホからも作れるようにする。以前は「管理者がPCから」で止めていた */}
+              {view.isAdmin ? (
                 <button
                   className="online-primary"
                   disabled={busy || !view.writable}
-                  onClick={() => run(() => command('migrate'))}
+                  onClick={() => run(() => command('create'))}
                 >
-                  更新を取り込む
+                  リーグを作成
                 </button>
-                <p className="online-muted online-spaced">
-                  次の正時の自動処理でも取り込まれます。取り込めない形式だった場合は、押すと理由が表示されます。
-                </p>
-              </>
-            ) : (
-              <p>管理者が取り込むまでお待ちください。自動でも取り込まれます。</p>
-            )}
-          </section>
-        ) : view.setupRequired ? (
-          <section className="online-card">
-            <h1>リーグの準備</h1>
-            <p>1部6球団・2部6球団の12球団でスタートします。</p>
-            {view.isAdmin && !mobile ? (
-              <button
-                className="online-primary"
-                disabled={busy || !view.writable}
-                onClick={() => run(() => command('create'))}
-              >
-                リーグを作成
-              </button>
-            ) : (
-              <p>管理者がPCからリーグを作成するまでお待ちください。</p>
-            )}
-          </section>
-        ) : (
-          <>
-            {!compactMobile && (
-              <>
-                <section className="online-season">
-                  <div>
-                    <p>
-                      SEASON {view.year} · {teamLabel(view.teamName)}
-                    </p>
-                    <h1>
-                      {formatGameDate(view.currentDate)}{' '}
-                      <small>{STATUS[view.status]}</small>
-                    </h1>
-                  </div>
-                  <div className="online-next">
-                    次の進行（日本時間）
-                    <strong>{dateTime(view.nextAdvanceAt)}</strong>
-                    <button disabled={busy} onClick={() => run(reload)}>
-                      更新
-                    </button>
-                  </div>
-                </section>
-                <div className="online-clock-info">
-                  {/* ⚠ 進行の刻みを変えたらここも直すこと。
-                      毎正時24ターンに変えたあと「1日7回・夜間は休止」が
-                      残っていた（画面だけ古い説明を出し続けていた）。 */}
-                  <span>毎正時・月〜金が試合／土日は手続き</span>
-                  <button onClick={() => setShowTimes(true)}>進行時刻</button>
-                </div>
-              </>
-            )}
-            {!view.writable && (
+              ) : (
+                <p>管理者がリーグを作成するまでお待ちください。</p>
+              )}
+            </section>
+          ) : (
+            <>
+            {!view.writable && !view.stale && (
               <p role="alert" className="online-alert">
                 別の端末でログインしたため閲覧のみです。操作するにはログインし直してください。
               </p>
@@ -449,68 +568,100 @@ export default function OnlineApp() {
               </p>
             )}
             <ReadContext.Provider value={readDetail}>
+              <AppNavContext.Provider
+                value={{
+                  view,
+                  go: setScreen,
+                  teamFocus,
+                  // 選手一覧が受け取ったら消す（次に選手タブを開いたときは自球団から）
+                  consumeTeamFocus: () => setTeamFocus(null),
+                  openTeam: (team) => {
+                    setTeamFocus((old) => ({ team, n: (old?.n || 0) + 1 }));
+                    setScreen('players');
+                  },
+                }}
+              >
               <Drafts
                 key={`${auth.userId}:${auth.sessionId}:${view.year}:${view.teamName}:${view.phase?.id || 'season'}`}
                 scope={`${auth.userId}:${auth.sessionId}:${view.year}:${view.teamName}:${view.phase?.id || 'season'}`}
               >
                 {mobile ? (
-                  <MobileView
-                    tab={screen === 'admin' ? 'today' : screen}
-                    setTab={setScreen}
-                    view={view}
-                    local={config.local}
-                    allowStep={config.allowStep}
-                    loading={busy}
-                    reloadView={() => run(reload)}
-                    logout={logout}
-                    showTimes={() => setShowTimes(true)}
-                    auth={auth}
-                    busy={busy || !view.writable}
-                    run={run}
-                    command={command}
-                  />
+                  <MobileView {...shared} tab={screen} setTab={setScreen} />
                 ) : (
-                  <DesktopView
-                    tab={screen === 'news' ? 'games' : screen}
-                    setTab={setScreen}
-                    view={view}
-                    auth={auth}
-                    local={config.local}
-                    allowStep={config.allowStep}
-                    busy={busy || !view.writable}
-                    run={run}
-                    command={command}
-                  />
+                  <DesktopView {...shared} tab={screen} setTab={setScreen} />
                 )}
               </Drafts>
+              </AppNavContext.Provider>
             </ReadContext.Provider>
-          </>
-        )}
-        {showTimes && (
-          <dialog
-            ref={timesDialog}
-            className="online-overlay"
-            onClose={() => setShowTimes(false)}
-            aria-label="進行時刻"
-          >
-            <section className="online-card">
-              <h2>進行時刻（日本時間）</h2>
-              <p>{PROGRESSION_TIMES.join(' / ')}</p>
-              <p>
-                各時刻に1日進みます。決定待ち・停止中の分は後からまとめて進めません。
-              </p>
-              <button autoFocus onClick={() => timesDialog.current.close()}>
-                閉じる
-              </button>
-            </section>
-          </dialog>
-        )}
-        {busy && (
-          <p role="status" className="online-working">
-            処理中です。画面を閉じずにお待ちください…
+            </>
+          )}
+          {showTimes && (
+            <dialog
+              ref={timesDialog}
+              className="online-overlay"
+              onClose={() => setShowTimes(false)}
+              aria-label="進行のしくみ"
+            >
+              <section className="online-card">
+                <h2>進行のしくみ</h2>
+                {/* ⚠ 24個の時刻を並べない。「1時間ごとに1日」と次の1回が分かれば足りる */}
+                <p>
+                  1時間ごと（毎正時）にゲーム内の1日が進みます。月〜金は試合、土日は手続きです。
+                </p>
+                {view?.nextAdvanceAt && (
+                  <p>
+                    次は <strong>{formatJst(view.nextAdvanceAt)}</strong> に
+                    {view.currentDate ? ` ${gameDay(nextGameDate(view.currentDate))} ` : ''}
+                    へ進みます。
+                  </p>
+                )}
+                <p className="online-muted">
+                  決定待ち・停止中の間は進みません。止まっていた分を後からまとめて進めることもありません。
+                </p>
+                <button autoFocus onClick={() => timesDialog.current.close()}>
+                  閉じる
+                </button>
+              </section>
+            </dialog>
+          )}
+        </main>
+        {view?.stale && (
+          <p className="online-stale" role="status">
+            最新の状態を読み込んでいます…
           </p>
         )}
-      </main>
+        {toast && (
+          <div key={toast.id} className="online-toast" role="status">
+            <span>{toast.text}</span>
+            {toast.undo && (
+              <button
+                className="online-link"
+                onClick={() => {
+                  const undo = toast.undo;
+                  setToast(null);
+                  undo();
+                }}
+              >
+                元に戻す
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </NotifyContext.Provider>
+  );
+}
+function nextGameDate({ year, month, day }) {
+  const d = new Date(Date.UTC(year, month - 1, day + 1));
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+// 読み込み中の骨組み。⚠ 「読み込んでいます…」の1行だけだと、壊れたように見えた
+function Skeleton() {
+  return (
+    <div className="online-skeleton" aria-label="読み込み中">
+      <div />
+      <div />
+      <div />
     </div>
   );
 }

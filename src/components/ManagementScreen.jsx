@@ -40,6 +40,7 @@ import BudgetSettlementScreen from './BudgetSettlementScreen.jsx';
 import UniversityScoutScreen from './UniversityScoutScreen.jsx';
 import PlayerSearchScreen from './PlayerSearchScreen.jsx';
 import TeamRankingScreen from './TeamRankingScreen.jsx';
+import { showMessage } from '../utils/gameDialog.js';
 
 // ============================================================
 // 翌年のレギュレーション確定（新規参入・解散・日程の作り直し）
@@ -130,7 +131,7 @@ function applyNextSeasonRegulations({
     alerts.push(`${dissolvedTeamNames.join('、')}が解散しました。所属${dissolvedPlayerCount}名の選手はフリーエージェントプールに移動し、次回トライアウトに参加します`);
   }
   if (alerts.length > 0) {
-    alert(alerts.join('\n\n'));
+    showMessage(alerts.join('\n\n'));
   }
 }
 

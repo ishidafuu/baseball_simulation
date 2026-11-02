@@ -7,6 +7,7 @@ import { getPitchTypeName } from '../season/yearProgressionSystem.js';
 import { POSITION_NAMES, POSITION_NAMES_FULL, getAbilityRank, getRankColor, getPositionSortIndex, getMentalGrade, mentalScore } from '../utils/constants.js';
 import { INDEPENDENT_LEAGUES } from '../corporate/independentLeagueData.js';
 import { getLeagueRankFromTeams } from '../corporate/corporateInit.js';
+import { showMessage, askConfirm } from '../utils/gameDialog.js';
 
 const TryoutScreen = ({ seasonData, allTeams, isInitialTryout = false, onComplete, initializeAllPitchingRotations }) => {
   const [tryoutCandidates, setTryoutCandidates] = useState([]);
@@ -74,7 +75,7 @@ const TryoutScreen = ({ seasonData, allTeams, isInitialTryout = false, onComplet
 
   const handleSelectPlayer = (player) => {
     if (currentPick >= draftOrder.length) {
-      alert('ドラフトは終了しました');
+      showMessage('ドラフトは終了しました');
       return;
     }
     const currentTeam = draftOrder[currentPick].team;
@@ -141,7 +142,7 @@ const TryoutScreen = ({ seasonData, allTeams, isInitialTryout = false, onComplet
     }
   }, [currentPick, draftOrder, tryoutCandidates, teamRosters]);
 
-  const finalizeDraft = (skipCheck = false) => {
+  const finalizeDraft = async (skipCheck = false) => {
     if (draftFinalizedRef.current || draftComplete) return;
     const teamsArrayForSave = Array.isArray(allTeams) ? allTeams : Object.keys(allTeams);
 
@@ -152,9 +153,9 @@ const TryoutScreen = ({ seasonData, allTeams, isInitialTryout = false, onComplet
       const totalPlayers = existingPlayers.length + userDrafted.length;
       if (totalPlayers < 9) {
         if (tryoutCandidates.length === 0) {
-          if (!window.confirm(`チームの合計人数が${totalPlayers}人です（最低9人必要）。\n候補選手がいないため、このまま続行します。`)) return;
+          if (!(await askConfirm(`チームの合計人数が${totalPlayers}人です（最低9人必要）。\n候補選手がいないため、このまま続行します。`))) return;
         } else {
-          alert(`チームの合計人数が${totalPlayers}人です。試合に必要な最低9人になるまで指名を続けてください。`);
+          showMessage(`チームの合計人数が${totalPlayers}人です。試合に必要な最低9人になるまで指名を続けてください。`);
           return;
         }
       }

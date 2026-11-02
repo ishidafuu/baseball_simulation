@@ -8,6 +8,7 @@ import { UNIVERSITY_TEAMS, generateLeagueAbbreviations } from '../university/uni
 import { isIndexedDBAvailable, idbGetItem, idbSetItem, idbRemoveItem, migrateLocalStorageToIDB, getIDBUsage, requestPersistentStorage } from '../utils/indexedDBStorage.js';
 import { migrateSaveData, CURRENT_SAVE_VERSION } from './saveMigration.js';
 import { getPlayerIdCounter, reservePlayerIds, setPlayerIdCounter } from '../state/playerIds.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 export const SAVE_SLOT_KEYS = ['baseballSim_save_1', 'baseballSim_save_2', 'baseballSim_save_3'];
 
@@ -642,7 +643,7 @@ export async function getStorageUsage() {
 // ドラフト指名選手をJSONファイルとしてエクスポート
 export const exportDraftedPlayers = (draftedPlayers) => {
   if (!draftedPlayers || draftedPlayers.length === 0) {
-    alert('エクスポートするドラフト指名選手がいません');
+    showMessage('エクスポートするドラフト指名選手がいません');
     return;
   }
   const exportData = {
@@ -683,12 +684,12 @@ export const importDraftedPlayers = (onImported) => {
       try {
         const data = JSON.parse(ev.target.result);
         if (data.type !== 'drafted_players' || !data.players || !Array.isArray(data.players)) {
-          alert('ドラフト指名選手データではありません');
+          showMessage('ドラフト指名選手データではありません');
           return;
         }
         if (onImported) onImported(data.players);
       } catch (err) {
-        alert('インポートに失敗しました: ' + err.message);
+        showMessage('インポートに失敗しました: ' + err.message);
       }
     };
     reader.readAsText(file);

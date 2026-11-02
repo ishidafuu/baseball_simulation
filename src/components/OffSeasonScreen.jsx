@@ -5,6 +5,7 @@ import { POSITION_NAMES } from '../utils/constants.js';
 import { advanceToNextYear, advanceToNextYearSandbox } from '../season/yearProgressionSystem.js';
 import { generatePitchingRotation } from '../game/lineupGenerator.js';
 import { getTransferCandidates, transferManagerTo, CATEGORY_LABEL, getTeamCategory } from '../game/managerTransfer.js';
+import { showMessage, askConfirm } from '../utils/gameDialog.js';
 
 const RANK_TEXT = { S: 'text-yellow-400', A: 'text-orange-400', B: 'text-green-400', C: 'text-blue-400', D: 'text-gray-300' };
 
@@ -24,14 +25,15 @@ const OffSeasonScreen = ({ seasonData, setSeasonData, onSave, onStartNextSeason,
     [showTransfer, myTeamName]
   );
 
-  const handleTransfer = (teamName) => {
+  const handleTransfer = async (teamName) => {
     const label = CATEGORY_LABEL[getTeamCategory(teamName)] || '';
-    if (!window.confirm(
+    if (!(await askConfirm(
       `「${teamName}」（${label}）の監督に就任します。\n\n`
       + `・${myTeamName || '現チーム'} の指揮官を退任します\n`
       + `・翌シーズンから新チームで開始します\n`
-      + `・選手や世界はそのまま引き継がれます\n\nよろしいですか？`
-    )) return;
+      + `・選手や世界はそのまま引き継がれます\n\nよろしいですか？`,
+      { okLabel: '就任する' },
+    ))) return;
     const r = transferManagerTo(teamName, {
       seasonData, setSeasonData, setLeagueConfig, setGameMode, setSelectedMonth,
     });
@@ -75,7 +77,7 @@ const OffSeasonScreen = ({ seasonData, setSeasonData, onSave, onStartNextSeason,
 
   const handleAdvanceYear = () => {
     if (!advanceToNextYear) {
-      alert('年間進行システムが読み込まれていません');
+      showMessage('年間進行システムが読み込まれていません');
       return;
     }
     setProcessing(true);
@@ -194,7 +196,7 @@ const OffSeasonScreen = ({ seasonData, setSeasonData, onSave, onStartNextSeason,
       if (onStartNextSeason) onStartNextSeason();
     } catch (error) {
       console.error('年度進行エラー:', error);
-      alert('年度進行中にエラーが発生しました');
+      showMessage('年度進行中にエラーが発生しました');
       setProcessing(false);
     }
   };

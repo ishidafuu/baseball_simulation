@@ -25,6 +25,7 @@ import CampScreen from './CampScreen.jsx';
 import SandboxSetupScreen from './SandboxSetupScreen.jsx';
 import UniversityTeamSelectScreen from './UniversitySelectScreen.jsx';
 import { ModeSelectScreen, CorporateTeamSelectScreen, CorporateNameEditScreen } from './CorporateSelectScreen.jsx';
+import { showMessage } from '../utils/gameDialog.js';
 
 // ゲームフロースタート画面群
 const GameFlowScreens = ({
@@ -53,21 +54,21 @@ const GameFlowScreens = ({
       onSandbox={() => { setGameMode('sandbox'); setGameFlowState('sandbox_regulations'); }}
       onContinue={async (slotIndex) => {
         const result = await loadGame(slotIndex);
-        if (!result?.success) alert(result?.error || 'ロードに失敗しました');
+        if (!result?.success) showMessage(result?.error || 'ロードに失敗しました');
       }}
       onEdit={async (slotIndex) => {
         const result = await loadGame(slotIndex);
         if (result?.success) {
           setManagementView('edit');
         } else {
-          alert(result?.error || 'ロードに失敗しました');
+          showMessage(result?.error || 'ロードに失敗しました');
         }
       }}
       onEditCorporateNames={() => setGameFlowState('edit_corporate_names')}
       onManual={() => setGameFlowState('manual')}
       onContinueAutosave={async () => {
         const result = await loadAutosave();
-        if (!result?.success) alert(result?.error || 'オートセーブのロードに失敗しました');
+        if (!result?.success) showMessage(result?.error || 'オートセーブのロードに失敗しました');
       }}
       hasSaveData={hasSaveData}
       saveSlots={saveSlots}

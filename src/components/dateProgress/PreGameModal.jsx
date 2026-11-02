@@ -216,7 +216,9 @@ const PreGameModal = ({ seasonData, userTeamName, formatDate, getStartingPitcher
           <span className={`text-xs text-gray-300 font-mono ${COL.velo}`}>{player.pitching?.velocity || 0}<span className="text-gray-400">km</span></span>
         ) : <BattingStats player={player} />}
         {isUser && isSelected && pos !== 'pitcher' && (
-          <button onClick={(e) => { e.stopPropagation(); }} className="btn-warn shrink-0 px-1 py-0.5 text-xs rounded ml-0.5">交代</button>
+          // ⚠ ボタンにしない。以前は押しても何も起きない「交代」ボタンだった。
+          //    交代は「この行を選ぶ → 控えをタップ」で行うので、その手順を書いて示す
+          <span className="shrink-0 text-xs text-amber-300 ml-0.5">控えをタップで交代</span>
         )}
       </div>
     );

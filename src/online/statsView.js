@@ -452,3 +452,9 @@ export function overviewGroup(category) {
     columns: ids.map((id) => columns.find((c) => c.id === id)).filter(Boolean),
   };
 }
+
+/** 指定した id の列だけを取り出す（打順・ローテの行に今季成績を短く出すときに使う） */
+export function pickColumns(category, ids) {
+  const columns = STAT_GROUPS[category].flatMap((g) => g.columns);
+  return ids.map((id) => columns.find((c) => c.id === id)).filter(Boolean);
+}

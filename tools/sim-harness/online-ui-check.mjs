@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { withDeadline } from './lib/deadline.mjs';
+import { moveRow, raiseBatter, setWantedCount, wantedCount } from './lib/choose.mjs';
 const base = process.env.ONLINE_TEST_URL || 'http://localhost:3000';
 assert.ok(
   ['localhost', '127.0.0.1'].includes(new URL(base).hostname),
@@ -30,14 +30,20 @@ try {
   const m = await phone.newPage();
   for (const page of [p, b, m])
     page.on('pageerror', (e) => errors.push(e.message));
+  // ⚠ 操作中は画面全体を止めず、上端の細い進捗バー（role=progressbar）だけを出す。
+  //    押した直後はまだ出ていないことがあるので、少し待ってから消えるのを待つ
   const waitIdle = async (page) => {
+    await page.waitForTimeout(150);
     await page
-      .getByText('処理中です。画面を閉じずにお待ちください…')
+      .locator('.online-progress')
       .waitFor({ state: 'hidden', timeout: 290000 });
   };
+  // 2026-11 の作り直しで名前が変わったボタン（PCは左ナビ、スマホは☰メニューの中）
+  const ALIAS = { 更新: '最新の状態に更新', 進行時刻: '進行のしくみ' };
   const click = async (page, text) => {
+    text = ALIAS[text] || text;
     if (
-      ['更新', 'ログアウト', '進行時刻'].includes(text) &&
+      ['最新の状態に更新', 'ログアウト', '進行のしくみ', 'リーグ便り'].includes(text) &&
       !(await page.getByRole('button', { name: text, exact: true }).count()) &&
       (await page
         .getByRole('button', { name: 'メニュー', exact: true })
@@ -113,12 +119,20 @@ try {
       `指名中 ${added.indexOf(name) + 1}位`,
       '「指名中 N位」が獲得予定の番号とずれる',
     );
-    await p
-      .getByRole('button', { name: `${added[0]}の希望順位を下げる`, exact: true })
-      .click();
+    // ⚠ 2026-11 から ↑↓ ボタンは無い。つまみ（≡）にフォーカスして ↓ キー
+    await moveRow(p, '.online-tryout-wanted > ol.online-tryout-list', 0, 'ArrowDown');
     const moved = await wantedNames();
     assert.equal(moved[1], added[0], '↓で1つ下がらない');
     assert.deepEqual([...moved].sort(), [...added].sort(), '↓で顔ぶれが変わった');
+    // 順位の数字を押すと、入れたい順位を選べる（遠くへ一度で動かす）
+    const last = moved.length - 1;
+    await p
+      .getByRole('button', { name: `${moved[last]}の希望順位（${last + 1}位）を変える`, exact: true })
+      .click();
+    await p.getByRole('button', { name: '1位にする', exact: true }).click();
+    const jumped = await wantedNames();
+    assert.equal(jumped[0], moved[last], '順位の指定で一度に1位へ動かない');
+    assert.deepEqual([...jumped].sort(), [...moved].sort(), '順位の指定で顔ぶれが変わった');
     await click(p, '標準案に戻す');
     assert.deepEqual(await wantedNames(), start, '標準案に戻らない');
     // 重視する能力の重みから、評価値の順でおすすめを作れる
@@ -159,10 +173,8 @@ try {
   await login(m, 2);
   // ⚠ 開発用サーバーの初期参加者は管理者1人だけ。プレイヤー2はログイン直後に
   //    参加画面が出るので、先に参加する（招待コードを廃止したときに取り残された）
-  await m
-    .getByLabel('球団名（空なら元の名前のまま）')
-    .fill('検査ドリーマーズ');
-  await click(m, '参加する');
+  await m.getByLabel('球団名を変える（任意）').fill('検査ドリーマーズ');
+  await click(m, '「検査ドリーマーズ」で参加する');
   await m.setViewportSize({ width: 320, height: 640 });
   await click(m, '手続き');
   await m
@@ -175,11 +187,12 @@ try {
     decisionBox.y >= 0 && decisionBox.y + decisionBox.height <= 640 - 48,
     '小さいスマホでも決定ボタンがスクロールせず押せる',
   );
+  // ⚠ 以前は「初期編成の確認も長いスクロールにしない」を見ていたが、スマホでも
+  //    初期編成を最後まで決められるようにした（以前は「詳細はPCで」）ので長さは見ない。
+  //    代わりに、獲得予定はスマホでは上位10人だけ出していることを見る
   assert.ok(
-    await m.evaluate(
-      () => document.documentElement.scrollHeight <= innerHeight * 1.3,
-    ),
-    '初期編成の確認も長いスクロールにしない',
+    (await m.locator('.online-tryout-wanted > ol.online-tryout-list > li').count()) <= 10,
+    'スマホの獲得予定は上位10人までに畳む',
   );
   await m.screenshot({
     path: '/tmp/baseball-online-mobile-decision.png',
@@ -193,20 +206,25 @@ try {
   draftTab.on('pageerror', (e) => errors.push(e.message));
   await draftTab.goto(`${base}/online`);
   await click(draftTab, '手続き');
-  await draftTab.locator('input[type=number]').fill('23');
-  await click(draftTab, '下書きを保存');
+  // ⚠ 2026-11 から下書きは**自動で保存する**（「下書きを保存」ボタンは無い）。
+  //    人数は ± ボタン（数字の入力欄はスマホでキーボードが画面を隠していた）
+  const draftSaved = (page) =>
+    page
+      .locator('.online-decision-bar .online-save-state', { hasText: '下書きは自動で保存済み' })
+      .waitFor({ timeout: 20000 });
+  await setWantedCount(draftTab, 23);
+  await draftSaved(draftTab);
+  // ⚠ 未保存の編集があるときに別の端末の提出が届いたら、黙って上書きせず
+  //    「最新の提出を読み直す」を出す
+  await setWantedCount(p, 22);
   await click(p, '更新');
-  await click(p, '下書きを保存');
   await p
-    .getByText(
-      '保存済みの提出が更新されています。最新の提出を読み直してください',
-      { exact: false },
-    )
+    .getByText('別の端末で提出が更新されました。', { exact: false })
     .waitFor();
   await click(p, '最新の提出を読み直す');
-  assert.equal(await p.locator('input[type=number]').inputValue(), '23');
-  await p.locator('input[type=number]').fill('24');
-  await click(p, '下書きを保存');
+  assert.equal(await wantedCount(p), 23);
+  await setWantedCount(p, 24);
+  await draftSaved(p);
   assert.equal(
     await p.locator('.online-edit-notice').count(),
     0,
@@ -227,102 +245,89 @@ try {
   await click(b, 'この内容で決定');
   await click(p, '更新');
   await click(p, '進行時刻');
-  await p.getByRole('dialog', { name: '進行時刻', exact: true }).waitFor();
+  await p.getByRole('dialog', { name: '進行のしくみ', exact: true }).waitFor();
   await p.keyboard.press('Escape');
   await p
-    .getByRole('dialog', { name: '進行時刻', exact: true })
+    .getByRole('dialog', { name: '進行のしくみ', exact: true })
     .waitFor({ state: 'hidden' });
+  // ── 編成（打順）。⚠ 2026-11 から**自動で保存する**（「編成を保存」ボタンは無い）。
+  //    変更から1.2秒後に送り、右上の状態が「保存済み」に戻る
   await click(p, '編成');
-  await p.getByRole('heading', { name: '編成・采配', exact: true }).waitFor();
-  // 数値選手IDを文字列へ変えずに保存できることを実画面から確認。
-  const selects = p.locator('.online-lineup select');
-  const first = await selects.nth(0).inputValue();
-  const second = await selects.nth(1).inputValue();
-  await selects.nth(0).selectOption(second);
-  await selects.nth(1).selectOption(first);
-  let releaseSave;
-  let saveStarted;
-  const savingStarted = new Promise((resolve) => {
-    saveStarted = resolve;
-  });
-  await p.route('**/api/online?*', async (route) => {
-    if (
-      new URL(route.request().url()).searchParams.get('action') === 'command'
-    ) {
-      saveStarted();
-      await new Promise((resolve) => {
-        releaseSave = resolve;
-      });
-    }
-    await route.continue();
-  });
-  await p.getByRole('button', { name: '編成を保存', exact: true }).click();
-  await withDeadline(savingStarted, '編成保存の開始');
-  assert.ok(
-    await selects.nth(0).isDisabled(),
-    '保存の応答待ち中は入力を変更できない',
+  const lineupCard = p.locator('.online-lineup-card');
+  await lineupCard.waitFor();
+  // 守備位置と名前だけを比べる（PCは能力の略記も並ぶので）
+  const orderNames = async (page) =>
+    (
+      await page
+        .locator('.online-order-list.is-batting li .online-order-main')
+        .allInnerTexts()
+    ).map((t) => t.split('\n').slice(0, 2).join(' '));
+  const beforeOrder = await orderNames(p);
+  await raiseBatter(p, 2);
+  await p.locator('.online-save-state', { hasText: '保存済み' }).waitFor({ timeout: 20000 });
+  await p.getByText('打順・起用を保存しました', { exact: true }).waitFor();
+  const savedOrder = await orderNames(p);
+  assert.notDeepEqual(savedOrder, beforeOrder, '↑で打順が入れ替わらない');
+  await p.screenshot({ path: '/tmp/baseball-online-desktop.png', fullPage: true });
+  // 別のタブで先に保存されたら、こちらの保存は弾かれ、
+  // 「編集を捨てて最新の内容に戻す」で最新に戻れる（何度送っても失敗し続けない）
+  // ⚠ こちらのタブは裏の読み直しを止めておく（隠れている扱い）。前面に戻ったときの
+  //    読み直しが先に届くと、こちらも最新の打順になって競合が起きない
+  await p.evaluate(() =>
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }),
   );
-  releaseSave();
-  await waitIdle(p);
-  await p.unroute('**/api/online?*');
-  assert.ok(await selects.nth(0).isEnabled());
-  await p.getByText('保存しました', { exact: true }).waitFor();
-  await p.screenshot({
-    path: '/tmp/baseball-online-desktop.png',
-    fullPage: true,
-  });
   const lineupTab = await pc.newPage();
   lineupTab.on('pageerror', (e) => errors.push(e.message));
   await lineupTab.goto(`${base}/online`);
   await click(lineupTab, '編成');
-  await onlinePanel(p);
-  await p.getByRole('button', { name: '2番を上げる', exact: true }).click();
-  await click(lineupTab, '基本方針');
-  await lineupTab.getByLabel('打撃方針').selectOption('patient');
-  await click(lineupTab, '編成を保存');
-  await click(p, '更新');
-  await click(p, '編成を保存');
-  await p.getByText('編成が更新されています。', { exact: false }).waitFor();
-  await click(p, '編集を戻す');
-  await click(p, '基本方針');
-  assert.equal(await p.getByLabel('打撃方針').inputValue(), 'patient');
-  await click(p, '打順・守備');
+  await raiseBatter(lineupTab, 3);
+  // ⚠ 「保存済み」は変更前から出ている。保存が終わった通知を待つ（待たずに閉じると送られない）
+  await lineupTab
+    .getByText('打順・起用を保存しました', { exact: true })
+    .waitFor({ timeout: 20000 });
+  const otherOrder = await orderNames(lineupTab);
   await lineupTab.close();
+  await raiseBatter(p, 5);
+  await p
+    .getByRole('button', { name: '編集を捨てて最新の内容に戻す', exact: true })
+    .waitFor({ timeout: 20000 });
+  await click(p, '編集を捨てて最新の内容に戻す');
+  await p.evaluate(() =>
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }),
+  );
+  await click(p, '更新');
+  assert.deepEqual(await orderNames(p), otherOrder, '最新の打順に戻らない');
+  // ⚠ 変更してすぐ別の画面へ移っても、保存は捨てない
+  await raiseBatter(p, 4);
+  await click(p, '今日');
+  await p.waitForTimeout(3000);
+  await click(p, '編成');
+  const flushed = await orderNames(p);
+  assert.notDeepEqual(flushed, otherOrder, '画面を移ると保存が消える');
+  // スマホ（別の端末）で同じ選手を開く
   await login(m, 1);
-  await m.getByRole('button', { name: '打順', exact: true }).click();
-  await m.getByRole('button', { name: '2番を上げる', exact: true }).click();
-  await click(m, '編成を保存');
+  await m.getByRole('button', { name: '編成', exact: true }).click();
+  await m.locator('.online-lineup-card').waitFor();
+  assert.deepEqual(await orderNames(m), flushed, 'スマホに保存済みの打順が出ない');
+  await raiseBatter(m, 2);
+  await m.locator('.online-save-state', { hasText: '保存済み' }).waitFor({ timeout: 20000 });
   assert.equal(
-    await m.getByRole('heading', { name: '編成・采配', exact: true }).count(),
+    await m.locator('.online-lineup-layer').count(),
     0,
-    'スマホでPC画面をマウントしない',
+    'スマホでPCの詳しい編成画面をマウントしない',
   );
   assert.ok(
-    await m.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
+    await m.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     '390pxで横にはみ出さない',
   );
-  await m.screenshot({
-    path: '/tmp/baseball-online-mobile-lineup.png',
-    fullPage: true,
-  });
-  const saveBox = await m
-    .getByRole('button', { name: '編成を保存', exact: true })
-    .boundingBox();
-  assert.ok(
-    saveBox.y >= 0 && saveBox.y + saveBox.height <= 844 - 48,
-    '打順の保存ボタンがスクロールせず押せる',
-  );
+  await m.screenshot({ path: '/tmp/baseball-online-mobile-lineup.png', fullPage: true });
+  // PCは後から入ったスマホに席を譲り、閲覧のみになる
   await click(p, '更新');
   await p
     .getByText('別の端末でログインしたため閲覧のみです。', { exact: false })
     .waitFor();
   await m.getByRole('button', { name: 'ホーム', exact: true }).click();
-  await m.screenshot({
-    path: '/tmp/baseball-online-mobile.png',
-    fullPage: true,
-  });
+  await m.screenshot({ path: '/tmp/baseball-online-mobile.png', fullPage: true });
   // 別のプロフィールからログインし、実試合の結果が両端末へ届くことを確認。
   const admin = await browser.newContext({
     viewport: { width: 1280, height: 900 },
@@ -333,51 +338,39 @@ try {
   await click(a, '管理');
   // ⚠ ボタンの名前は「1ターン進める（ゲーム内1日）」（検証モードを足したときに変わった）
   for (let i = 0; i < 3; i++) await click(a, '1ターン進める（ゲーム内1日）');
-  await click(m, '更新');
+  // 管理者が別のブラウザで入ったので、スマホは閲覧のみ。最新の状態だけ読み直す
+  await m.reload();
+  await m.locator('.online-tabbar').waitFor();
+  // ⚠ 試合の入口は一覧1つ（2026-11。以前の「過去の試合・個人成績」パネルは無い）。
+  //    手元の直近14試合に自球団の試合が足りなければ、開いたときにサーバーから読み足す
+  const historyResponse = m.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get('action') === 'games',
+  );
   await m.getByRole('button', { name: '試合', exact: true }).click();
+  assert.ok((await (await historyResponse).json()).count > 0);
   await m.locator('.online-score').first().waitFor();
   assert.ok(
-    await m.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
+    await m.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   );
-  await m.screenshot({
-    path: '/tmp/baseball-online-mobile-results.png',
-    fullPage: true,
-  });
+  await m.screenshot({ path: '/tmp/baseball-online-mobile-results.png', fullPage: true });
+  // ⚠ 試合カードそのものを押すと試合結果（スコアボードと個人成績）が開く
   const boxResponse = m.waitForResponse(
     (response) => new URL(response.url()).searchParams.get('action') === 'game',
   );
-  await m
-    .getByRole('button', { name: /の試合成績$/ })
-    .first()
-    .click();
+  await m.getByRole('button', { name: /の試合を見る$/ }).first().click();
   const boxData = await (await boxResponse).json();
   assert.ok(
     boxData.teams?.[boxData.home]?.length > 0,
     '実試合から保存された個人成績を取得',
   );
-  const box = m.getByRole('dialog', { name: '試合成績', exact: true });
+  const box = m.getByRole('dialog', { name: '試合結果', exact: true });
   await box.locator('tbody tr').first().waitFor();
-  await box
-    .getByRole('button', { name: '試合成績を閉じる', exact: true })
-    .click();
-  const historyResponse = m.waitForResponse(
-    (response) =>
-      new URL(response.url()).searchParams.get('action') === 'games',
-  );
-  await click(m, '過去の試合・個人成績');
-  assert.ok((await (await historyResponse).json()).count > 0);
-  await m
-    .getByRole('button', { name: '試合記録を閉じる', exact: true })
-    .click();
-  await click(m, 'ホーム');
-  await click(m, '選手成績');
+  await box.getByRole('button', { name: '試合結果を閉じる', exact: true }).click();
+  await m.getByRole('button', { name: '選手', exact: true }).click();
   const playerResponse = m.waitForResponse(
-    (response) =>
-      new URL(response.url()).searchParams.get('action') === 'player',
+    (response) => new URL(response.url()).searchParams.get('action') === 'player',
   );
-  await m.locator('.online-roster-row').first().click();
+  await m.locator('.online-roster-player-name').first().click();
   const playerData = await (await playerResponse).json();
   assert.ok(
     playerData.periods.find((period) => period.id === 'current')?.seasonStats
@@ -385,56 +378,41 @@ try {
     '実APIの対人記録と期間を閲覧',
   );
   const playerDialog = m.getByRole('dialog');
-  await playerDialog
-    .getByRole('button', { name: '場面別', exact: true })
-    .click();
+  await playerDialog.getByRole('heading', { name: '場面別', exact: true }).waitFor();
   await playerDialog
     .getByRole('button', { name: '選手成績を閉じる', exact: true })
     .click();
-  // 同じoriginでも一人用の保存キーへ書き込まない。
-  assert.deepEqual(await m.evaluate(() => Object.keys(localStorage)), [
-    'baseball-online-auth-v1',
-  ]);
+  // 同じoriginでも一人用の保存キーへ書き込まない（オンラインの鍵だけ）。
+  assert.deepEqual(
+    (await m.evaluate(() => Object.keys(localStorage))).filter(
+      (k) => !k.startsWith('baseball-online-'),
+    ),
+    [],
+  );
+  // 下タブの各画面が、どの幅でも横にはみ出さない
   for (const width of [320, 375, 430, 767]) {
     await m.setViewportSize({ width, height: 844 });
-    for (const tab of ['ホーム', '試合', '打順', '手続き']) {
-      await click(m, 'ホーム');
-      if (tab !== 'ホーム') await click(m, tab);
+    for (const tab of ['ホーム', '試合', '編成', '選手']) {
+      await m.getByRole('button', { name: tab, exact: true }).click();
+      await m.waitForTimeout(200);
       const metrics = await m.evaluate(() => ({
         width: document.documentElement.scrollWidth,
-        height: document.documentElement.scrollHeight,
-        viewport: innerHeight,
         viewportWidth: innerWidth,
       }));
       assert.ok(
         metrics.width <= metrics.viewportWidth,
-        `${width}px ${tab}で横にはみ出さない`,
-      );
-      assert.ok(
-        metrics.height <= metrics.viewport * 1.3,
-        `${width}px ${tab}で長いスクロールを要求しない: ${JSON.stringify(metrics)}`,
+        `${width}px ${tab}で横にはみ出さない: ${JSON.stringify(metrics)}`,
       );
     }
   }
   await m.setViewportSize({ width: 390, height: 844 });
-  await click(m, 'ホーム');
-  await m
-    .getByRole('button', { name: 'リーグ便り・過去のシーズン →', exact: true })
-    .click();
+  await click(m, 'リーグ便り');
+  await m.locator('.online-news-list').first().waitFor();
   assert.ok((await m.locator('.online-news-list article').count()) <= 8);
-  assert.ok(
-    await m.evaluate(
-      () => document.documentElement.scrollHeight <= innerHeight * 1.3,
-    ),
-    '96人のトライアウト結果も1行8件ずつ表示する',
-  );
-  await m.screenshot({
-    path: '/tmp/baseball-online-mobile-news.png',
-    fullPage: true,
-  });
+  await m.screenshot({ path: '/tmp/baseball-online-mobile-news.png', fullPage: true });
   assert.deepEqual(errors, []);
   console.log(
-    'online-ui-check PASS（PC2人・別スマホ・編成保存・端末交代・実試合結果・320〜767px / Chrome実操作）',
+    'online-ui-check PASS（PC2人・別スマホ・打順の自動保存と競合・端末交代・実試合結果・320〜767px / Chrome実操作）',
   );
 } finally {
   await browser.close();

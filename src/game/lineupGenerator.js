@@ -1,6 +1,7 @@
 import { humanTeamNames } from './teamControl.js';
 import { TEAMS_DATA, LEAGUE_SETTINGS } from '../teams-data.js';
 import { autoStarterRole } from '../utils/constants.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 // ポジション別の攻守バランス重み
 const POSITION_WEIGHTS = {
@@ -524,7 +525,7 @@ export const generateAllTeamsLineup = (allTeams) => {
     generateOptimalLineup(teamName);
     generatePitchingRotation(teamName);
   });
-  alert('全チームのAIオーダー編成と投手ローテーションを設定しました！');
+  showMessage('全チームのAIオーダー編成と投手ローテーションを設定しました！');
 };
 
 // 投手ローテーション生成関数（AI監督用）

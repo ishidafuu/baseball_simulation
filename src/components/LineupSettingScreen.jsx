@@ -10,6 +10,7 @@ import TutorialHint from './TutorialHint.jsx';
 import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { ensureTeamJerseyNumbers } from '../utils/jerseyNumbers.js';
 import { surnameOf } from '../data/playerNames.js';
+import { showMessage } from '../utils/gameDialog.js';
 
 // 投球フォームの短縮ラベル（カードの省スペース表示用）
 const throwsLabel = (player) => (player.physical?.throws === 'left' ? '左投' : '右投');
@@ -148,7 +149,7 @@ export const LineupSettingContent = ({ teamName, onBack, team, canConvertPositio
 
   const handleAddToLineup = (playerId) => {
     if (!selectedBattingOrder) {
-      alert(`打順を選択してください（1-${maxFielderSlots}番の枠をクリック）`);
+      showMessage(`打順を選択してください（1-${maxFielderSlots}番の枠をクリック）`);
       return;
     }
 
@@ -217,7 +218,7 @@ export const LineupSettingContent = ({ teamName, onBack, team, canConvertPositio
     if (!useDH) {
       const isPitcherSlot = entry.position === 'pitcher' && lineup.filter(e => e.position === 'pitcher').length === 1;
       if (isPitcherSlot && newPosition !== 'pitcher') {
-        alert('投手枠は投手のまま維持する必要があります');
+        showMessage('投手枠は投手のまま維持する必要があります');
         return;
       }
     }
@@ -313,7 +314,7 @@ export const LineupSettingContent = ({ teamName, onBack, team, canConvertPositio
         entry.playerId = replacement;
         setUpdateTrigger(prev => prev + 1);
       } else {
-        alert('交換できる投手がベンチにいません');
+        showMessage('交換できる投手がベンチにいません');
       }
       return;
     }
