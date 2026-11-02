@@ -48,6 +48,7 @@ const CHECKS = [
   { name: 'online-edit-conflict-check', group: 'quick', online: true, slow: 1 },
   { name: 'online-label-check', group: 'quick', online: true, slow: 1 },
   { name: 'online-stats-view-check', group: 'quick', online: true, slow: 1 },
+  { name: 'online-replay-policy-check', group: 'quick', online: true, slow: 1 },
   { name: 'online-migration-check', group: 'check', online: true, slow: 21 },
   { name: 'online-join-check', group: 'check', online: true, slow: 9 },
   { name: 'online-deadline-check', group: 'check', online: true, slow: 25 },

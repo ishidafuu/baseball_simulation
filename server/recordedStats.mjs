@@ -66,6 +66,33 @@ const splitAdd = (splits, key, line) =>
   addCounts((splits[key] ||= zeroLine()), line);
 import { createReplay } from './replayRecord.mjs';
 
+// 観戦記録を残した球団ごとに、新しい方から `keep` 試合分だけ残す。
+// `tracked(team)` が真の球団（既定は人の球団）だけを数える。どちらかの
+// 球団の直近 `keep` 試合に入っていれば残す。
+// ⚠ 成績（box の teams）は消さない。消すのは1球ごとの記録だけ
+export function pruneReplays(season, box, keep, tracked = () => true) {
+  const order = (g) => g.date.year * 10000 + g.date.month * 100 + g.date.day;
+  const latest = (team) =>
+    new Set(
+      Object.values(season.games)
+        .filter((g) => g.replay && (g.home === team || g.away === team))
+        .sort((x, y) => order(y) - order(x) || y.gameId - x.gameId)
+        .slice(0, keep),
+    );
+  const sets = new Map();
+  const keptBy = (team) => {
+    if (!sets.has(team)) sets.set(team, latest(team));
+    return sets.get(team);
+  };
+  for (const team of [box.home, box.away].filter(tracked)) {
+    for (const g of Object.values(season.games)) {
+      if (!g.replay || (g.home !== team && g.away !== team)) continue;
+      const inAny = [g.home, g.away].filter(tracked).some((t) => keptBy(t).has(g));
+      if (!inAny) g.replay = null;
+    }
+  }
+}
+
 /**
  * `replay`: 1球ごとの観戦記録を残すか。**既定は残さない**。
  *
@@ -76,7 +103,18 @@ import { createReplay } from './replayRecord.mjs';
  *    `ONLINE_RECORD_REPLAY=1` で有効にする。容量は球団数と試合数に比例するので、
  *    有効にする前に上の数字で見積もること。
  */
-export function createRecorder(league, teams, { replay: keepReplay = false } = {}) {
+/**
+ * `replay` は真偽値か、試合を受け取って真偽を返す関数。
+ * `keepLatest` を付けると、観戦記録を残した球団ごとに新しい方からその数だけ残し、
+ * それより古い試合の観戦記録は捨てる（成績は残す）。
+ */
+export function createRecorder(
+  league,
+  teams,
+  { replay: keepReplay = false, keepLatest = 0, tracked } = {},
+) {
+  const wantsReplay =
+    typeof keepReplay === 'function' ? keepReplay : () => !!keepReplay;
   const season = seasonFor(league);
   if (!completeCoverage(league, season)) season.complete = false;
   // IDは対人サーバーだけで付与。移籍・年度更新・退団プールへの複製でも引き継ぐ。
@@ -95,7 +133,7 @@ export function createRecorder(league, teams, { replay: keepReplay = false } = {
       //    `autoSimulation` 側は `observer?.replay` のように保護されているので、
       //    渡さなければ記録が飛ぶ。箱の `replay` は null になり、画面は
       //    「記録が無い試合」として扱う（元から旧試合のためにその経路がある）。
-      const replay = keepReplay ? createReplay() : null;
+      const replay = wantsReplay(game) ? createReplay() : null;
       return {
         events,
         ...(replay
@@ -346,6 +384,7 @@ export function createRecorder(league, teams, { replay: keepReplay = false } = {
         }
       }
       season.games[game.id] = box;
+      if (box.replay && keepLatest > 0) pruneReplays(season, box, keepLatest, tracked);
       delete season.archiveToken;
     },
   };
