@@ -2,42 +2,92 @@ name: check
 
 # ビルドとシミュレーション検証ハーネスを回して、桁レベルの崩壊
 # （疲労スパイラル・クラブ過剰指名・未import参照など）を自動で踏み抜く。
+#
+# 重い検査を別々のジョブに分けて同時に走らせる。待ち時間は「合計」ではなく
+# 「いちばん長いジョブ」になり、どれが落ちたかも一覧で分かる。
 on:
   push:
     branches: [main, master]
   pull_request:
 
+# 同じPR（同じブランチ）に新しく push したら、古い実行は止める。
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  build-and-check:
-    # Playwright 1.58.x が対応するOSへ固定し、latestの更新による導入失敗を防ぐ。
+  # ビルド＋ npm run check（lint・一人用・オンラインの検査を並列で。約2分）
+  check:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
+      - run: npm ci
       - name: Build
         run: npm run build
-
-      # season-check（試合バランス・個人成績外れ値・不変条件）+ draft-check（ドラフト比率）
-      - name: Simulation checks (fast)
+      - name: Simulation checks
         run: npm run check
 
-      # progression-check（多年次の人口保存・年齢ピラミッド・ポジション均衡）。重いので別ステップ。
+  # progression-check（多年次の人口保存・年齢ピラミッド・ポジション均衡）
+  progression:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
       - name: Progression check
         run: npm run check:progression
 
+  # オンラインの通年検査（1年目の開幕から2年目まで実際の日次で進める。約10分）
+  online-season:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
       - name: Online actual daily season (year 1 to year 2)
         run: npm run check:online:season
 
-      - name: Install browser for online UI check
+  # 画面検査（オンラインの PC・スマホと、一人用の通し）
+  ui:
+    # Playwright 1.58.x が対応するOSへ固定し、latestの更新による導入失敗を防ぐ。
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # ブラウザ本体は Playwright の版ごとにキャッシュする。OS の依存は毎回入れる。
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browser
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install browser
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install browser dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Single-player UI
+        run: npm run check:ui
 
       - name: Online PC and mobile UI
         run: |
@@ -54,12 +104,15 @@ jobs:
           npm run check:online:replay-ui
           npm run check:online:mobile-gameplay-ui
 
-      - name: Upload online UI evidence
+      - name: Upload UI evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: online-ui
+          name: ui
           path: |
             /tmp/baseball-online-*.png
             /tmp/baseball-online-*-failure.zip
+            /tmp/baseball-single-*.png
+            /tmp/baseball-single-*-failure.zip
+            ${{ runner.temp }}/online-*.log
           if-no-files-found: ignore

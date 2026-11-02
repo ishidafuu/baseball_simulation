@@ -34,6 +34,7 @@ import NewspaperModal, { buildNewspaperData } from './dateProgress/Newspaper.jsx
 import { decisionsFromResult } from '../game/pitcherDecisions.js';
 import { KoshienNoticeModal, PhaseTransitionModal } from './dateProgress/Modals.jsx';
 import { renderBracketWithLines as renderBracketWithLinesImpl } from './dateProgress/bracketRenderer.jsx';
+import { isDevToolsEnabled } from '../game/devTools.js';
 
 // 折りたたみ領域。閉じている間は children を描画しない（初回展開まで遅延）。
 // 27大学リーグ順位表やトーナメント等の重いDOMを、日程進行のたびに再構築するのを防ぐ。
@@ -735,6 +736,46 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
     else setAutoAdvanceLeft(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAdvanceLeft, seasonData?.currentDate]);
+
+  // ── 開発用の早送り（`src/game/devTools.js` が許したときだけ画面に出る） ──
+  // 「1日進める」を押すのと同じ `handleProgressDate(1)` を繰り返すだけ。日付を差し替えない
+  // （上の「次の試合まで」の注意を参照）。止まる条件も `handleProgressDate` の戻り値に従う。
+  // 違うのは、自分の試合の前のモーダルで「おまかせ（skip）」を選んで先へ進めることと、
+  // 甲子園の結果のお知らせを閉じて進めることだけ。
+  // フェーズ移行（ドラフト・契約更改など）と大会の試合のモーダルでは**止まる**。
+  // そこが確かめたい画面のはずなので、人が見て押す。
+  const devToolsEnabled = useMemo(() => isDevToolsEnabled(), []);
+  const [devLeft, setDevLeft] = useState(0);
+  const [devTick, setDevTick] = useState(0);
+  const devDayRef = React.useRef(null);
+  const startDevAdvance = (days) => {
+    if (isSimulating) return;
+    devDayRef.current = null;
+    setDevLeft(days);
+  };
+  useEffect(() => {
+    // 大会の組み合わせを作っている間（読み込み画面）は待つ。作り終えた状態が入ってから
+    // 続ける。待たずに進めると、後から入る古い日付の状態で上書きされる
+    if (devLeft <= 0 || isSimulating || isGeneratingTournament) return;
+    if (pendingPhaseEvent || showTournamentMatchModal) { setDevLeft(0); return; }
+    if (koshienNotice) { setKoshienNotice(null); return; }
+    if (showGameChoiceModal) {
+      // 自分の試合は「おまかせ」で消化する（1日進む）
+      handleGameChoice('skip');
+      setDevLeft(n => n - 1);
+      return;
+    }
+    const d = seasonData?.currentDate;
+    const key = `${d?.year}-${d?.month}-${d?.day}`;
+    // 同じ日で2回進めない（StrictMode の2回実行と、引き止められた日での再入を塞ぐ）
+    if (devDayRef.current === key) { setDevLeft(0); return; }
+    devDayRef.current = key;
+    if (handleProgressDate(1)) setDevLeft(n => n - 1);
+    // 引き止められた。モーダルが開いたなら上で扱い、開かなかったなら（スタメン不足など）
+    // 次の回で同じ日のキーに当たって止まる。どちらでも1回はやり直させる。
+    else setDevTick(t => t + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devLeft, devTick, isSimulating, isGeneratingTournament, seasonData?.currentDate, showGameChoiceModal, koshienNotice, pendingPhaseEvent, showTournamentMatchModal]);
 
   const handleGameChoice = (choice) => {
     if (isSimulating) return;
@@ -3533,6 +3574,27 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
           setSeasonData(prev => (prev?.pendingPhaseEvent ? { ...prev, pendingPhaseEvent: null } : prev));
           if (onForceEvent) onForceEvent(evt);
         }} />
+      {devToolsEnabled && (
+        <div data-testid="dev-advance" className="fixed bottom-3 right-3 z-40 rounded-xl border border-amber-500/40 bg-gray-900/90 px-3 py-2 text-xs text-amber-200 shadow-lg">
+          <div className="mb-1 font-bold">開発用の早送り</div>
+          {devLeft > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="tabular-nums">残り{devLeft}日</span>
+              <button onClick={() => setDevLeft(0)} className="rounded bg-gray-700 px-2 py-1 hover:bg-gray-600">止める</button>
+            </div>
+          ) : (
+            <div className="flex gap-1">
+              {[7, 30].map(n => (
+                <button key={n} data-testid={`dev-advance-${n}`} onClick={() => startDevAdvance(n)} disabled={isSimulating}
+                  className="rounded bg-gray-700 px-2 py-1 hover:bg-gray-600">{n}日</button>
+              ))}
+              <button data-testid="dev-advance-phase" onClick={() => startDevAdvance(400)} disabled={isSimulating}
+                title="フェーズ移行・大会の試合のどちらかが出るまで進める"
+                className="rounded bg-amber-700 px-2 py-1 hover:bg-amber-600">次の区切りまで</button>
+            </div>
+          )}
+        </div>
+      )}
     </ScreenShell>
   );
 };

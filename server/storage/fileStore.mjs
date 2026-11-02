@@ -33,7 +33,9 @@ export class FileStore {
       await mkdir(dirname(this.path), { recursive: true });
       const temp = `${this.path}.${randomUUID()}.tmp`;
       try {
-        await writeFile(temp, gzipSync(JSON.stringify(value)));
+        // ローカル専用なので圧縮率より速さを取る。読み書きのたびにリーグ全体を圧縮するので、
+        // 既定（level 6）だと1刻みの時間の多くが圧縮に消える。読む側は level を問わない。
+        await writeFile(temp, gzipSync(JSON.stringify(value), { level: 1 }));
         const file = await open(temp, 'r');
         try {
           await file.sync();

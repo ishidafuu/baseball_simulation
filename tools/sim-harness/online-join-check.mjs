@@ -10,13 +10,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStore } from '../../server/storage/fileStore.mjs';
+import { createTestStore } from './lib/testStore.mjs';
 import { LeagueService } from '../../server/leagueService.mjs';
 import { PYRAMID_LEAGUES } from '../../src/online/pyramidLeague.js';
 
 const dir = await mkdtemp(join(tmpdir(), 'pennant-join-'));
 try {
-  const store = new FileStore(join(dir, 'state.gz'));
+  const store = createTestStore(join(dir, 'state.gz'));
   const service = new LeagueService(store, {
     members: [{ userId: 'admin', label: '管理者' }],
     adminId: 'admin',

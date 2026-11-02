@@ -56,8 +56,30 @@ export function captureWorld() {
   });
 }
 
-export function restoreWorld(snapshot) {
-  const data = clone(snapshot);
+/**
+ * 保存しておいた世界を、ゲームの大域状態（TEAMS_DATA など）へ戻す。
+ *
+ * 既定では `snapshot` を複製してから戻すので、同じ写しから何度でも戻せる。
+ *
+ * `{ take: true }` は**写しの持ち主ごと渡す**指定。複製せず、写しの中身をそのまま
+ * 大域状態にする（以後の試合で写しの中身も書き換わる）。世界を丸ごと複製する処理が
+ * 定期進行の時間の半分近くを占めていたので、1日を進める経路だけこれを使う。
+ * ⚠ 使ってよいのは、戻した後に `captureWorld()` で写しを**作り直して差し替える**
+ *    呼び出しだけ（`advanceLeagueDay`）。途中で例外が出たら、その写しは捨てること
+ *    （保存の transaction は書かずに終わるので、保存側はそうなっている）。
+ * ⚠ 下で書き換える小さな部分（企業リーグの球団一覧）だけは浅く写して、
+ *    写しの側を壊さない。
+ */
+export function restoreWorld(snapshot, { take = false } = {}) {
+  const data = take
+    ? {
+        ...snapshot,
+        world: {
+          ...snapshot.world,
+          corporateLeague: { ...snapshot.world?.corporateLeague },
+        },
+      }
+    : clone(snapshot);
   for (const key of Object.keys(TEAMS_DATA)) delete TEAMS_DATA[key];
   Object.assign(TEAMS_DATA, data.teams);
   for (const key of Object.keys(WORLD_DATA)) delete WORLD_DATA[key];

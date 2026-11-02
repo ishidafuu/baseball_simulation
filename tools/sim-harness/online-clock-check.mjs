@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStore } from '../../server/storage/fileStore.mjs';
+import { createTestStore } from './lib/testStore.mjs';
 import { LeagueService } from '../../server/leagueService.mjs';
 import { nextProgressionAt, ONLINE_SCHEMA, ONLINE_ENGINE_VERSION } from '../../src/online/shared.js';
 const dir = await mkdtemp(join(tmpdir(), 'pennant-clock-'));
 try {
-  const store = new FileStore(join(dir, 'state.gz'));
+  const store = createTestStore(join(dir, 'state.gz'));
   await store.transaction((b) => {
     b.league = {
       schema: ONLINE_SCHEMA,

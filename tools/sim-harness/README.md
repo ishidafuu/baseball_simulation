@@ -11,14 +11,19 @@
 
 ## 使い方
 
-`npm run` 経由が手軽（package.json にスクリプト登録済み）:
+`npm run` 経由が手軽（package.json にスクリプト登録済み）。まとめて回すものは
+`run-checks.mjs` が **CPU の数だけ同時に**走らせ、最後に所要時間の一覧と落ちた検査の出力を出す。
 
 ```bash
-npm run check              # 高速ゲート: season + draft（約7秒）。コミット前/CI向け
-npm run check:full         # 全部: season + draft + progression（約50秒）
-npm run check:season       # 個別
-npm run check:draft
-npm run check:progression
+npm run check:quick        # 普段の作業向け: lint＋軽い検査（約12秒）
+npm run check              # コミット前・CI: 全部（4コアで約100秒。1本ずつだと約7分）
+npm run check:full         # check ＋ progression（約2分）
+npm run check:online       # オンライン版の検査だけ
+npm run check:online:season  # オンラインの通年検査（約2分。CIでは別ジョブ）
+npm run check:ui           # 一人用の通し検査（ビルド→ブラウザで開幕からドラフト会議まで。約2分）
+npm run check:season       # 個別（ほかの check:* も同じ）
+node tools/sim-harness/run-checks.mjs season-check online-parity-check  # 名前で選ぶ
+node tools/sim-harness/run-checks.mjs check --serial   # 1本ずつ（出力を順に追う）
 ```
 
 引数付きで直接叩くこともできる:
@@ -32,10 +37,29 @@ node tools/sim-harness/draft-check.mjs 5          # シード数
 node tools/sim-harness/progression-check.mjs 8    # 年数
 ```
 
-いずれも **全PASSで終了コード0、FAILで1**。`npm run check` は `&&` 連結なので
-どれか1本でも落ちれば失敗扱いになり、コミット前チェックやCIゲートに使える。
-所要時間は season-check ≈5秒、draft-check ≈2秒、progression-check ≈1+8×年数 秒
-（5年で約45秒）。progression は重いので `check` からは外し `check:full` に入れてある。
+いずれも **全PASSで終了コード0、FAILで1**。検査を足したら `run-checks.mjs` の
+`CHECKS`（ブラウザやサーバーが要るものは `SEPARATE`）に1行足す。書き忘れると
+`run-checks.mjs` が止まって知らせる。
+
+### 検査の速さについて
+
+- オンライン版の検査は、保存先に `lib/testStore.mjs` の **メモリ上の保存** を使う。
+  本物の `FileStore` は読み書きのたびにリーグ全体を gzip していて、検査の時間の
+  約75%がそこに消えていた。保存の形そのものは `online-storage-check` が
+  本物で確かめる。本物で回したいときは `SIM_HARNESS_FILE_STORE=1`。
+- 同時に走らせる数は `-j N` か `SIM_HARNESS_JOBS=N` で決められる（メモリが足りないとき）。
+  4本同時で使うメモリは最大6GB程度だった。
+
+### 一人用の早送りと場面
+
+- 一人用の日程画面には **開発用の早送り**（7日・30日・次の区切りまで）が右下に出る。
+  `npm run dev` では常に、配布用ビルドでは URL に `?dev=1` を付けたときだけ出る
+  （`src/game/devTools.js`）。「1日進める」を繰り返すだけで、自分の試合は「おまかせ」で
+  消化し、フェーズ移行と大会の試合では止まる。
+- `npm run scenes` で、途中の区切り（開幕・30日後・秋季リーグ・ドラフト前）の
+  ブラウザ保存領域を `tools/scenes/` に書き出す（git には入れない）。
+  `npm run scene -- before-draft` でその場面からブラウザを開ける。年末の画面を
+  確かめるのに、毎回最初から進めなくてよい。セーブの形を変えたら作り直す。
 
 ## 何を検証するか
 

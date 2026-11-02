@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStore } from '../../server/storage/fileStore.mjs';
+import { createTestStore } from './lib/testStore.mjs';
 import { LeagueService } from '../../server/leagueService.mjs';
 import { ONLINE_SCHEMA, ONLINE_ENGINE_VERSION } from '../../src/online/shared.js';
 import {
@@ -144,7 +144,7 @@ assert.deepEqual(migrateLeague(league()), { applied: [], changed: false });
 // --- 本物のリーグで、命令と定期処理が直すか ---------------------------
 const dir = await mkdtemp(join(tmpdir(), 'pennant-migrate-'));
 try {
-  const store = new FileStore(join(dir, 'state.gz'));
+  const store = createTestStore(join(dir, 'state.gz'));
   const now = '2026-10-26T15:00:00.000Z';
   const service = new LeagueService(store, {
     members: [{ userId: 'admin', label: '管理者' }],

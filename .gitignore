@@ -21,3 +21,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# 開発用の場面（npm run scenes が書き出す）
+tools/scenes/

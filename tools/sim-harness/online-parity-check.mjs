@@ -19,7 +19,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import './lib/bootstrap.mjs';
-import { FileStore } from '../../server/storage/fileStore.mjs';
+import { createTestStore } from './lib/testStore.mjs';
 import { LeagueService } from '../../server/leagueService.mjs';
 import { defaultPhasePlan } from '../../server/leagueEngine.mjs';
 import { buildLeague, runSeason, TEAMS_DATA } from './lib/league.mjs';
@@ -99,7 +99,7 @@ function summarize(teams) {
 const dir = await mkdtemp(join(tmpdir(), 'pennant-parity-'));
 let online, onlineRank, onlineGames;
 try {
-  const store = new FileStore(join(dir, 'state.gz'));
+  const store = createTestStore(join(dir, 'state.gz'));
   let now = '2026-10-26T15:00:00.000Z';
   const service = new LeagueService(store, {
     members: [{ userId: 'admin', label: '管理者' }],

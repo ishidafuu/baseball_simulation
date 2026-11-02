@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileStore } from '../../server/storage/fileStore.mjs';
+import { createTestStore } from './lib/testStore.mjs';
 import { LeagueService } from '../../server/leagueService.mjs';
 const dir = await mkdtemp(join(tmpdir(), 'pennant-service-'));
 try {
-  const store = new FileStore(join(dir, 'state.gz'));
+  const store = createTestStore(join(dir, 'state.gz'));
   let now = '2026-10-28T00:00:00.000Z';
   const service = new LeagueService(store, {
     local: true,
@@ -49,7 +49,7 @@ try {
     true,
     '古い端末のログアウトで現在の端末を失効させない',
   );
-  const newStore = new FileStore(join(dir, 'state.gz'));
+  const newStore = createTestStore(join(dir, 'state.gz'));
   assert.equal(
     (await newStore.read()).sessions.a,
     nextA,

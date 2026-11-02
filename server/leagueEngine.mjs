@@ -274,9 +274,11 @@ export function createLeague({
   return league;
 }
 
-export function loadLeagueWorld(league) {
+// `take`: 写しを複製せずに渡す（`restoreWorld` の説明を参照）。最後に
+// `league.game = captureWorld()` で差し替える呼び出しだけが使ってよい。
+export function loadLeagueWorld(league, { take = false } = {}) {
   assertLeagueVersion(league);
-  restoreWorld(league.game);
+  restoreWorld(league.game, { take });
   assignTeamControllers(
     TEAMS_DATA,
     league.members.map((m) => m.teamName),
@@ -734,7 +736,8 @@ function idleDay(league) {
  */
 export function advanceLeagueDay(league, operationId, now) {
   requireOnline(league.status === 'running', '現在は進行を停止しています', 409);
-  loadLeagueWorld(league);
+  // 最後に captureWorld() で差し替えるので、写しの複製は要らない
+  loadLeagueWorld(league, { take: true });
   advanceOneDay(league, `day:${operationId}`, now);
   for (let n = 1; n <= IDLE_DAYS_PER_TICK && idleDay(league); n++)
     advanceOneDay(league, `day:${operationId}:${n}`, now);
