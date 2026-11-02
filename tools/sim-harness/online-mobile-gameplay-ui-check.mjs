@@ -194,6 +194,10 @@ try {
     await page.getByRole('button', { name: '戻る', exact: true }).click();
     if (width === 360) {
       await page.setViewportSize({ width: 1440, height: 1000 });
+      // ⚠ PCの編成タブは移植した画面が既定で開く（78bfd27）。方針・采配の設定はその奥
+      await page
+        .getByRole('button', { name: '方針・采配の設定へ（保存しない）', exact: true })
+        .click();
       await page.getByRole('button', { name: '自動采配', exact: true }).click();
       assert.equal(
         await page.getByLabel('送りバント', { exact: true }).inputValue(),

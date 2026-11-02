@@ -93,7 +93,9 @@ try {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${base}/online`);
+  // ⚠ PCの編成タブは移植した画面が既定で開く（78bfd27）。方針・采配の設定はその奥
   await page.getByRole('button', { name: '編成', exact: true }).click();
+  await page.getByRole('button', { name: '方針・采配の設定へ（保存しない）', exact: true }).click();
   await page.getByRole('button', { name: '自動采配', exact: true }).click();
   await page.getByLabel('送りバント', { exact: true }).selectOption('never');
   await page.getByLabel('先発の球数上限', { exact: true }).selectOption('80');
