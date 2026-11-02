@@ -3,6 +3,7 @@ import ReplayViewer from './ReplayViewer.jsx';
 import MobileReplay from './MobileReplay.jsx';
 import { useRead } from './useRead.js';
 import { PageNav } from './PageNav.jsx';
+import { inOnlineRoot } from './portal.js';
 import { formatGameDate } from './shared.js';
 import { formatStat } from './statsView.js';
 import { ownOutcome, teamShort, teamLabel } from './gameText.js';
@@ -107,7 +108,7 @@ function Panel({ title, close, children, wide = false, mobileReplay = false }) {
     ref.current.close();
     close();
   };
-  return (
+  return inOnlineRoot(
     <dialog
       ref={ref}
       className={`online-player-dialog online-game-dialog ${wide ? 'online-replay-dialog' : ''} ${mobileReplay ? 'online-mobile-replay-dialog' : ''}`}

@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { POS } from './api.js';
 import { formatGameDate } from './shared.js';
 import { PageNav } from './PageNav.jsx';
+import { inOnlineRoot } from './portal.js';
 import PlayerAbilities from './PlayerAbilities.jsx';
 import { useRead } from './useRead.js';
 import { ownOutcome, teamShort, teamLabel } from './gameText.js';
@@ -245,7 +246,7 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
     close();
   };
   const group = statGroup(category, groupId);
-  return (
+  return inOnlineRoot(
     <dialog
       ref={dialog}
       className="online-player-dialog"
