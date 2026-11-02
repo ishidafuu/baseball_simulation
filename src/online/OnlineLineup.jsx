@@ -1,4 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { markHintSeen } from '../game/tutorial.js';
+
+const HINT_IDS = ['lineup-dnd', 'lineup-playing-time', 'rotation-dnd'];
 import { createPortal } from 'react-dom';
 import { LineupSettingContent } from '../components/LineupSettingScreen.jsx';
 import { LEAGUE_SETTINGS } from '../teams-data.js';
@@ -46,18 +49,33 @@ export default function OnlineLineup({ view, busy, onSave, onClose }) {
   // ⚠ 一人用の画面は `LEAGUE_SETTINGS.useDH` を見る。オンラインのリーグ設定に合わせる
   LEAGUE_SETTINGS.useDH = !!view.useDH;
 
+  // ⚠ ヒントは**初回だけ**。開くたびに2つ（約220px）が上に出て表が押し下げられていた。
+  //    一度開いたら既読にする（一人用の「分かった」と同じ既読の印）
+  useEffect(
+    () => () => HINT_IDS.forEach((id) => markHintSeen(id)),
+    [],
+  );
+
+  // ⚠ **左のナビは覆わない**（`.online-lineup-layer` は左ナビの幅を空けて重ねる）。
+  //    以前は全画面で覆い、他の画面へ移るには保存するか閉じるしかなかった。
+  //    保存と閉じるは画面の下に固定する。
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-surface-0">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-gray-700 bg-surface-1 px-4 py-2">
-        <strong className="text-white">{teamLabel(view.teamName)} · 編成</strong>
-        {saveError ? (
-          // ⚠ 失敗の文言はここに出す。画面上部の帯はこの全画面の裏に隠れる
+    <div className="online-lineup-layer fixed bottom-0 right-0 top-0 z-40 flex flex-col bg-surface-0">
+      <div className="flex-1 overflow-y-auto">
+        {/* ⚠ teamName は内部名のまま渡す（画面の中で名前による照合に使われる） */}
+        <LineupSettingContent
+          teamName={view.teamName}
+          displayName={teamLabel(view.teamName)}
+          team={team}
+          canConvertPosition={false}
+        />
+      </div>
+      <div className="flex items-center gap-3 border-t border-gray-700 bg-surface-1 px-4 py-2">
+        <strong className="text-white">{teamLabel(view.teamName)} · 詳しい編成</strong>
+        {saveError && (
+          // ⚠ 失敗の文言はここに出す。画面上部の帯はこの画面の裏に隠れる
           <span role="alert" className="text-xs text-red-300">
             保存できませんでした：{saveError}（編集は残っています）
-          </span>
-        ) : (
-          <span className="text-xs text-gray-300">
-            保存するまでサーバーには送られません
           </span>
         )}
         <div className="ml-auto flex gap-2">
@@ -67,25 +85,18 @@ export default function OnlineLineup({ view, busy, onSave, onClose }) {
             onClick={onClose}
             className="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 disabled:opacity-50"
           >
-            方針・采配の設定へ（保存しない）
+            保存せずに閉じる
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={save}
-            className="rounded bg-cyan-500 px-3 py-1.5 text-sm font-bold text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
+            className="rounded bg-cyan-500 px-4 py-1.5 text-sm font-bold text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
           >
             この編成で保存
           </button>
         </div>
       </div>
-      {/* ⚠ teamName は内部名のまま渡す（画面の中で名前による照合に使われる） */}
-      <LineupSettingContent
-        teamName={view.teamName}
-        displayName={teamLabel(view.teamName)}
-        team={team}
-        canConvertPosition={false}
-      />
     </div>,
     document.body,
   );

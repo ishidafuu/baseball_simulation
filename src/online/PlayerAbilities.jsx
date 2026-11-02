@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ABILITY_GROUPS, abilityRows } from './playerInfo.js';
 import {
   getZoneProfile,
@@ -10,35 +10,34 @@ import {
   BATTER_TYPE_LABEL,
   BATTER_TYPE_NOTE,
 } from '../game/batterType.js';
-import { PageNav } from './PageNav.jsx';
 import { getAbilityRank, getRankColor } from '../utils/constants.js';
+// 能力すべて。⚠ **セレクトで1群ずつ切り替えない**。以前は「見る能力」セレクト（9種類）で
+// 選んでから6項目ずつ見ていて、比べるのに何度も切り替えが要った。縦に全部並べる。
 export default function PlayerAbilities({ player }) {
-  const [group, setGroup] = useState(
-    player.position === 'pitcher' ? 'pitching' : 'batting',
+  const order =
+    player.position === 'pitcher'
+      ? ['pitching', 'arsenal', 'fielding', 'physical', 'mental', 'profile']
+      : ['batting', 'zone', 'fielding', 'positions', 'physical', 'mental', 'profile'];
+  return (
+    <div className="online-ability-all">
+      {order.map((id) => {
+        const label = ABILITY_GROUPS.find(([key]) => key === id)?.[1];
+        return (
+          <section key={id}>
+            <h3>{label}</h3>
+            <AbilityGroup player={player} group={id} />
+          </section>
+        );
+      })}
+    </div>
   );
-  const [page, setPage] = useState(0);
+}
+function AbilityGroup({ player, group }) {
   const rows = abilityRows(player, group);
-  const size = group === 'arsenal' ? 6 : rows.length || 1;
   const type = player.batting ? getBatterType(player) : null;
   return (
     <section className="online-player-abilities">
-      <label className="online-ability-select">
-        見る能力
-        <select
-          aria-label="能力の表示項目"
-          value={group}
-          onChange={(e) => {
-            setGroup(e.target.value);
-            setPage(0);
-          }}
-        >
-          {ABILITY_GROUPS.map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+
       {group === 'zone' ? (
         player.batting ? (
           <>
@@ -77,9 +76,7 @@ export default function PlayerAbilities({ player }) {
           <dl
             className={`online-stat-grid ${group === 'profile' ? 'online-profile-grid' : ''}`}
           >
-            {rows
-              .slice(page * size, page * size + size)
-              .map(([label, value], index) => (
+            {rows.map(([label, value], index) => (
                 <div key={`${label}:${index}`}>
                   <dt>{label}</dt>
                   <dd
@@ -101,14 +98,7 @@ export default function PlayerAbilities({ player }) {
               ))}
           </dl>
           {!rows.length && <p>記録はありません。</p>}
-          {group === 'arsenal' && rows.length > size && (
-            <PageNav
-              page={page}
-              count={rows.length}
-              size={size}
-              setPage={setPage}
-            />
-          )}
+
         </>
       )}
     </section>

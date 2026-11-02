@@ -4,6 +4,8 @@ export function PageNav({ page, count, size, setPage }) {
   useEffect(() => {
     if (page >= pages) setPage(pages - 1);
   }, [page, pages, setPage]);
+  // 1ページで収まるなら出さない（「1 / 1」と押せない矢印だけが並んでいた）
+  if (pages <= 1) return null;
   return (
     <div className="online-pager">
       <button

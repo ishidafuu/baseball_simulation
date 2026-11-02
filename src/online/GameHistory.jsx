@@ -1,98 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import ReplayViewer from './ReplayViewer.jsx';
 import MobileReplay from './MobileReplay.jsx';
-import { useRead } from './useRead.js';
+import { ReadContext, useRead } from './useRead.js';
 import { PageNav } from './PageNav.jsx';
 import { inOnlineRoot } from './portal.js';
-import { formatGameDate } from './shared.js';
 import { formatStat } from './statsView.js';
-import { ownOutcome, teamShort, teamLabel } from './gameText.js';
-const GROUPS = {
-  batting: [
-    [
-      'basic',
-      '打撃・基本',
-      [
-        ['atBats', '打数'],
-        ['hits', '安打'],
-        ['homeruns', '本'],
-        ['rbis', '打点'],
-      ],
-    ],
-    [
-      'extra',
-      '四死球・三振',
-      [
-        ['walks', '四球'],
-        ['hitByPitch', '死球'],
-        ['strikeouts', '三振'],
-        ['sacrificeFlies', '犠飛'],
-      ],
-    ],
-    [
-      'running',
-      '走塁・犠打',
-      [
-        ['stolenBases', '盗塁'],
-        ['caughtStealing', '盗塁死'],
-        ['sacrificeBunts', '犠打'],
-        ['plateAppearances', '打席'],
-      ],
-    ],
-    [
-      'hits',
-      '長打・守備',
-      [
-        ['doubles', '二塁打'],
-        ['triples', '三塁打'],
-        ['errors', '失策'],
-        ['fieldingChances', '守備機会'],
-      ],
-    ],
-  ],
-  pitching: [
-    [
-      'basic',
-      '投球・基本',
-      [
-        ['inningsPitched', '回', 'innings'],
-        ['runsAllowed', '失点'],
-        ['earnedRuns', '自責'],
-        ['strikeouts', '奪三振'],
-      ],
-    ],
-    [
-      'allowed',
-      '被安打・四死球',
-      [
-        ['hits', '被安打'],
-        ['homeruns', '被本'],
-        ['walks', '四球'],
-        ['hitBatters', '死球'],
-      ],
-    ],
-    [
-      'record',
-      '球数・勝敗',
-      [
-        ['pitches', '球数'],
-        ['wins', '勝'],
-        ['losses', '敗'],
-        ['saves', 'S'],
-      ],
-    ],
-    [
-      'other',
-      '救援・先発',
-      [
-        ['holds', 'H'],
-        ['gamesStarted', '先発'],
-        ['qualityStarts', 'QS'],
-        ['highQualityStarts', 'HQS'],
-      ],
-    ],
-  ],
-};
+import { decisionText, ownOutcome, teamShort, teamLabel } from './gameText.js';
+import { POS } from './api.js';
+import { Segmented, TeamName, gameDay } from './ui.jsx';
 function Panel({ title, close, children, wide = false, mobileReplay = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -124,8 +39,12 @@ function Panel({ title, close, children, wide = false, mobileReplay = false }) {
       <header>
         <h2>{title}</h2>
         {!mobileReplay && (
-          <button aria-label={`${title}を閉じる`} onClick={dismiss}>
-            閉じる
+          <button
+            className="online-icon-button"
+            aria-label={`${title}を閉じる`}
+            onClick={dismiss}
+          >
+            ×
           </button>
         )}
       </header>
@@ -143,146 +62,162 @@ function RequestState({ result }) {
     </div>
   ) : null;
 }
-function BoxScore({ game, ownTeam }) {
-  const [pageSize, setPageSize] = useState(() =>
-    window.matchMedia('(min-width: 768px)').matches ? 12 : 6,
+// ボックススコア（新聞の形）。スコアボード → 勝敗投手 → 打順どおりの打撃 → 投手。
+// ⚠ **ページ送りにしない**。以前は6人ずつ送り、打者が打順どおりに並ばず、
+//    項目群をラベルの無いセレクトで切り替えていて「試合の結果」として読めなかった。
+const BAT_COLUMNS = [
+  ['atBats', '打数'],
+  ['hits', '安打'],
+  ['rbis', '打点'],
+  ['homeruns', '本'],
+  ['walks', '四死', (b) => (b.walks || 0) + (b.hitByPitch || 0)],
+  ['strikeouts', '三振'],
+  ['stolenBases', '盗塁'],
+];
+const PITCH_COLUMNS = [
+  ['inningsPitched', '回', null, 'innings'],
+  ['pitches', '球数'],
+  ['hits', '被安'],
+  ['runsAllowed', '失点'],
+  ['earnedRuns', '自責'],
+  ['walks', '四死', (q) => (q.walks || 0) + (q.hitBatters || 0)],
+  ['strikeouts', '三振'],
+];
+const sum = (rows, get) => rows.reduce((total, p) => total + (get(p) || 0), 0);
+function LineScore({ game }) {
+  const innings = game.lineScore;
+  if (!innings) return null;
+  const count = Math.max(9, innings[game.away]?.length || 0, innings[game.home]?.length || 0);
+  const hits = (team) => sum(game.teams?.[team] || [], (p) => p.batting?.hits);
+  const errors = (team) => sum(game.teams?.[team] || [], (p) => p.batting?.errors);
+  return (
+    <div className="online-line-score-wrap">
+      <table className="online-line-score">
+        <thead>
+          <tr>
+            <th aria-label="球団" />
+            {Array.from({ length: count }, (_, i) => (
+              <th key={i}>{i + 1}</th>
+            ))}
+            <th className="is-total">計</th>
+            <th>安</th>
+            <th>失</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[game.away, game.home].map((team) => {
+            const runs = innings[team] || [];
+            const total = team === game.home ? game.homeScore : game.awayScore;
+            return (
+              <tr key={team}>
+                <th>
+                  <TeamName team={team} short />
+                </th>
+                {Array.from({ length: count }, (_, i) => (
+                  <td key={i}>
+                    {i < runs.length ? runs[i] : team === game.home && i === runs.length && i >= 8 ? 'x' : ''}
+                  </td>
+                ))}
+                <td className="is-total">{total}</td>
+                <td>{hits(team)}</td>
+                <td>{errors(team)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)');
-    const update = () => {
-      setPageSize(media.matches ? 12 : 6);
-      setPage(0);
-      setGroup(media.matches ? 'overview' : 'basic');
-    };
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
+}
+function BoxScore({ game, ownTeam }) {
   const [team, setTeam] = useState(
-      [game.home, game.away].includes(ownTeam) ? ownTeam : game.home,
-    ),
-    [category, setCategory] = useState('batting'),
-    [groupId, setGroup] = useState(() =>
-      window.matchMedia('(min-width: 768px)').matches ? 'overview' : 'basic',
-    ),
-    [page, setPage] = useState(0),
-    [sort, setSort] = useState(null);
-  const overviewColumns = [
-    ...new Map(
-      GROUPS[category].flatMap((g) => g[2]).map((c) => [c[0], c]),
-    ).values(),
-  ];
-  const group =
-    pageSize === 12 && groupId === 'overview'
-      ? ['overview', '主要成績一覧', overviewColumns]
-      : GROUPS[category].find(([id]) => id === groupId) || GROUPS[category][0];
-  const rows = [...(game.teams?.[team] || [])].filter((p) =>
-    category === 'batting'
-      ? (p.batting?.plateAppearances ||
+    [game.home, game.away].includes(ownTeam) ? ownTeam : game.away,
+  );
+  const players = game.teams?.[team] || [];
+  const batters = players
+    .filter(
+      (p) =>
+        (p.batting?.plateAppearances ||
           p.batting?.atBats ||
           p.batting?.walks ||
           p.batting?.hitByPitch ||
           p.batting?.sacrificeBunts ||
           p.battingOrder ||
           p.batting?.stolenBases ||
-          p.batting?.caughtStealing ||
-          p.batting?.fieldingChances) > 0
-      : (p.pitching?.pitches || p.pitching?.inningsPitched) > 0,
+          p.batting?.caughtStealing) > 0,
+    )
+    .sort((a, b) => (a.battingOrder || 99) - (b.battingOrder || 99));
+  const pitchers = players.filter(
+    (p) => (p.pitching?.pitches || p.pitching?.inningsPitched) > 0,
   );
-  rows.sort((a, b) => {
-    if (!sort) return (a.battingOrder || 99) - (b.battingOrder || 99);
-    const x = a[category]?.[sort.key],
-      y = b[category]?.[sort.key];
-    if (x == null || y == null)
-      return x == null && y == null ? 0 : x == null ? 1 : -1;
-    return (x - y) * (sort.asc ? 1 : -1);
-  });
+  const decisions = decisionText(game.decisions);
   return (
     <>
-      <div className="online-stat-tools">
-        <div className="online-segments" aria-label="試合成績の球団">
-          {[game.away, game.home].map((name) => (
-            <button
-              key={name}
-              title={name}
-              aria-label={name}
-              aria-pressed={team === name}
-              onClick={() => {
-                setTeam(name);
-                setPage(0);
-              }}
-            >
-              {teamShort(name)}
-            </button>
-          ))}
-        </div>
-        <select
-          aria-label="試合成績の表示項目"
-          value={`${category}:${group[0]}`}
-          onChange={(e) => {
-            const [c, g] = e.target.value.split(':');
-            setCategory(c);
-            setGroup(g);
-            setPage(0);
-            setSort(null);
-          }}
-        >
-          {pageSize === 12 &&
-            ['batting', 'pitching'].map((c) => (
-              <option key={c} value={`${c}:overview`}>
-                {c === 'batting' ? '打撃' : '投球'}・主要成績一覧
-              </option>
-            ))}
-          {Object.entries(GROUPS).flatMap(([c, groups]) =>
-            groups.map(([id, label]) => (
-              <option key={`${c}:${id}`} value={`${c}:${id}`}>
-                {label}
-              </option>
-            )),
-          )}
-        </select>
-      </div>
-      <table className="online-record-table">
-        <thead>
-          <tr>
-            <th>選手</th>
-            {group[2].map(([key, label]) => (
-              <th key={key}>
-                <button
-                  aria-label={`${label}で並べ替え`}
-                  aria-pressed={sort?.key === key}
-                  onClick={() => {
-                    setSort({
-                      key,
-                      asc: sort?.key === key ? !sort.asc : false,
-                    });
-                    setPage(0);
-                  }}
-                >
-                  {label}
-                  {sort?.key === key ? (sort.asc ? '▲' : '▼') : ''}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.slice(page * pageSize, page * pageSize + pageSize).map((p) => (
-            <tr key={p.key || p.id}>
-              <th title={p.name}>{p.name}</th>
-              {group[2].map(([key, , format = 'count']) => (
-                <td key={key}>{formatStat({ format }, p[category]?.[key])}</td>
+      <LineScore game={game} />
+      {decisions && <p className="online-box-decisions">{decisions}</p>}
+      <Segmented
+        label="試合成績の球団"
+        value={team}
+        options={[game.away, game.home].map((name) => [name, teamShort(name)])}
+        onChange={setTeam}
+      />
+      <h3 className="online-box-heading">打撃</h3>
+      <div className="online-table-scroll">
+        <table className="online-record-table">
+          <thead>
+            <tr>
+              <th>選手</th>
+              {BAT_COLUMNS.map(([key, label]) => (
+                <th key={key}>{label}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {!rows.length && <p>この区分の出場記録はありません。</p>}
-      <PageNav
-        page={page}
-        count={rows.length}
-        size={pageSize}
-        setPage={setPage}
-      />
+          </thead>
+          <tbody>
+            {batters.map((p) => (
+              <tr key={p.key || p.id} className={p.battingOrder ? '' : 'is-sub'}>
+                <th title={p.name}>
+                  <span className="online-box-order">{p.battingOrder || ''}</span>
+                  <small>{POS[p.position] || ''}</small> {p.name}
+                </th>
+                {BAT_COLUMNS.map(([key, , get]) => (
+                  <td key={key}>{(get ? get(p.batting || {}) : p.batting?.[key]) ?? '—'}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <h3 className="online-box-heading">投手</h3>
+      <div className="online-table-scroll">
+        <table className="online-record-table">
+          <thead>
+            <tr>
+              <th>投手</th>
+              {PITCH_COLUMNS.map(([key, label]) => (
+                <th key={key}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pitchers.map((p) => (
+              <tr key={p.key || p.id}>
+                <th title={p.name}>
+                  {p.name}
+                  {p.pitching?.wins ? <small className="online-box-mark is-win">勝</small> : null}
+                  {p.pitching?.losses ? <small className="online-box-mark is-loss">敗</small> : null}
+                  {p.pitching?.saves ? <small className="online-box-mark">S</small> : null}
+                  {p.pitching?.holds ? <small className="online-box-mark">H</small> : null}
+                </th>
+                {PITCH_COLUMNS.map(([key, , get, format = 'count']) => (
+                  <td key={key}>
+                    {get ? get(p.pitching || {}) : formatStat({ format }, p.pitching?.[key])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {game.legacy && (
         <small className="online-stat-note">
           既存試合の保存値です。未記録の項目は「—」です。
@@ -291,16 +226,58 @@ function BoxScore({ game, ownTeam }) {
     </>
   );
 }
-export function GameRecordButton({ game, year, ownTeam, children }) {
+// 試合記録の取得を端末内に残す（同じ試合を開き直しても待たない）。
+// ⚠ 年度と試合IDで引く。試合記録は確定後に変わらないので、捨てるのは画面を閉じたときだけでよい
+const gameCache = new Map();
+function useGame(id, year) {
+  const key = `${year}:${id}`;
+  const cached = gameCache.get(key);
+  const result = useRead(cached ? null : 'game', { id, year });
+  useEffect(() => {
+    if (result.data) gameCache.set(key, result.data);
+  }, [key, result.data]);
+  return cached ? { data: cached, loading: false, error: '', retry() {} } : result;
+}
+/** 自球団の直近の試合を先に読んでおく（一覧を開いた時点で、裏で） */
+export function usePrefetchGames(view, count = 3) {
+  const read = useContext(ReadContext);
+  const ids = (view.results || [])
+    .filter((g) => g.gameId && (g.home === view.teamName || g.away === view.teamName))
+    .slice(-count)
+    .map((g) => g.gameId)
+    .join(',');
+  useEffect(() => {
+    if (!read || !ids || !view.gameDetailsAvailable) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      for (const id of ids.split(',')) {
+        const key = `${view.year}:${id}`;
+        if (cancelled || gameCache.has(key)) continue;
+        try {
+          gameCache.set(key, await read('game', { id, year: view.year }));
+        } catch {
+          /* 先読みの失敗は無視（開いたときに読み直す） */
+        }
+      }
+    }, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [read, ids, view.year, view.gameDetailsAvailable]);
+}
+// 試合カードそのものを押して開く。⚠ 以前は「個人成績」という小さなボタンで、
+// 試合の中身（スコアボード）が見られるとは分からなかった
+export function GameRecordButton({ game, year, ownTeam, children, className }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
-        className="online-record-button"
+        className={className || 'online-record-button'}
         onClick={() => setOpen(true)}
-        aria-label={`${teamLabel(game.home)}対${teamLabel(game.away)}の試合成績`}
+        aria-label={`${teamLabel(game.away)}対${teamLabel(game.home)}の試合を見る`}
       >
-        {children || '個人成績'}
+        {children || '試合を見る'}
       </button>
       {open && (
         <GameRecord
@@ -316,11 +293,12 @@ export function GameRecordButton({ game, year, ownTeam, children }) {
 function GameRecord({ id, year, ownTeam, close }) {
   const compact = window.matchMedia('(max-width: 767px)').matches;
   const [watch, setWatch] = useState(false);
-  const result = useRead('game', { id, year }),
+  const result = useGame(id, year),
     game = result.data;
+  const outcome = game && ownOutcome(game, ownTeam);
   return (
     <Panel
-      title="試合成績"
+      title="試合結果"
       close={close}
       wide={watch && !compact}
       mobileReplay={watch && compact && !!game}
@@ -328,25 +306,28 @@ function GameRecord({ id, year, ownTeam, close }) {
       <RequestState result={result} />
       {game && (
         <>
-          {game.replay?.frames?.length > 0 && (
-            <nav className="online-replay-launch" aria-label="試合の表示">
-              <button aria-pressed={!watch} onClick={() => setWatch(false)}>
-                個人成績
-              </button>
-              <button aria-pressed={watch} onClick={() => setWatch(true)}>
-                {compact ? '試合経過' : '観戦リプレイ'}
-              </button>
-            </nav>
-          )}
           {!watch && (
-            <p className="online-game-summary">
-              <small>{formatGameDate(game.date)}</small>
-              <strong>
-                <span title={teamLabel(game.away)}>{teamShort(game.away)}</span>{' '}
-                {game.awayScore} – {game.homeScore}{' '}
-                <span title={teamLabel(game.home)}>{teamShort(game.home)}</span>
-              </strong>
-            </p>
+            <div className={`online-game-summary ${outcome ? `is-${outcome.tone}` : ''}`}>
+              <small>{gameDay(game.date)}</small>
+              <div>
+                <TeamName team={game.away} short />
+                <strong>
+                  {game.awayScore} – {game.homeScore}
+                </strong>
+                <TeamName team={game.home} short />
+              </div>
+            </div>
+          )}
+          {game.replay?.frames?.length > 0 && (
+            <Segmented
+              label="試合の表示"
+              value={watch ? 'watch' : 'box'}
+              options={[
+                ['box', '成績'],
+                ['watch', compact ? '試合経過' : '観戦リプレイ'],
+              ]}
+              onChange={(id) => setWatch(id === 'watch')}
+            />
           )}
           {watch ? (
             compact ? (
@@ -397,17 +378,18 @@ function History({ view, close }) {
             </option>
           ))}
         </select>
-        <select
-          aria-label="試合記録の範囲"
+<Segmented
+          label="試合記録の範囲"
           value={scope}
-          onChange={(e) => {
-            setScope(e.target.value);
+          options={[
+            ['own', '自球団'],
+            ['league', 'リーグ全体'],
+          ]}
+          onChange={(id) => {
+            setScope(id);
             setPage(0);
           }}
-        >
-          <option value="own">自球団</option>
-          <option value="league">リーグ全体</option>
-        </select>
+        />
       </div>
       <RequestState result={result} />
       {result.data && (

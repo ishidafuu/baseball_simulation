@@ -65,6 +65,18 @@ function storeWeights(weights) {
   }
 }
 
+// スマホでは候補探しを畳む（開くと同じ中身）
+function PoolWrap({ compact, count, children }) {
+  return compact ? (
+    <details className="online-tryout-pool-fold">
+      <summary>候補から選手を加える（{count}人）</summary>
+      {children}
+    </details>
+  ) : (
+    children
+  );
+}
+
 function Line({ player, score }) {
   if (!player) return null;
   return (
@@ -103,7 +115,12 @@ export default function TryoutPlanner({
   busy,
   onChange,
   onReset,
+  compact = false,
 }) {
+  // ⚠ スマホでも同じ画面で最後まで決められるようにする（以前は「詳細はPCで」）。
+  //    スマホでは獲得予定を上位10人だけ出し、候補探しは畳んでおく
+  const [showAllWanted, setShowAllWanted] = useState(false);
+  const [dragIndex, setDragIndex] = useState(null);
   const [group, setGroup] = useState('all');
   // ⚠ 既定は「評価値」。重みを変えたら、候補の並びもその重みで見えるようにする
   const [sortKey, setSortKey] = useState(WEIGHTED_SORT_KEY);
@@ -167,6 +184,15 @@ export default function TryoutPlanner({
     setRanked(benchFromPlan(plan.rankedIds, candidates, count, roster, id));
   const shift = (index, delta) =>
     setRanked(shiftInPlan(plan.rankedIds, candidates, count, roster, index, delta));
+  // ドラッグで動かす（PC）。1つずつ隣と入れ替えるのと同じ結果にする
+  const moveTo = (from, to) => {
+    if (from === to) return;
+    let ids = plan.rankedIds;
+    const step = to > from ? 1 : -1;
+    for (let i = from; i !== to; i += step)
+      ids = shiftInPlan(ids, candidates, count, roster, i, step);
+    setRanked(ids);
+  };
   const add = (id, first) => {
     const next = addToPlan(plan.rankedIds, candidates, count, roster, id, { first });
     // ⚠ 黙って何も起きない、を作らない。今の名簿だけでその区分が目標を超えていると、
@@ -308,9 +334,24 @@ export default function TryoutPlanner({
             </p>
           )}
           {wanted.length === 0 && <p>獲得希望人数を1人以上にしてください。</p>}
-          <ol className="online-tryout-list">
-            {wanted.map((id, i) => (
-              <li key={id}>
+          <ol className="online-tryout-list is-wanted">
+            {(compact && !showAllWanted ? wanted.slice(0, 10) : wanted).map((id, i) => (
+              <li
+                key={id}
+                draggable={!compact && !busy}
+                data-drag-over={dragIndex !== null && dragIndex !== i ? true : undefined}
+                onDragStart={(e) => {
+                  setDragIndex(i);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => setDragIndex(null)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null) moveTo(dragIndex, i);
+                  setDragIndex(null);
+                }}
+              >
                 <span className="online-tryout-rank">{i + 1}</span>
                 <span className="online-tryout-person">
                   <Line player={byId.get(id)} score={scores.get(id)} />
@@ -318,6 +359,7 @@ export default function TryoutPlanner({
                 {/* ⚠ 希望リストの隣ではなく**獲得予定の隣**と入れ替える。
                     間に飛ばされた選手が挟まっていると、希望リストの中で
                     1つ動かしても画面の並びが変わらず、壊れて見える */}
+                <span className="online-row-actions">
                 <button
                   type="button"
                   aria-label={`${byId.get(id)?.name}の希望順位を上げる`}
@@ -340,11 +382,21 @@ export default function TryoutPlanner({
                   disabled={busy}
                   onClick={() => drop(id)}
                 >
-                  控えへ
+                  外す
                 </button>
+                </span>
               </li>
             ))}
           </ol>
+          {compact && wanted.length > 10 && (
+            <button
+              type="button"
+              className="online-more"
+              onClick={() => setShowAllWanted(!showAllWanted)}
+            >
+              {showAllWanted ? '上位10人だけ表示' : `残り${wanted.length - 10}人も表示`}
+            </button>
+          )}
           <button
             type="button"
             className="online-tryout-bench-toggle"
@@ -378,8 +430,9 @@ export default function TryoutPlanner({
           )}
         </section>
 
+        <PoolWrap compact={compact} count={pool.length}>
         <section className="online-tryout-pool">
-          <h3>候補を探す（{pool.length}人）</h3>
+          {!compact && <h3>候補を探す（{pool.length}人）</h3>}
           <div className="online-segments" aria-label="守備位置">
             {POSITION_GROUPS.map((g) => (
               <button
@@ -460,6 +513,7 @@ export default function TryoutPlanner({
           </ul>
           <PageNav page={page} count={pool.length} size={PAGE} setPage={setPage} />
         </section>
+        </PoolWrap>
       </div>
     </div>
   );

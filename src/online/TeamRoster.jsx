@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useRead } from './useRead.js';
 import { teamLabel } from './gameText.js';
+import { TeamName } from './ui.jsx';
 export default function TeamRoster({ view, children }) {
   const [selected, setSelected] = useState(view.teamName);
+  // ⚠ 既定は自球団に固定し、他球団は押したときだけ選ばせる。以前は先頭に
+  //    球団セレクトがあり、スマホでは「新潟フ」のように切れていた
+  const [choosing, setChoosing] = useState(false);
   const own = selected === view.teamName;
   const result = useRead(own ? null : 'team', {
     team: selected,
@@ -23,7 +27,14 @@ export default function TeamRoster({ view, children }) {
     : result.data?.teamName === selected
       ? result.data
       : null;
-  const selector = (
+  const selector = !choosing && own ? (
+    <span className="online-roster-team">
+      <TeamName team={view.teamName} />
+      <button className="online-link" onClick={() => setChoosing(true)}>
+        他球団を見る
+      </button>
+    </span>
+  ) : (
     <select
       aria-label="閲覧する球団"
       value={selected}

@@ -1,20 +1,18 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { POS } from './api.js';
-import { formatGameDate } from './shared.js';
-import { PageNav } from './PageNav.jsx';
 import { inOnlineRoot } from './portal.js';
+import { FatigueMark, Segmented } from './ui.jsx';
 import PlayerAbilities from './PlayerAbilities.jsx';
 import { useRead } from './useRead.js';
-import { ownOutcome, teamShort, teamLabel } from './gameText.js';
 import SplitStats from './SplitStats.jsx';
 import { getAbilityRank, getRankColor } from '../utils/constants.js';
+import { AbilityRadar, playerRadarAxes } from '../components/AbilityRadar.jsx';
 import {
   STAT_GROUPS,
   overviewGroup,
   statGroup,
   formatStat,
   sortedRoster,
-  defaultSort,
   CONDITION_TEXT,
   conditionValue,
   statRank,
@@ -26,65 +24,6 @@ export function AbilityGrade({ value, velocity = false, stamina = false }) {
   const rank = getAbilityRank(value, velocity, stamina);
   return (
     <span className={`online-ability-grade ${getRankColor(rank)}`}>{rank}</span>
-  );
-}
-
-export function TeamBrief({ view }) {
-  const next = view.upcoming.find(
-    (game) => game.home === view.teamName || game.away === view.teamName,
-  );
-  const starter = view.roster.find(
-    (player) => player.id === view.nextStarterId,
-  );
-  const last = [...view.results]
-    .reverse()
-    .find((game) => ownOutcome(game, view.teamName));
-  const lastOutcome = last && ownOutcome(last, view.teamName);
-  return (
-    <section className="online-team-brief" aria-label="次の行動の確認">
-      {view.phase ? (
-        <p>
-          {view.phase.label} ·{' '}
-          {view.members
-            .map(
-              (member) =>
-                // ⚠ 球団の表示名で出す。`member.label`（「プレイヤー1」）だと
-                //    他の画面の球団名と混ざってどの球団か分からない
-                `${teamLabel(member.teamName)} ${member.ready ? '決定済み' : '検討中'}`,
-            )
-            .join('／')}
-        </p>
-      ) : (
-        <>
-          {last && (
-            <p>
-              前回：{last.date.month}/{last.date.day}{' '}
-              <span className={`online-outcome is-${lastOutcome.tone}`}>
-                {lastOutcome.mark}
-              </span>{' '}
-              {last.home === view.teamName
-                ? `${last.homeScore}–${last.awayScore}`
-                : `${last.awayScore}–${last.homeScore}`}{' '}
-              対{' '}
-              {teamShort(last.home === view.teamName ? last.away : last.home)}
-            </p>
-          )}
-          <p>
-            次の試合：
-            {next
-              ? `${formatGameDate(next.date)} 対 ${teamShort(next.home === view.teamName ? next.away : next.home)}`
-              : '予定なし'}
-          </p>
-          {starter && (
-            <p>
-              先発枠：
-              <PlayerStatsButton player={starter} panel="abilities" />{' '}
-              <ConditionMark player={starter} /> 疲労{starter.fatigue ?? '—'}
-            </p>
-          )}
-        </>
-      )}
-    </section>
   );
 }
 
@@ -169,34 +108,6 @@ export function ConditionMark({ player }) {
     </span>
   );
 }
-function GroupSelect({
-  category,
-  value,
-  onChange,
-  historic = false,
-  overview = false,
-}) {
-  return (
-    <select
-      className="online-stat-group"
-      aria-label="成績の表示項目"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      {overview && <option value="overview">主要成績一覧</option>}
-      {STAT_GROUPS[category]
-        .filter(
-          (group) =>
-            !historic || !['state', 'abilities', 'defense'].includes(group.id),
-        )
-        .map((group) => (
-          <option key={group.id} value={group.id}>
-            {group.label}
-          </option>
-        ))}
-    </select>
-  );
-}
 function Approximation({ columns, precise = false }) {
   return !precise && columns.some((column) => column.approximate) ? (
     <small className="online-stat-note">※ 出塁率・OPS・打席関連は概算</small>
@@ -205,8 +116,6 @@ function Approximation({ columns, precise = false }) {
 function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
   const dialog = useRef(null);
   const [category, setCategory] = useState(initialCategory);
-  const [groupId, setGroupId] = useState(initialGroup);
-  const [pane, setPane] = useState(initialPane);
   const [periodId, setPeriodId] = useState('current');
   const info = useRead(player.detailAvailable ? 'player' : null, {
     id: player.id,
@@ -245,11 +154,14 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
     dialog.current.close();
     close();
   };
-  const group = statGroup(category, groupId);
+  const overview = overviewGroup(category);
+  // ⚠ **全画面で縦に並べる**（スマホ）。以前はタブ（成績/能力・人物/場面別）→
+  //    「見る能力」セレクト→数値の3段で、下半分のシートに6項目しか見えなかった。
+  //    上に主要能力のレーダー、下に今季成績・能力すべて・場面別をスクロールで見せる
   return inOnlineRoot(
     <dialog
       ref={dialog}
-      className="online-player-dialog"
+      className="online-player-dialog online-player-sheet"
       aria-labelledby="online-player-title"
       onCancel={(event) => {
         event.preventDefault();
@@ -263,94 +175,46 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
         <div>
           <h2 id="online-player-title">{player.name}</h2>
           <small>
-            {pane === 'abilities' ? '現在' : period?.label || '今季'} ·{' '}
-            {POS[player.position]} ·{' '}
-            {(pane === 'abilities' || periodId === 'current') && (
-              <>
-                <ConditionMark player={player} />
-                {CONDITION_TEXT[conditionValue(player)] || '調子未記録'} · 疲労
-                {player.fatigue ?? '—'}
-              </>
-            )}
+            {POS[player.position]}
+            {player.age ? ` · ${player.age}歳` : ''} ·{' '}
+            <ConditionMark player={player} />
+            {CONDITION_TEXT[conditionValue(player)] || '調子未記録'} ·{' '}
+            <FatigueMark player={player} />
           </small>
         </div>
-        <button onClick={dismiss} aria-label="選手成績を閉じる">
-          閉じる
+        <button
+          className="online-icon-button"
+          onClick={dismiss}
+          aria-label="選手成績を閉じる"
+        >
+          ×
         </button>
       </header>
-      <nav className="online-player-tabs" aria-label="選手情報の種類">
-        <button
-          aria-pressed={pane === 'stats'}
-          onClick={() => setPane('stats')}
-        >
-          成績
-        </button>
-        <button
-          aria-pressed={pane === 'abilities'}
-          onClick={() => setPane('abilities')}
-        >
-          能力・人物
-        </button>
-        <button
-          aria-pressed={pane === 'splits'}
-          onClick={() => setPane('splits')}
-        >
-          場面別
-        </button>
-      </nav>
-      {pane !== 'abilities' && (
-        <>
-          {info.data?.periods.length > 1 && (
-            <select
-              aria-label="成績の期間"
-              value={period?.id || 'current'}
-              onChange={(e) => {
-                setPeriodId(e.target.value);
-                setGroupId('basic');
-              }}
-            >
-              {info.data.periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          )}
-          {period && (
-            <small className="online-stat-note">
-              {period.source}
-              {period.partial ? '・記録開始後の場面集計' : ''}
-              {period.splits ? '／打撃の試合数は完了打席のある試合' : ''}
-            </small>
-          )}
-          {info.error && (
-            <div role="alert">
-              {info.error}
-              <button onClick={info.retry}>選手記録を再取得</button>
-            </div>
-          )}
-        </>
-      )}
-      {pane === 'stats' ? (
-        <>
-          <div className="online-stat-tools">
-            <Category
-              value={category}
-              setValue={(next) => {
-                setCategory(next);
-                setGroupId('basic');
-              }}
-            />
-            <GroupSelect
-              category={category}
-              value={group.id}
-              onChange={setGroupId}
-              historic={periodId !== 'current'}
-            />
-          </div>
+      <div className="online-player-body">
+        <section className="online-player-top">
+          <AbilityRadar axes={playerRadarAxes(player)} size={180} />
           <StatLabels player={shown} category={category} />
+        </section>
+        <section id={`player-${initialPane}`}>
+          <div className="online-card-heading">
+            <h3>{period?.label || '今季'}の成績</h3>
+            {info.data?.periods.length > 1 && (
+              <select
+                aria-label="成績の期間"
+                value={period?.id || 'current'}
+                onChange={(e) => setPeriodId(e.target.value)}
+              >
+                {info.data.periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <Category value={category} setValue={setCategory} />
           <dl className="online-stat-grid">
-            {group.columns.map((column) => (
+            {overview.columns.map((column) => (
               <div key={column.id}>
                 <dt>
                   {column.label}
@@ -363,26 +227,39 @@ function Detail({ player, initialCategory, initialGroup, initialPane, close }) {
             ))}
           </dl>
           <Approximation
-            columns={group.columns}
+            columns={overview.columns}
             precise={!!shown.seasonStats?.batting?.measured}
           />
-        </>
-      ) : pane === 'splits' ? (
-        <>
-          <Category value={category} setValue={setCategory} />
-          <StatLabels player={shown} category={category} />
+          {period && (
+            <small className="online-stat-note">
+              {period.source}
+              {period.partial ? '・記録開始後の場面集計' : ''}
+            </small>
+          )}
+          {info.error && (
+            <div role="alert">
+              {info.error}
+              <button onClick={info.retry}>選手記録を再取得</button>
+            </div>
+          )}
+        </section>
+        <section>
+          <h3>場面別</h3>
           {info.loading ? (
             <p>記録を読み込んでいます…</p>
           ) : (
             <SplitStats period={period} category={category} />
           )}
-        </>
-      ) : (
-        <PlayerAbilities player={player} />
-      )}
-    </dialog>
+        </section>
+        <section>
+          <h3>能力すべて</h3>
+          <PlayerAbilities player={player} />
+        </section>
+      </div>
+    </dialog>,
   );
 }
+
 export function PlayerStatsButton({
   player,
   category = 'batting',
@@ -472,175 +349,168 @@ export function RoleMark({ player, lineup }) {
   );
 }
 
-export function CompactRoster({ view, desktop = false, teamSelector }) {
-  const [page, setPage] = useState(0);
-  const [category, setCategory] = useState('batting');
-  const [groupId, setGroupId] = useState(desktop ? 'overview' : 'basic');
+// 能力表の列（役割で分ける）。⚠ 以前は打者にも球速・制球が並んでいた
+const fielderAbilityColumns = () => [
+  ...statGroup('batting', 'abilities').columns,
+  ...statGroup('batting', 'defense').columns.filter((c) => c.label !== '回復'),
+];
+const pitcherAbilityColumns = () => statGroup('pitching', 'abilities').columns;
+
+/** 1つの表（列見出しを押して並べ替え） */
+function RosterTable({ title, players, columns, view, category }) {
   const [sort, setSort] = useState(null);
-  const group =
-    desktop && groupId === 'overview'
-      ? overviewGroup(category)
-      : statGroup(category, groupId);
-  // ⚠ 指定が無いときは**出場量の多い順**。名簿の順のままだと、打撃の
-  //    1ページ目が投手だけで埋まり、スタメンが3ページ目まで出てこない
-  const active = sort || defaultSort(category);
-  const order = sortedRoster(view.roster, active.column, active.direction);
-  const chooseCategory = (next) => {
-    setCategory(next);
-    setGroupId(desktop ? 'overview' : 'basic');
-    setSort(null);
-    setPage(0);
-  };
-  const chooseGroup = (next) => {
-    setGroupId(next);
-    setSort(null);
-    setPage(0);
-  };
-  const sortBy = (column) => {
-    setSort((old) => ({
-      column,
-      direction:
-        old?.column === column
-          ? old.direction === 'asc'
-            ? 'desc'
-            : 'asc'
-          : column === 'name'
-            ? 'asc'
-            : column.direction,
-    }));
-    setPage(0);
-  };
-  const sortButton = (column, label) => (
+  const rows = sort ? sortedRoster(players, sort.column, sort.direction) : players;
+  const sortBy = (column) =>
+    setSort((old) =>
+      old?.column === column
+        ? old.direction === (column === 'name' ? 'asc' : column.direction)
+          ? { column, direction: old.direction === 'asc' ? 'desc' : 'asc' }
+          : null
+        : { column, direction: column === 'name' ? 'asc' : column.direction },
+    );
+  const head = (column, label) => (
     <button
       aria-label={`${label}で並べ替え`}
-      aria-pressed={active.column === column}
-      title={label}
+      aria-pressed={sort?.column === column}
       onClick={() => sortBy(column)}
     >
-      <span>
-        {label === '被本塁打'
-          ? '被本'
-          : label === '本塁打率'
-            ? '本塁率'
-            : label}
-      </span>
-      {active.column === column && (
+      {label}
+      {sort?.column === column && (
         <span className="online-sort-direction" aria-hidden="true">
-          {active.direction === 'asc' ? '▲' : '▼'}
+          {sort.direction === 'asc' ? '▲' : '▼'}
         </span>
       )}
     </button>
   );
-  const [size, setSize] = useState(8);
-  const rows = useRef(null);
-  const previousSize = useRef(8);
-  useLayoutEffect(() => {
-    if (desktop) {
-      setSize(10);
-      return;
-    }
-    const measure = () => {
-      if (!rows.current) return;
-      const next = Math.max(1, Math.floor(rows.current.clientHeight / 44));
-      const old = previousSize.current;
-      if (next === old) return;
-      previousSize.current = next;
-      setPage((p) => Math.floor((p * old) / next));
-      setSize(next);
-    };
-    measure();
-    const observer = new window.ResizeObserver(measure);
-    observer.observe(rows.current);
-    return () => observer.disconnect();
-  }, [desktop]);
   return (
-    <section
-      data-wide={desktop && group.columns.length > 4}
-      className={`${desktop ? '' : 'online-card '}online-compact-roster`}
-    >
-      <div className="online-roster-toolbar">
-        <div>
-          {teamSelector || <h2>選手成績</h2>}
-          <small>
-            {view.readOnly ? '今季・閲覧' : '今季'} · {view.roster.length}人
-          </small>
-        </div>
-        <GroupSelect
-          category={category}
-          value={group.id}
-          onChange={chooseGroup}
-          overview={desktop}
-        />
-        <Category value={category} setValue={chooseCategory} />
-      </div>
-      <div className="online-roster-columns">
-        {sortButton('name', '選手名')}
-        <div className="online-roster-values">
-          {group.columns.map((column) => (
-            <React.Fragment key={column.id}>
-              {sortButton(column, column.label)}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-      <div className="online-roster-rows" ref={rows}>
-        {order.slice(page * size, page * size + size).map((player) => (
-          <article key={player.id}>
-            <PlayerStatsButton
-              player={player}
-              category={category}
-              group={group.id}
-              className="online-roster-row"
-            >
-              <span className="online-roster-person">
-                <span className="online-roster-name">
-                  <span className="online-roster-player-name">
-                    {player.name}
+    <div className="online-roster-block">
+      <h3>
+        {title} <small>{players.length}人</small>
+      </h3>
+      <div className="online-table-scroll">
+        <table className="online-roster-table">
+          <thead>
+            <tr>
+              <th>{head('name', '選手')}</th>
+              {columns.map((column) => (
+                <th key={column.id}>{head(column, column.label)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((player) => (
+              <tr key={player.id}>
+                <th>
+                  <span className="online-roster-person">
+                    <RoleMark player={player} lineup={view.lineup} />
+                    <PlayerStatsButton
+                      player={player}
+                      category={category}
+                      className="online-roster-player-name"
+                    >
+                      {player.name}
+                    </PlayerStatsButton>
+                    <small>{POS[player.position]}</small>
+                    <ConditionMark player={player} />
+                    <FatigueMark player={player} compact />
+                    <StatLabels
+                      player={player}
+                      category={category}
+                      limit={2}
+                      compact
+                    />
                   </span>
-                  <ConditionMark player={player} />
-                  <small>{POS[player.position]}</small>
-                  <RoleMark player={player} lineup={view.lineup} />
-                </span>
-                <StatLabels
-                  player={player}
-                  category={category}
-                  compact={!desktop}
-                />
-              </span>
-              <span className="online-roster-values">
-                {group.columns.map((column) => {
+                </th>
+                {columns.map((column) => {
                   const value = column.get(player);
                   const text = formatStat(column, value);
                   const rank = statRank(column, value);
                   return (
-                    <span
+                    <td
                       key={column.id}
-                      className={`online-stat-${column.format} ${rank ? `online-ability-grade ${getRankColor(rank)}` : ''}`}
-                      style={
-                        !desktop && text.length > 5
-                          ? { fontSize: `${60 / text.length}px` }
-                          : undefined
-                      }
+                      className={rank ? `online-ability-grade ${getRankColor(rank)}` : ''}
                       title={`${column.label}: ${text}`}
                     >
                       {text}
-                    </span>
+                    </td>
                   );
                 })}
-              </span>
-            </PlayerStatsButton>
-          </article>
-        ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 選手一覧（スマホ・PC共用）。
+ * ⚠ **ページ送りにしない・全員を1画面に**。以前はスマホで8人前後、PCでも10人ずつで、
+ *    打撃一覧に投手が混ざり、並びが打順でも守備順でもなかった。
+ *    いまは野手（打順→控え）と投手（先発→救援）で表を分け、横に流れる表で全項目を見せる。
+ */
+export function CompactRoster({ view, desktop = false, teamSelector }) {
+  const [mode, setMode] = useState(desktop ? 'stats' : 'batting');
+  const ordered = rosterByRole(view.roster, view.lineup);
+  const fielders = ordered.filter((p) => p.position !== 'pitcher');
+  const pitchers = rosterByRole(view.roster, view.lineup, 'pitching').filter(
+    (p) => p.position === 'pitcher',
+  );
+  const tables =
+    mode === 'abilities'
+      ? [
+          ['野手', fielders, fielderAbilityColumns(), 'batting'],
+          ['投手', pitchers, pitcherAbilityColumns(), 'pitching'],
+        ]
+      : mode === 'batting'
+        ? [['野手', fielders, overviewGroup('batting').columns, 'batting']]
+        : mode === 'pitching'
+          ? [['投手', pitchers, overviewGroup('pitching').columns, 'pitching']]
+          : [
+              ['野手', fielders, overviewGroup('batting').columns, 'batting'],
+              ['投手', pitchers, overviewGroup('pitching').columns, 'pitching'],
+            ];
+  return (
+    <section className="online-card online-compact-roster">
+      <div className="online-roster-toolbar">
+        <div>
+          {teamSelector || <h2>選手</h2>}
+          <small>
+            {view.readOnly ? '今季・閲覧' : '今季'} · {view.roster.length}人
+          </small>
+        </div>
+        <Segmented
+          label="表示する項目"
+          value={mode}
+          options={
+            desktop
+              ? [
+                  ['stats', '成績'],
+                  ['abilities', '能力'],
+                ]
+              : [
+                  ['batting', '打撃'],
+                  ['pitching', '投球'],
+                  ['abilities', '能力'],
+                ]
+          }
+          onChange={setMode}
+        />
+      </div>
+      {tables.map(([title, players, columns, category]) => (
+        <RosterTable
+          key={`${mode}:${title}`}
+          title={title}
+          players={players}
+          columns={columns}
+          view={view}
+          category={category}
+        />
+      ))}
       <Approximation
-        columns={group.columns}
+        columns={tables.flatMap((t) => t[2])}
         precise={view.roster.every((p) => p.seasonStats?.batting?.measured)}
-      />
-      <PageNav
-        page={page}
-        count={view.roster.length}
-        size={size}
-        setPage={setPage}
       />
     </section>
   );
