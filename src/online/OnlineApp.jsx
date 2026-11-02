@@ -382,7 +382,7 @@ export default function OnlineApp() {
         ? await renewAuth(current)
         : current;
     checkSession(credentials);
-    await api('command', credentials, {
+    const accepted = await api('command', credentials, {
       requestId: crypto.randomUUID(),
       revision: viewRef.current?.revision || 0,
       type,
@@ -391,7 +391,10 @@ export default function OnlineApp() {
     const patch = OPTIMISTIC[type];
     if (patch && viewRef.current) {
       // 先に手元を書き換えて操作を返し、全体の読み直しは裏で行う
+      // ⚠ サーバーが返した新しい revision を手元にも入れる。古いままだと、
+      //    裏の読み直しが届く前に次の操作をしたとき、版のずれで弾かれる
       const patched = patch(viewRef.current, payload);
+      if (Number.isFinite(accepted?.revision)) patched.revision = accepted.revision;
       setView(patched);
       reload().catch((e) => setError(e.message));
       if (!quiet) notify(COMMAND_MESSAGES[type]?.(patched, payload));

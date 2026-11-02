@@ -1155,6 +1155,7 @@ export function LineupPanel({
   const planRef = useRef(plan);
   planRef.current = plan;
   const failed = useRef(null);
+  const [failedError, setFailedError] = useState('');
   const readOnly = !view.writable;
   useEffect(() => {
     if (!dirty) {
@@ -1172,6 +1173,7 @@ export function LineupPanel({
     setSaving(false);
     if (result.ok) {
       failed.current = null;
+      setFailedError('');
       if (planRef.current === sent) setDirty(false);
       setBaseLineup(structuredClone(sent));
       notify('打順・起用を保存しました', {
@@ -1182,8 +1184,31 @@ export function LineupPanel({
       });
     } else if (result.error !== '別の操作を処理中です') {
       failed.current = sent;
+      setFailedError(result.error || '保存できませんでした');
     }
   };
+  // 保存に失敗した下書きを捨てて、サーバーの最新の内容に戻す
+  // （別の端末で先に保存された場合など。古い内容を基にしたままでは何度送っても弾かれる）
+  const discardDraft = () => {
+    failed.current = null;
+    setFailedError('');
+    setPlan(structuredClone(view.lineup));
+    setBaseLineup(structuredClone(view.lineup));
+    setDirty(false);
+  };
+  // ⚠ **画面を離れても、待っている保存は捨てない**。変更から1.2秒以内に別のタブへ
+  //    移ると、下の待ち時間ごと消えて、次の試合が古い打順のまま進んでいた。
+  //    離れるときに、まだ送っていない変更があればその場で送る
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const pendingRef = useRef(false);
+  pendingRef.current = dirty && !readOnly && failed.current !== plan;
+  useEffect(
+    () => () => {
+      if (pendingRef.current) saveRef.current();
+    },
+    [],
+  );
   useEffect(() => {
     if (!dirty || busy || readOnly || failed.current === plan) return;
     const timer = setTimeout(save, 1200);
@@ -1253,6 +1278,14 @@ export function LineupPanel({
                 : '保存済み'}
         </span>
       </div>
+      {failedError && dirty && failed.current === plan && (
+        <div role="alert" className="online-alert">
+          <span>保存できませんでした：{failedError}</span>
+          <button className="online-link" onClick={discardDraft}>
+            編集を捨てて最新の内容に戻す
+          </button>
+        </div>
+      )}
       {section === 'batting' && (
         <>
           <p className="online-muted">
