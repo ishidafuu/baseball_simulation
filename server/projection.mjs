@@ -174,6 +174,8 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     // ⚠ 締め切りはビューに載せる。定期進行の判定（`isDue`）がこれを見て、
     //    フェーズ中（status が running でない）でも起動する必要がある
     phaseDeadline: l.phase?.deadline || null,
+    // ⚠ 検証モード。管理画面に手動進行のボタンを出すかの判断に使う
+    testMode: l.testMode === true,
     // ⚠ **表示名は内部名と別に渡す**。参加した人が付けた球団名を画面に出すため。
     //    内部名（`teamName` / 順位表 / 日程）は記録の選手キーまで貫いているので
     //    変えられない。表示のときだけこの表で引く。

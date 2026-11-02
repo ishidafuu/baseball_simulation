@@ -56,8 +56,24 @@ assert.equal(
   '2026-11-01T15:00:00.000Z',
   'キャンプの締め切りは月曜0時',
 );
-// ⚠ 初期編成は締め切りを設けない（最初だけは全員を待つ）
-assert.equal(phaseDeadlineAt('initial_tryout', satMidnight), null);
+// ⚠ **初期編成にも締め切りを置くこと**。以前は「最初の1回くらいは全員を待とう」と
+//    設けなかったが、1人が決めないだけでリーグが永久に止まった（実際に止まった）。
+//    時間による進行が絶対で、決めていない人は標準案で押し通す。
+// ⚠ 初期編成は土曜扱い（締め切り日曜0時）。こうすると次のキャンプが月曜0時に
+//    締め切られて**月曜開幕**になる。日曜扱いにすると開幕が1週間ずれる
+assert.equal(PHASE_WEEKDAY.initial_tryout, 6, '初期編成が土曜扱いでない');
+assert.equal(
+  phaseDeadlineAt('initial_tryout', satMidnight),
+  '2026-10-31T15:00:00.000Z',
+  '初期編成の締め切りは日曜0時',
+);
+// 初期編成 → キャンプ と続けると、開幕は月曜0時になる
+assert.equal(
+  phaseDeadlineAt('camp', phaseDeadlineAt('initial_tryout', satMidnight)),
+  '2026-11-01T15:00:00.000Z',
+  '初期編成から続けたときの開幕が月曜0時でない',
+);
+assert.equal(phaseDeadlineAt('unknown_kind', satMidnight), null, '知らない種類は締め切り無し');
 
 // ⚠ **担当の曜日を過ぎてから開いた手続きは、翌週まで待たせない**。
 //    契約更改が日曜0時の締め切りで決まると、続くトライアウトは日曜に開く。
@@ -137,52 +153,26 @@ try {
     teamName: 'テスト球団',
   });
 
-  // 初期編成は締め切りが無いので、1人提出しても進まない
+  // ⚠ **誰も提出していなくても、締め切りで開幕まで進むこと**。
+  //    ここが「時間による進行が絶対」の本体。初期編成→キャンプ→開幕が
+  //    1回の定期処理で通る（締め切りがどちらも過去になっているため）
   const league = (await store.read()).league;
   assert.equal(league.phase.kind, 'initial_tryout');
-  assert.equal(league.phase.deadline, null, '初期編成には締め切りが無い');
-  // 締め切りが無いので、時間を飛ばしても自動決定されない
-  now = '2026-11-30T15:00:00.000Z';
-  assert.deepEqual(
-    await service.tick(),
-    { advanced: false },
-    '締め切りが無いフェーズは時間では進まない',
-  );
+  assert.ok(league.phase.deadline, '初期編成に締め切りが無い');
+  // ⚠ **手続きは1回の定期処理につき1つずつ解決する**。次の手続きの締め切りは
+  //    「開いた時刻」から数えるので、まとめて片付きはしない。それでよい——
+  //    止まらないことが大事で、急いで進めることが目的ではない
+  now = league.phase.deadline;
+  const first = await service.tick();
+  assert.ok(first.advanced, '締め切りを過ぎても進まない');
+  assert.deepEqual(first.autoResolved, ['initial_tryout'], '初期編成が自動決定されない');
+  const camped = (await store.read()).league;
+  assert.equal(camped.phase?.kind, 'camp', '初期編成の次はキャンプ');
+  assert.ok(camped.phase.deadline, 'キャンプに締め切りが無い');
+  // ⚠ 開幕は**月曜0時**。初期編成を土曜扱いにしてあるのはこのため
+  assert.equal(jstWeekday(camped.phase.deadline), 1, '開幕が月曜でない');
 
-  // 2人とも提出すると次（キャンプ）へ進み、そちらには締め切りが付く
-  now = '2026-10-26T15:00:00.000Z';
-  for (const [userId, sessionId] of [
-    ['admin', adminSession],
-    ['guest', guest],
-  ]) {
-    const current = (await store.read()).league;
-    if (current.phase?.kind !== 'initial_tryout') break;
-    // ⚠ 提出の中身は engine の `submitPhase` にそのまま渡る。
-    //    phaseId と plan が要る（検査用の省略形は通らない）
-    const teamName = current.members.find((m) => m.userId === userId).teamName;
-    await service.command(userId, sessionId, {
-      requestId: `init-${userId}`,
-      revision: current.revision,
-      type: 'submit',
-      payload: {
-        phaseId: current.phase.id,
-        plan: defaultPhasePlan(current, teamName),
-        ready: true,
-        baseSubmission: null,
-      },
-    });
-  }
-  const camp = (await store.read()).league;
-  assert.equal(camp.phase?.kind, 'camp', '初期編成の次はキャンプ');
-  assert.ok(camp.phase.deadline, 'キャンプには締め切りが付く');
-
-  // ⚠ 本題。締め切りを過ぎたら、誰も提出していなくても先へ進む
-  assert.equal(
-    Object.keys(camp.phase.submissions).length,
-    0,
-    'まだ誰も提出していない',
-  );
-  now = camp.phase.deadline;
+  now = camped.phase.deadline;
   // ⚠ **自動決定が失敗したら、止めて理由を残すこと**。以前はログに出すだけで
   //    保存を変えず、毎時同じ失敗を黙って繰り返していた（誰も気づけない）
   {
@@ -204,16 +194,60 @@ try {
     assert.equal(resumed.status, 'waiting', '再開で待機に戻らない');
     assert.ok(!resumed.error, '再開しても理由が残っている');
   }
-  const result = await service.tick();
-  assert.ok(result.advanced, '締め切りを過ぎたら進む');
-  assert.deepEqual(result.autoResolved, ['camp'], 'キャンプが自動決定される');
-  const after = (await store.read()).league;
-  assert.ok(!after.phase, '手続きが終わっている');
-  assert.equal(after.status, 'running', 'シーズンが始まっている');
+  const second = await service.tick();
+  assert.deepEqual(second.autoResolved, ['camp'], 'キャンプが自動決定されない');
+  const opened = (await store.read()).league;
+  assert.ok(!opened.phase, '手続きが残っている');
+  assert.equal(opened.status, 'running', '誰も提出していないのに開幕しない');
+
+  // ⚠ **全員が提出したら締め切り前でも進むこと**。時間は下限であって、
+  //    待たせるためのものではない。別のリーグを立てて、その経路を見る
+  const dir2 = await mkdtemp(join(tmpdir(), 'pennant-deadline2-'));
+  try {
+    const store2 = createTestStore(join(dir2, 'state.gz'));
+    let clock2 = '2026-10-26T15:00:00.000Z';
+    const service2 = new LeagueService(store2, {
+      members: [{ userId: 'admin', label: '管理者' }],
+      adminId: 'admin',
+      clock: () => clock2,
+    });
+    const s2 = (await service2.login('admin')).sessionId;
+    await service2.command('admin', s2, {
+      requestId: 'create-2',
+      revision: 0,
+      type: 'create',
+    });
+    for (let i = 0; i < 4; i += 1) {
+      const current = (await store2.read()).league;
+      if (!current.phase) break;
+      const teamName = current.members[0].teamName;
+      await service2.command('admin', s2, {
+        requestId: `submit2-${i}`,
+        revision: current.revision,
+        type: 'submit',
+        payload: {
+          phaseId: current.phase.id,
+          plan: defaultPhasePlan(current, teamName),
+          ready: true,
+          baseSubmission: null,
+        },
+      });
+    }
+    const done = (await store2.read()).league;
+    assert.ok(!done.phase, '全員が提出しても手続きが残っている');
+    assert.equal(done.status, 'running', '全員が提出しても開幕しない');
+    // ⚠ 締め切りより前でも開幕する（待たせない）
+    assert.ok(
+      Date.parse(clock2) < Date.parse(opened.phase?.deadline || '2999-01-01'),
+      '前提: まだ締め切り前',
+    );
+  } finally {
+    await rm(dir2, { recursive: true, force: true });
+  }
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
 
 console.log(
-  '■ 締め切りと自動決定: OK（120ターン / 土=ストーブ・日=キャンプ / 未提出でも進む）',
+  '■ 締め切りと自動決定: OK（120ターン / 初期編成にも締め切り / 誰も提出しなくても月曜に開幕 / 全員提出なら締め切り前でも開幕）',
 );

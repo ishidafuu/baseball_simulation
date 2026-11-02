@@ -1800,3 +1800,21 @@
   background: transparent;
   color: #94a3b8;
 }
+
+/* 検証モード。⚠ 遊び始めたらOFFに戻す想定なので、常設の操作と見た目を分ける。 */
+.online-testmode {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px dashed #7c8ca0;
+  border-radius: 8px;
+}
+.online-testmode .online-muted {
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
+
+/* スマホから移植した編成画面へ入る導線。 */
+.online-full-width {
+  width: 100%;
+  margin-bottom: 10px;
+}

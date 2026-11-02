@@ -138,10 +138,18 @@ export class LeagueService {
     const l = bundle.league;
     if (!l || isCurrent(l)) return { applied: [], changed: false };
     const working = clone(l);
-    const result = migrateLeague(working);
+    const result = migrateLeague(working, { now: this.clock() });
     bundle.league = working;
     bundle.league.updatedAt = this.clock();
     return result;
+  }
+  /**
+   * 手で進められるか。
+   * ⚠ 環境変数（`ONLINE_ALLOW_STEP`）は再デプロイが要るので、リーグの
+   *    切り替え（`testMode`）でも立てられるようにしてある。どちらかでON
+   */
+  canStep(league) {
+    return this.allowStep || league?.testMode === true;
   }
   async command(userId, sessionId, command) {
     requireOnline(
@@ -314,15 +322,43 @@ export class LeagueService {
           bundle.league.status = bundle.league.phase ? 'waiting' : 'paused';
           bundle.league.nextAdvanceAt = null;
           // 復元前の操作を再実行させない。過去のログイン権限を復活させない。
-        } else if (command.type === 'step' && this.allowStep) {
+        } else if (command.type === 'testmode') {
+          // ⚠ 切り替えは管理者だけ。ONの間は管理者が好きな時に進められるので、
+          //    遊び始めたらOFFに戻すこと
+          requireOnline(
+            userId === this.adminId,
+            '検証モードの切り替えは管理者専用です',
+            403,
+          );
+          l.testMode = command.payload?.on === true;
+        } else if (command.type === 'resolve') {
+          // ⚠ 手続きを**いま**締め切る。未提出の人には標準案を当てる。
+          //    時間を待たずに試せるようにするためで、検証モード中だけ。
+          requireOnline(this.canStep(l), '検証モードが入っていません', 403);
           requireOnline(
             userId === this.adminId,
             '検証用の進行操作は管理者専用です',
             403,
           );
-          await this.engine((engine) =>
-            engine.advanceLeagueDay(l, `step:${command.requestId}`, now),
+          requireOnline(l.phase, '決定待ちの手続きはありません', 409);
+          await this.engine((engine) => engine.resolvePhaseNow(l, now));
+        } else if (command.type === 'step') {
+          requireOnline(this.canStep(l), '検証モードが入っていません', 403);
+          requireOnline(
+            userId === this.adminId,
+            '検証用の進行操作は管理者専用です',
+            403,
           );
+          requireOnline(l.status === 'running', '試合の期間ではありません', 409);
+          // ⚠ 1ターン＝1時間＝1試合日。まとめて進めるときも**1日ずつ繰り返す**。
+          //    日付を飛ばすと、間の日の試合・疲労回復・コンディション更新が落ちる
+          const turns = Math.max(1, Math.min(24, Number(command.payload?.turns) || 1));
+          for (let i = 0; i < turns; i += 1) {
+            if (l.status !== 'running') break;
+            await this.engine((engine) =>
+              engine.advanceLeagueDay(l, `step:${command.requestId}:${i}`, now),
+            );
+          }
         } else requireOnline(false, '未対応の操作です');
         bundle.league.revision++;
       }

@@ -67,7 +67,7 @@ export default function OnlineLineup({ view, busy, onSave, onClose }) {
             onClick={onClose}
             className="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 disabled:opacity-50"
           >
-            閉じる（保存しない）
+            方針・采配の設定へ（保存しない）
           </button>
           <button
             type="button"

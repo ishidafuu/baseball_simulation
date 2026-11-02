@@ -7,6 +7,7 @@ import {
   LineupPanel,
 } from './LeaguePanels.jsx';
 import TeamRoster from './TeamRoster.jsx';
+import OnlineLineup from './OnlineLineup.jsx';
 import { CompactRoster, TeamBrief } from './PlayerPerformance.jsx';
 import { formatGameDate } from './shared.js';
 import { dateTime, STATUS } from './api.js';
@@ -16,6 +17,7 @@ export default function MobileView(props) {
     props;
   const [playersFrom, setPlayersFrom] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [fullLineup, setFullLineup] = useState(false);
   const tabs = [
     ['today', '今日'],
     ['games', '試合'],
@@ -79,33 +81,41 @@ export default function MobileView(props) {
       )}
       {(tab === 'lineup' || tab === 'players') && (
         <div hidden={tab === 'players'}>
-          {view.phase ? (
-            <section className="online-card">
-              <h2>打順</h2>
-              <p>
-                {view.phase.label}の決定待ちです。キャンプ後に設定できます。
-              </p>
-              <button onClick={() => setTab('decisions')}>手続きへ</button>
+          {/* ⚠ **手続き中でも開けること**。以前は「決定待ちです」で塞いでいたが、
+              打順や投手起用はいつ決めてもよく、止める理由が無い */}
+          {fullLineup ? (
+            <OnlineLineup
+              view={view}
+              busy={props.busy}
+              onClose={() => setFullLineup(false)}
+              onSave={async (plan, baseLineup) => {
+                await props.run(() =>
+                  props.command('lineup', { ...plan, baseLineup }),
+                );
+                setFullLineup(false);
+              }}
+            />
+          ) : (
+            <>
+              {/* ⚠ スマホからも移植した画面へ入れるようにする。横に長い画面なので
+                  既定では開かず、押したときだけ出す（PCは既定で開く） */}
               <button
-                onClick={() => {
+                className="online-primary online-full-width"
+                onClick={() => setFullLineup(true)}
+              >
+                打順・守備・投手起用を開く（横向き推奨）
+              </button>
+              <LineupPanel
+                key={`${view.year}:${view.teamName}`}
+                {...props}
+                mobile
+                onShowRoster={() => {
                   setPlayersFrom('lineup');
                   setTab('players');
                 }}
-              >
-                選手成績
-              </button>
-            </section>
-          ) : (
-            <LineupPanel
-              key={`${view.year}:${view.teamName}`}
-              {...props}
-              mobile
-              onShowRoster={() => {
-                setPlayersFrom('lineup');
-                setTab('players');
-              }}
-              hidden={tab === 'players'}
-            />
+                hidden={tab === 'players'}
+              />
+            </>
           )}
         </div>
       )}

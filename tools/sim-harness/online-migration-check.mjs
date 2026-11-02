@@ -229,14 +229,27 @@ try {
   //    どれでも直ることを見る。段が0本だった頃は手順表を差し替える口を
   //    付けていたが、2→3 の段が入ったので本物で通せるようになった。
   const upgradable = service;
-  // ⚠ 段（2→3）は `delete league.invites` なので、古い形を作るときに
-  //    `invites` を生やしておき、消えることで「当たった」と判る
+  // ⚠ **いちばん古い直せる版まで落とすこと**。`ONLINE_SCHEMA - 1` にすると
+  //    最後の段しか当たらず、途中の段が壊れていても気づけない
+  //    （段が2本になった時に実際に取りこぼした）。
+  // ⚠ 各段が当たったことを**別々の目印**で見る。
+  //    2→3 は `invites` が消えること、3→4 は `testMode` が入ること。
   const downgrade = () =>
     store.transaction((bundle) => {
-      bundle.league.schema = ONLINE_SCHEMA - 1;
+      bundle.league.schema = OLDEST_MIGRATABLE;
       bundle.league.invites = [{ code: 'OLD', usedBy: null }];
+      delete bundle.league.testMode;
+      // ⚠ **締め切りの無い手続き**を作る。初期編成には締め切りが無かったので、
+      //    1人が決めないだけでリーグが永久に止まっていた。止まったままの
+      //    リーグを、移行のときに時間で進む形へ直せることを見る
+      if (bundle.league.phase) bundle.league.phase.deadline = null;
       return { value: null };
     });
+  /** 全部の段が当たったか */
+  const migrated = (league) =>
+    !league.invites &&
+    league.testMode === false &&
+    (!league.phase || !!league.phase.deadline);
 
   // 1) 取り込みの命令で直る
   await downgrade();
@@ -248,10 +261,22 @@ try {
     type: 'migrate',
   });
   assert.equal(applied.ok, true);
-  assert.equal(applied.applied.length, 1, `当てた段がちがう: ${JSON.stringify(applied.applied)}`);
+  assert.equal(
+    applied.applied.length,
+    ONLINE_SCHEMA - OLDEST_MIGRATABLE,
+    `当てた段の数がちがう: ${JSON.stringify(applied.applied)}`,
+  );
   const fixed = (await store.read()).league;
   assert.equal(fixed.schema, ONLINE_SCHEMA, '直した形が保存されていない');
-  assert.ok(!fixed.invites, '段が当たっていない（invites が残っている）');
+  assert.ok(
+    migrated(fixed),
+    `段が当たっていない: ${JSON.stringify({ invites: fixed.invites, testMode: fixed.testMode, deadline: fixed.phase?.deadline })}`,
+  );
+  // ⚠ 止まっていた手続きが、時間で進む形になっていること
+  assert.ok(
+    fixed.phase && Date.parse(fixed.phase.deadline) > 0,
+    '締め切りの無い手続きが残っている（永久に止まる）',
+  );
   // ⚠ 取り込みで revision を上げない（送信中の提出が弾かれる）
   assert.equal(fixed.revision, before.revision, '取り込みで revision が動いた');
   // 中身は保たれている
@@ -271,14 +296,14 @@ try {
     type: 'migrate',
   });
   assert.deepEqual(again.applied, [], '済んだ段をもう一度当てている');
-  assert.ok(!(await store.read()).league.invites, '取り込み後に invites が戻っている');
+  assert.ok(migrated((await store.read()).league), '取り込み後に古い形へ戻っている');
 
   // 3) 誰も操作しなくても、定期処理で直る
   await downgrade();
   await upgradable.tick();
   const byTick = (await store.read()).league;
   assert.equal(byTick.schema, ONLINE_SCHEMA, '定期処理で直っていない');
-  assert.ok(!byTick.invites, '定期処理で段が当たっていない');
+  assert.ok(migrated(byTick), '定期処理で段が当たっていない');
 
   // 4) ふつうの命令でも直る（取り込みボタンを押さなくても、誰かが何かすれば直る）
   await downgrade();
@@ -290,7 +315,7 @@ try {
   });
   const byCommand = (await store.read()).league;
   assert.equal(byCommand.schema, ONLINE_SCHEMA, 'ふつうの命令で直っていない');
-  assert.ok(!byCommand.invites, 'ふつうの命令で段が当たっていない');
+  assert.ok(migrated(byCommand), 'ふつうの命令で段が当たっていない');
   // 命令そのものも実行されていること（移行だけして本題を落とさない）
   assert.ok((await store.read()).backup, '命令そのものが実行されていない');
 } finally {

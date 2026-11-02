@@ -51,6 +51,7 @@ const CHECKS = [
   { name: 'online-migration-check', group: 'check', online: true, slow: 21 },
   { name: 'online-join-check', group: 'check', online: true, slow: 9 },
   { name: 'online-deadline-check', group: 'check', online: true, slow: 25 },
+  { name: 'online-testmode-check', group: 'check', online: true, slow: 10 },
   { name: 'online-lineup-port-check', group: 'check', online: true, slow: 16 },
   { name: 'online-tryout-plan-check', group: 'check', online: true, slow: 10 },
   { name: 'online-parity-check', group: 'check', online: true, slow: 70 },

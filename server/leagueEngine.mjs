@@ -216,6 +216,9 @@ export function createLeague({
     createdAt: now,
     updatedAt: now,
     nextAdvanceAt: null,
+    // ⚠ 検証モード。ONの間だけ管理者が手で進められる。**既定はOFF**
+    //    （管理者が好きな時に進められるのは多人数の対戦として公平ではない）
+    testMode: false,
     // 階層リーグの球団表。参加者の割り当てと昇降格でこれを見る
     teams: defs,
     members: members.map((m, i) => ({
@@ -822,6 +825,17 @@ function advanceOneDay(league, key, now) {
  * ⚠ 解決すると次のフェーズが開くことがある（契約更改→トライアウト→オフシーズン）。
  *    そちらの締め切りも過ぎていれば、同じティックで続けて解決する。
  */
+/**
+ * 手続きを**いま**締め切る（検証用）。未提出の人には標準案を当てる。
+ * ⚠ 締め切り時刻を `now` に書き換えてから通常の自動決定に渡す。
+ *    解決の手順を2本に分けると、片方だけ直したときに食い違う。
+ */
+export function resolvePhaseNow(league, now) {
+  requireOnline(league.phase, '決定待ちの手続きはありません', 409);
+  league.phase.deadline = now;
+  return autoResolvePhase(league, now);
+}
+
 export function autoResolvePhase(league, now) {
   loadLeagueWorld(league);
   const resolved = [];

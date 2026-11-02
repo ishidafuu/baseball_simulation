@@ -1,4 +1,9 @@
-import { ONLINE_SCHEMA, ONLINE_ENGINE_VERSION, requireOnline } from './shared.js';
+import {
+  ONLINE_SCHEMA,
+  ONLINE_ENGINE_VERSION,
+  requireOnline,
+  phaseDeadlineAt,
+} from './shared.js';
 
 // ============================================================
 // 保存されたリーグを、いまのコードが読める形へ直す。
@@ -40,12 +45,31 @@ export const MIGRATIONS = [
       delete league.invites;
     },
   },
+  {
+    from: 3,
+    to: 4,
+    note: '検証モードと、初期編成の締め切りを足した',
+    apply(league, { now }) {
+      // ⚠ 既定はOFF。ONのままだと管理者が好きな時に試合を進められてしまう
+      league.testMode ??= false;
+      // ⚠ **締め切りの無い手続きを残さないこと**。初期編成には締め切りが
+      //    無かったので、1人が決めないだけでリーグが永久に止まっていた。
+      //    止まったままのリーグを、移行のときに時間で進む形へ直す
+      if (league.phase && !league.phase.deadline)
+        league.phase.deadline = phaseDeadlineAt(league.phase.kind, now);
+    },
+  },
 ];
 
 // ⚠ **手順表と目標の版を差し替えられるようにしてある**。段がまだ0本なので、
 //    そうしないと仕組みが一度も動かないまま「できているつもり」になる。
 //    本番の呼び出しは引数なしで、既定の表と `ONLINE_SCHEMA` を使う。
-const withDefaults = ({ steps = MIGRATIONS, oldest = OLDEST_MIGRATABLE, target = ONLINE_SCHEMA } = {}) => ({ steps, oldest, target });
+const withDefaults = ({
+  steps = MIGRATIONS,
+  oldest = OLDEST_MIGRATABLE,
+  target = ONLINE_SCHEMA,
+  now = new Date().toISOString(),
+} = {}) => ({ steps, oldest, target, now });
 
 /** 手順表そのものの整合。⚠ 検査がここを呼ぶ（表を二重に書かないため） */
 export function migrationChain(options) {
@@ -113,13 +137,14 @@ export function migrationState(league, options) {
  *    リーグを保存すると、半分だけ新しい形になって次の移行も通らなくなる。
  */
 export function migrateLeague(league, options) {
-  const { target } = withDefaults(options);
+  const { target, now } = withDefaults(options);
   const info = migrationState(league, options);
   if (info.state === 'current') return { applied: [], changed: false };
   requireOnline(info.state === 'migratable', info.reason || '移行できません', 409, 'version');
   const applied = [];
   for (const step of info.steps) {
-    step.apply(league);
+    // ⚠ 段に `now` を渡す。締め切りの入れ直しのように、時刻が要る直しがある
+    step.apply(league, { now });
     league.schema = step.to;
     applied.push(`${step.from}→${step.to} ${step.note}`);
   }

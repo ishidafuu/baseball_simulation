@@ -23,8 +23,9 @@ import {
 } from './PlayerPerformance.jsx';
 export default function DesktopView(props) {
   const { view, tab, setTab, busy, run, command } = props;
-  // 一人用の編成画面を全画面で開いているか
-  const [fullLineup, setFullLineup] = useState(false);
+  // ⚠ 一人用の編成画面を**既定で**全画面で開く。閉じると、オンライン側だけの
+  //    設定（基本方針・自動采配）が並ぶパネルに戻る
+  const [fullLineup, setFullLineup] = useState(true);
   const tabs = [
     ['today', '今日'],
     ['games', '試合'],
@@ -99,16 +100,12 @@ export default function DesktopView(props) {
         </TeamRoster>
       )}
       {tab === 'lineup' &&
-        (view.phase ? (
-          <section className="online-card">
-            <h2>編成</h2>
-            <p>{view.phase.label}の決定待ちです。キャンプ後に設定できます。</p>
-            <button onClick={() => setTab('decisions')}>手続きへ</button>
-          </section>
-        ) : fullLineup ? (
-          /* ⚠ 一人用の編成画面をそのまま使う。全画面で開くのは、
-             オンライン側の枠（左ナビ＋カード）に入れると
-             2カラムの表と衝突して読めなくなるため */
+        /* ⚠ **手続き中でも開けること**。以前は「決定待ちです」の1行だけにして
+           いたが、移植した編成画面に一度も辿り着けないという指摘を受けた。
+           打順や投手起用はいつ決めてもよく、止める理由が無い。
+           ⚠ **既定で移植した画面を出す**。ボタンの奥に隠すと、タブを開いた
+           時点の見た目が以前と変わらず「移植されていない」ように見える。 */
+        (fullLineup ? (
           <OnlineLineup
             view={view}
             busy={busy}
@@ -126,7 +123,7 @@ export default function DesktopView(props) {
         ) : (
           <div className="online-form-width">
             <button className="online-primary" onClick={() => setFullLineup(true)}>
-              詳しい編成を開く
+              打順・守備・投手起用を開く
             </button>
             <LineupPanel key={`${view.year}:${view.teamName}`} {...props} />
           </div>
@@ -273,12 +270,50 @@ function Admin({ view, busy, run, command, allowStep }) {
             バックアップから復元
           </button>
         )}
-        {/* ⚠ 1ターン＝1時間＝1試合日。本番で出すのは検証中だけ
-            （`ONLINE_ALLOW_STEP`）。遊び始めたら設定を外すこと。 */}
-        {allowStep && view.status === 'running' && (
-          <button disabled={busy} onClick={() => run(() => command('step'))}>
-            検証用：1時間進める
-          </button>
+      </div>
+      {/* ⚠ **検証モード**。ONの間だけ管理者が手で進められる。
+          遊び始めたらOFFに戻すこと（好きな時に進められるのは公平ではない）。
+          環境変数（`ONLINE_ALLOW_STEP`）でも立つが、そちらは再デプロイが要る。 */}
+      <div className="online-testmode">
+        <label className="online-check">
+          <input
+            type="checkbox"
+            checked={!!view.testMode}
+            disabled={busy}
+            onChange={(e) =>
+              run(() => command('testmode', { on: e.target.checked }))
+            }
+          />
+          検証モード（手で進められるようにする）
+        </label>
+        <p className="online-muted">
+          時間を待たずに試すための設定です。遊び始めたら外してください。
+          1ターン＝実時間1時間＝ゲーム内1日（＝1試合）です。
+        </p>
+        {(view.testMode || allowStep) && (
+          <div className="online-actions">
+            {view.phase && (
+              <button disabled={busy} onClick={() => run(() => command('resolve'))}>
+                手続きをいま締め切る
+              </button>
+            )}
+            {view.status === 'running' && (
+              <>
+                {/* ⚠ **1ターン＝実時間1時間＝ゲーム内1日**。「1日進める」と書くと
+                    どちらの1日か分からない（24ターンでゲーム内は24日進む）。
+                    ターン数とゲーム内の日数を両方書く */}
+                <button disabled={busy} onClick={() => run(() => command('step'))}>
+                  1ターン進める（ゲーム内1日）
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => run(() => command('step', { turns: 24 }))}
+                >
+                  24ターン進める（ゲーム内24日）
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
       {restoreConfirm && (
