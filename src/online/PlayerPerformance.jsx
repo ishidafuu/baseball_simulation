@@ -537,9 +537,16 @@ export function RoleMark({ player, lineup }) {
   );
 }
 
-export function CompactRoster({ view, desktop = false, teamSelector }) {
+// `initialCategory`: 最初に開く区分（打撃/投球）。編成ページの横の表は、
+// 投手起用なら投球から見せる
+export function CompactRoster({
+  view,
+  desktop = false,
+  teamSelector,
+  initialCategory = 'batting',
+}) {
   const [page, setPage] = useState(0);
-  const [category, setCategory] = useState('batting');
+  const [category, setCategory] = useState(initialCategory);
   const [groupId, setGroupId] = useState(desktop ? 'overview' : 'basic');
   const [sort, setSort] = useState(null);
   const group =

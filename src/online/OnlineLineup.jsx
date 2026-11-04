@@ -6,6 +6,25 @@ import { teamFromView, planFromTeam } from './lineupBridge.js';
 import { teamLabel } from './gameText.js';
 import { Page } from './Page.jsx';
 import { useDraftMemory, useDraftMemoryStore } from './Drafts.jsx';
+import { CompactRoster } from './PlayerPerformance.jsx';
+
+// 成績の表を横に出すか（PCの編成ページ）。端末ごとの好みなので localStorage に残す。
+// ⚠ 読めない環境（プライベートウィンドウなど）でも動くよう、読み書きは try で包む
+const STATS_PANEL_KEY = 'baseball-online-lineup-stats-v1';
+const readStatsPanel = () => {
+  try {
+    return window.localStorage.getItem(STATS_PANEL_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeStatsPanel = (open) => {
+  try {
+    window.localStorage.setItem(STATS_PANEL_KEY, open ? '1' : '0');
+  } catch {
+    // 残せなくても、この画面を開いている間は効く
+  }
+};
 
 /** 全画面の編成に、保存していない編集が残っているか（回転で作り直したときに開き直す判断に使う） */
 export function hasUnsavedFullLineup(editing) {
@@ -67,6 +86,15 @@ function EmbeddedLineup({ view, busy, tab, title, hidden, onSave, onDirty }) {
     hasUnsavedFullLineup(memory?.get('lineup.full')),
   );
   const dirty = !!history?.dirty || restored;
+  // ⚠ **成績の表を横に並べる**（「選手成績と同じ情報を見ながら編成したい」）。
+  //    表は選手成績ページの部品（`CompactRoster`）をそのまま使う。見た目・並べ替え・
+  //    選手の詳細が同じになり、編成の操作には手を入れない
+  const [statsOpen, setStatsOpen] = useState(readStatsPanel);
+  const toggleStats = () =>
+    setStatsOpen((open) => {
+      writeStatsPanel(!open);
+      return !open;
+    });
   const teamRef = useRef(null);
   const baseRef = useRef(null);
   const builtFor = useRef(null);
@@ -91,6 +119,13 @@ function EmbeddedLineup({ view, busy, tab, title, hidden, onSave, onDirty }) {
     builtFor.current = view.revision;
   }
   const team = teamRef.current;
+  // 表の「4番」「控え」「先発1」の印と起用の順は、**編集中の編成**で出す。
+  //    保存した編成のままだと、打順を入れ替えても表の印が古いままになる。
+  //    中の画面は `team` をその場で書き換え、編集のたびに `onHistory` で
+  //    ここを描き直させるので、描くたびに組み立てれば追いつく
+  const statsView = statsOpen
+    ? { ...view, lineup: { ...(view.lineup || {}), ...planFromTeam(team) } }
+    : null;
   // 作り直したら中の画面（履歴・選択中の状態）も作り直す
   const key = `${builtFor.current}:${generation}`;
   useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
@@ -151,6 +186,13 @@ function EmbeddedLineup({ view, busy, tab, title, hidden, onSave, onDirty }) {
         actions={
           <>
             <button
+              aria-pressed={statsOpen}
+              onClick={toggleStats}
+              title="選手成績と同じ表を右に並べます"
+            >
+              {statsOpen ? '成績を隠す' : '成績を表示'}
+            </button>
+            <button
               disabled={busy || !history?.canUndo}
               onClick={() => history?.undo()}
               title="元に戻す（Ctrl+Z）"
@@ -180,6 +222,7 @@ function EmbeddedLineup({ view, busy, tab, title, hidden, onSave, onDirty }) {
         {/* ⚠ **保存の応答待ちの間は触れなくする**（`inert`）。一人用の画面は
             `busy` を知らないので、そのままだと送信中にも並べ替えられ、
             保存が終わって作り直したときにその編集が黙って消える */}
+        <div className={`online-lineup-split${statsOpen ? ' has-stats' : ''}`}>
         <div className="online-sp" inert={busy ? '' : undefined}>
           {/* ⚠ teamName は内部名のまま渡す（画面の中で名前による照合に使われる）
               ⚠ `initialTab` は左メニューの項目から、画面の中のタブへ直に入るため
@@ -197,6 +240,20 @@ function EmbeddedLineup({ view, busy, tab, title, hidden, onSave, onDirty }) {
             keyboardActive={!hidden && !busy}
             onHistory={setHistory}
           />
+        </div>
+        {/* ⚠ 表は**画面の上に留める**（`position: sticky`）。編成の一覧を下へ
+            送っても、見比べたい成績が隠れないように。幅は右下の角で変えられる */}
+        {statsOpen && (
+          <aside className="online-card online-lineup-stats" aria-label="選手成績">
+            {/* ⚠ 区分はページに合わせる（投手起用なら投球）。ページを移ったら作り直す */}
+            <CompactRoster
+              key={tab}
+              view={statsView}
+              desktop
+              initialCategory={tab === 'rotation' ? 'pitching' : 'batting'}
+            />
+          </aside>
+        )}
         </div>
       </Page>
     </div>

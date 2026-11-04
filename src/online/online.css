@@ -2748,3 +2748,39 @@
   border: 0;
   font-weight: 700;
 }
+
+/* --- 編成ページの横に出す成績の表（`OnlineLineup.jsx` の `EmbeddedLineup`） ---
+   ⚠ 表は選手成績ページと同じ部品。主要成績は12列あるので、狭いときは
+   表の中だけ横に送る（編成の画面まで横に押し出さない）。
+   ⚠ 幅は右下の角を引いて変えられる（`resize`）。左右どちらを広く見たいかは
+   場面で違う（打順を組むときは成績、守備を見るときは編成）。 */
+.online-lineup-split.has-stats {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.online-lineup-split.has-stats > .online-sp {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.online-lineup-stats {
+  position: sticky;
+  top: 96px;
+  flex: 0 0 auto;
+  width: 42%;
+  min-width: 340px;
+  max-width: 75%;
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  resize: horizontal;
+  padding: 0 12px;
+}
+.online-lineup-stats .online-compact-roster {
+  min-width: 720px;
+}
+/* 表を出している間は本文の幅の上限（1240px）を外す。広い画面なら、編成の
+   画面を狭めずに表を並べられる。⚠ 編成ページは他のページへ移っても隠して
+   残す（`hidden`）ので、**見えているときだけ**に絞る */
+.online-desktop main:has(div:not([hidden]) > .online-page > .online-lineup-split.has-stats) {
+  max-width: 1960px;
+}
