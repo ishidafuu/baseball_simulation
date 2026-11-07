@@ -82,6 +82,14 @@ class ScreenTour {
         }
     }
 
+    /** いちばん上まで戻す（長いホームを下まで撮ったあと、上のメニューに触れるように） */
+    private fun toTop() {
+        repeat(4) {
+            rule.onAllNodes(isRoot()).onFirst().performTouchInput { swipeDown(startY = top + height * 0.2f, endY = bottom * 0.75f) }
+            pause(300)
+        }
+    }
+
     private fun back() {
         Espresso.pressBackUnconditionally()
         pause()
@@ -117,13 +125,14 @@ class ScreenTour {
             step(name) {
                 rule.runOnUiThread { model.changeHomeStyle(style) }
                 pause(1500)
-                rule.onAllNodes(isRoot()).onFirst().performTouchInput { swipeDown(startY = top + height * 0.2f, endY = bottom * 0.75f) }
+                toTop()
                 page(name, scrolls = 2)
             }
         }
         rule.runOnUiThread { model.changeHomeStyle("Paper") }
         pause()
-        step("menu") { rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick(); shot("home-menu"); back() }
+        // ⚠ 下まで撮ったままだと題字のメニューが画面の外で押せず、続く「戻る」でアプリが閉じて以降が撮れなかった
+        step("menu") { toTop(); rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick(); shot("home-menu"); back() }
 
         when (stage) {
             "running" -> {
@@ -232,6 +241,7 @@ class ScreenTour {
         }
         step("rename") {
             tab("Home")
+            toTop()
             rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick()
             pause()
             click("球団名", substring = true)
