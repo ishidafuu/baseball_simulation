@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,14 +55,15 @@ private enum class ProcTab(val label: String) { Current("現在の手続き"), T
 @Composable
 fun ProceduresScreen(model: AppViewModel, onRename: () -> Unit) {
     val raw = model.raw ?: return
-    var tab by rememberSaveable { mutableStateOf(ProcTab.Current) }
+    // ⚠ どちらの側を開いているかは AppViewModel に置く（届いた提案の知らせから、トレードの側を直接開くため）
+    val tab = if (model.procTrade) ProcTab.Trade else ProcTab.Current
     val waiting = raw.at("trades").list().count { it.at("myTurn").bool() == true }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ChipTabs(
                 ProcTab.entries.map { it.name to (it.label + if (it == ProcTab.Trade && waiting > 0) "（$waiting）" else "") },
                 tab.name,
-                { tab = ProcTab.valueOf(it) },
+                { model.procTrade = it == ProcTab.Trade.name },
                 Modifier.weight(1f),
             )
             TextButton(onClick = onRename) { Text("球団名") }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import jp.icenorth.baseball.app.ui.TradeDraft
 import jp.icenorth.baseball.shared.AuthSession
 import jp.icenorth.baseball.shared.EditHistory
 import jp.icenorth.baseball.shared.PlanDraft
@@ -45,6 +46,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** 手続きの編集中の案（タブを移っても消えないよう、ここに置く） */
     var phaseDraft by mutableStateOf<PhaseDraft?>(null)
     var campDraft by mutableStateOf<CampDraft?>(null)
+    var tradeDraft by mutableStateOf<TradeDraft?>(null)
+
+    /** 手続きタブでトレードの側を開いているか（届いた提案の知らせから直接開くため、ここに置く） */
+    var procTrade by mutableStateOf(false)
+
+    /** 知らせ終えた届いた提案の印。端末に覚える（開き直すたびに知らせない） */
+    var seenTrades by mutableStateOf(store.seenTrades)
+        private set
+
+    fun markTradesSeen(keys: Set<String>) {
+        if (keys == seenTrades) return
+        seenTrades = keys
+        store.seenTrades = keys
+    }
 
     /** トライアウトの評価値の重み（端末に覚える。サーバーには送らない） */
     var tryoutWeights by mutableStateOf(sanitizeWeights(store.tryoutWeights))
@@ -165,19 +180,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         plan = null
         phaseDraft = null
         campDraft = null
+        tradeDraft = null
+        procTrade = false
         clearCaches()
         if (current != null) viewModelScope.launch { runCatching { api.logout(current) } }
     }
 
-    fun reload(pull: Boolean = false) {
+    /**
+     * 最新のビューを読み直す。`quiet` は画面を開いている間の自動の読み直し（届いた提案に気づくため）で、
+     * 保存の最中は読まず、通信の失敗も出さない（電波の悪い所で失敗の知らせが続かないように）。
+     */
+    fun reload(pull: Boolean = false, quiet: Boolean = false) {
         val current = auth ?: return
-        if (reloadJob?.isActive == true) return
+        if (reloadJob?.isActive == true || (quiet && busy)) return
         if (pull) refreshing = true
         reloadJob = viewModelScope.launch {
             try {
                 authed { load(it) }
             } catch (e: Exception) {
-                handle(e)
+                if (!quiet || e.isAuthFailure()) handle(e)
             } finally {
                 refreshing = false
             }
@@ -310,11 +331,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun handle(e: Exception) {
         // 別の端末でログインし直した／認証が切れた → ログイン画面へ戻す
-        if (e is OnlineException && (e.code == "session" || e.code == "auth" || e.status == 401)) {
-            logout()
-        }
+        if (e.isAuthFailure()) logout()
         error = e.readable()
     }
+
+    private fun Exception.isAuthFailure() = this is OnlineException && (code == "session" || code == "auth" || status == 401)
 
     private fun Exception.readable(): String = when (this) {
         is OnlineException -> message ?: "サーバー処理に失敗しました"

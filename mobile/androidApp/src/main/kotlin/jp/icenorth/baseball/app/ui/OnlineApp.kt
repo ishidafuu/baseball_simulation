@@ -31,6 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import jp.icenorth.baseball.shared.situationTips
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
@@ -76,6 +80,17 @@ fun OnlineApp(model: AppViewModel) {
     var renaming by remember { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
     val raw = model.raw
+    // 画面を開いている間は、ときどき読み直す（届いたトレードの提案や進行に気づけるように）。
+    // アプリに戻ってきたときもすぐ読む。裏に回っている間は読まない
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                model.reload(quiet = true)
+                delay(AUTO_RELOAD_MS)
+            }
+        }
+    }
     // 自分の番の手続き・返事待ちのトレードがあれば「手続き」に印
     val pending = raw != null && (
         raw["pendingPack"].obj() != null ||
@@ -123,10 +138,15 @@ fun OnlineApp(model: AppViewModel) {
             // 今のスタメン・ローテに当てはまるTIPS（保存済みの編成で見る＝実際に起きること）
             val view = model.view
             val situations = remember(view?.roster, view?.lineup) { situationTips(view?.roster.orEmpty(), view?.lineup) }
+            // 届いた提案のうち、まだ知らせていないもの。トレードを開いたら知らせ終えたことにする
+            val onTrades = tab == Tab.Procedures && model.procTrade
+            val tradeKeys = tradeNoticeKeys(raw)
+            LaunchedEffect(onTrades, tradeKeys) { if (onTrades) model.markTradesSeen(tradeKeys) }
+            val notice = if (onTrades || view == null) null else tradeNoticeText(view, raw, model.seenTrades)
             Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
                 Column {
                     when (tab) {
-                        Tab.Home -> HomeScreen(model, onOpenLineup = { tab = Tab.Plan }, onOpenProcedures = { tab = Tab.Procedures }, onRename = { renaming = true }, onOpenGames = { tab = Tab.Games }, onOpenTips = { showTips = true })
+                        Tab.Home -> HomeScreen(model, onOpenLineup = { tab = Tab.Plan }, onOpenProcedures = { tab = Tab.Procedures; model.procTrade = tradesOnly(raw) }, onRename = { renaming = true }, onOpenGames = { tab = Tab.Games }, onOpenTips = { showTips = true })
                         Tab.Games -> GamesScreen(model)
                         Tab.Players -> PlayersScreen(model)
                         Tab.Plan -> PlanScreen(model)
@@ -142,6 +162,15 @@ fun OnlineApp(model: AppViewModel) {
                         onRead = model::markSituationTipsSeen,
                         onOpenAll = { showTips = true },
                         modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                    )
+                }
+                // ⚠ 届いた提案は、どのタブにいても上に帯で知らせる（「手続き」の小さな印だけでは気づきにくかった）
+                notice?.let { text ->
+                    TradeNotice(
+                        text,
+                        onOpen = { tab = Tab.Procedures; model.procTrade = true; model.tradeDraft = null },
+                        onDismiss = { model.markTradesSeen(tradeKeys) },
+                        modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
                     )
                 }
             }
@@ -186,3 +215,11 @@ fun RenameDialog(model: AppViewModel, close: () -> Unit) {
         dismissButton = { TextButton(onClick = close) { Text("閉じる") } },
     )
 }
+
+/** 画面を開いている間に読み直す間隔（届いた提案に気づくため。変わっていなければサーバーは「変わりなし」だけ返す） */
+private const val AUTO_RELOAD_MS = 60_000L
+
+/** 自分の番の手続きは無く、届いた提案だけがある（ホームのお知らせから、トレードの側を直接開く） */
+private fun tradesOnly(raw: kotlinx.serialization.json.JsonObject?): Boolean =
+    raw != null && raw["pendingPack"].obj() == null && raw["phase"].obj() == null &&
+        raw.at("trades").list().any { it.at("myTurn").bool() == true }

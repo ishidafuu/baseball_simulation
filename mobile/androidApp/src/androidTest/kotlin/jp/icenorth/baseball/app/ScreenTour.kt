@@ -19,6 +19,11 @@ import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import jp.icenorth.baseball.app.ui.TradeDraft
+import jp.icenorth.baseball.app.ui.TradeStep
+import jp.icenorth.baseball.shared.at
+import jp.icenorth.baseball.shared.list
+import jp.icenorth.baseball.shared.str
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -192,6 +197,25 @@ class ScreenTour {
 
                 tab("Procedures")
                 page("procedures", scrolls = 4)
+                // トレード: 相手 → 選手 → 確認の段（送らずに閉じる）
+                step("trade") {
+                    rule.runOnUiThread { model.procTrade = true }
+                    pause(1500)
+                    shot("trade")
+                    click("新しくトレードを考える", substring = true)
+                    shot("trade-partner")
+                    val partner = model.raw!!.at("teamNames").list().mapNotNull { it.str() }.first { it != view.teamName }
+                    rule.runOnUiThread { model.tradeDraft = TradeDraft(partner = partner, step = TradeStep.Players) }
+                    pause(3000)
+                    click("総合", substring = true)
+                    click("出す（自球団）", substring = true)
+                    click("総合", substring = true)
+                    shot("trade-players")
+                    click("確認へ")
+                    page("trade-confirm", scrolls = 1)
+                    rule.runOnUiThread { model.tradeDraft = null; model.procTrade = false }
+                    pause()
+                }
             }
             else -> {
                 tab("Procedures")

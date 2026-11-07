@@ -1,26 +1,35 @@
 package jp.icenorth.baseball.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,11 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import jp.icenorth.baseball.app.AppViewModel
 import jp.icenorth.baseball.shared.Commands
 import jp.icenorth.baseball.shared.LeagueView
-import jp.icenorth.baseball.shared.ONLINE_ROSTER_TARGETS
 import jp.icenorth.baseball.shared.ROSTER_LIMIT
 import jp.icenorth.baseball.shared.at
 import jp.icenorth.baseball.shared.bool
@@ -58,46 +67,111 @@ import kotlinx.serialization.json.JsonObject
 import kotlin.math.roundToInt
 
 /**
- * トレード。出す選手ともらう選手を同じ物差しで比べ、交換後の両球団の名簿が成り立つかを見て決める。
- * ⚠ 相手はCPU球団でもよい（その場で答える：受ける／逆提案／断る）。人の球団を先に並べる。
+ * トレード。
+ *
+ * ⚠ **送る前に必ず確認の段を通す**（いしだ指摘: 選手を選んだ画面にそのまま「提案する」があり、
+ *    最終確認なしに相手へ届いた）。CPU球団はその場で答え、受けたら即成立して取り消せないので特に。
+ *    新しい提案は「相手 → 選手 → 確認」の3段（[TradeBuilder]）。届いた提案の成立・断るにも確認を出す。
  * ⚠ 名簿が成り立つかはサーバーと同じ規則（rosterShortfall）。最終の判断はサーバー。
  * ⚠ 逆提案は1回だけ。`offer` はいつも提案した側が出す選手（向きを変えない）。
  */
 @Composable
 fun TradeScreen(model: AppViewModel, raw: JsonObject) {
     val view = model.view ?: return
+    model.tradeDraft?.let { draft ->
+        TradeBuilder(model, view, raw, draft)
+        return
+    }
     val trades = raw.at("trades").list().mapNotNull { it.obj() }
     val waiting = trades.filter { it.at("myTurn").bool() == true }
     val sent = trades.filter { it.at("myTurn").bool() != true }
-    val humans = raw.at("members").list().mapNotNull { it.at("teamName").str() }.toSet()
-    val others = raw.at("teamNames").list().mapNotNull { it.str() }.filter { it != view.teamName }
-    val partners = others.filter { it in humans } + others.filter { it !in humans }
+    val (partners, _) = tradePartners(view, raw)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (waiting.isNotEmpty()) Caption("返事が必要な提案")
-        waiting.forEach { TradeCard(model, view, raw, it) }
-        if (sent.isNotEmpty()) Caption("相手の返事待ち")
-        sent.forEach { TradeCard(model, view, raw, it) }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Box(Modifier.weight(1f)) { Caption("新しく提案する") }
+        if (waiting.isNotEmpty()) {
+            Caption("返事が必要な提案（${waiting.size}件）")
+            waiting.forEach { TradeCard(model, view, raw, it) }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { model.tradeDraft = TradeDraft() }, enabled = partners.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                Text("＋ 新しくトレードを考える")
+            }
             InfoButton(
                 "トレード",
                 listOf(
-                    "ほかの球団と選手を交換します。CPU球団はその場で答え、参加者の球団は相手が受けた時点で成立します。",
-                    "行を押すと交換案に入ります（自球団の行＝出す、相手の行＝もらう）。名前を押すと詳細。",
+                    "ほかの球団と選手を交換します。相手・選手を選び、確認の画面で内容を見てから送ります。",
+                    "CPU球団はその場で答えます（受ける・逆提案・断る）。受けたらすぐ成立し、取り消せません。",
+                    "参加者の球団は、相手が受けた時点で成立します。返事が来るまでは取り下げられます。",
                     "解雇は土曜の「契約更改」、獲得は土曜の「トライアウト」で行います。",
                 ),
             )
         }
         if (partners.isEmpty()) Muted("トレードの相手になる球団がありません。")
-        else TradeComposer(model, view, raw, partners, humans, locked = null, initialGive = emptySet(), initialGet = emptySet(), submitLabel = "この内容で提案する") { to, give, get, reset ->
-            model.command(
-                "tradeOffer",
-                Commands.tradeOffer(to, give, get),
-                label = "提案を送信中…",
-                done = "提案しました",
-            ) { reset() }
+        if (sent.isNotEmpty()) {
+            Caption("相手の返事待ち")
+            sent.forEach { TradeCard(model, view, raw, it) }
         }
     }
+}
+
+/** 作りかけのトレード案。タブを移っても消えないよう [AppViewModel.tradeDraft] に置く */
+data class TradeDraft(
+    val partner: String? = null,
+    val give: Set<Long> = emptySet(),
+    val get: Set<Long> = emptySet(),
+    val step: TradeStep = TradeStep.Partner,
+    /** 逆提案のときの元の提案の id（このときは相手が決まっているので「選手」の段から始める） */
+    val counterOf: String? = null,
+    /** 逆提案する元の提案が自分の出したものか（サーバーへの返事に要る） */
+    val counterMine: Boolean = false,
+)
+
+enum class TradeStep(val label: String) { Partner("相手"), Players("選手"), Confirm("確認") }
+
+/** 届いた提案（自分の番のもの）の印。逆提案が返ってきたときも別の印にして、もう一度知らせる */
+fun tradeNoticeKeys(raw: JsonObject?): Set<String> =
+    raw?.at("trades").list().mapNotNull { it.obj() }
+        .filter { it.at("myTurn").bool() == true }
+        .mapNotNull { t -> t.at("id").str()?.let { "$it:${if (t.at("countered").bool() == true) "c" else "o"}" } }
+        .toSet()
+
+/** まだ見ていない届いた提案の知らせ文。無ければ null */
+fun tradeNoticeText(view: LeagueView, raw: JsonObject?, seen: Set<String>): String? {
+    val fresh = raw?.at("trades").list().mapNotNull { it.obj() }.filter { t ->
+        t.at("myTurn").bool() == true &&
+            "${t.at("id").str()}:${if (t.at("countered").bool() == true) "c" else "o"}" !in seen
+    }
+    if (fresh.isEmpty()) return null
+    if (fresh.size > 1) return "トレードの提案が${fresh.size}件届いています"
+    val t = fresh.single()
+    val mine = t.at("mine").bool() == true
+    val partner = view.teamLabel((if (mine) t.at("toTeam") else t.at("fromTeam")).str().orEmpty())
+    return if (mine) "${partner}から逆提案が届きました" else "${partner}からトレードの提案が届きました"
+}
+
+/** 届いた提案の知らせ（画面の上に重ねる帯）。押すとトレードを開く */
+@Composable
+fun TradeNotice(text: String, onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        shadowElevation = 6.dp,
+        modifier = modifier.fillMaxWidth().clickable(onClick = onOpen),
+    ) {
+        Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Notifications, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 10.dp))
+            TextButton(onClick = onOpen) { Text("見る") }
+            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "閉じる") }
+        }
+    }
+}
+
+/** 相手にできる球団（参加者の球団を先に）と、参加者の球団の集合 */
+private fun tradePartners(view: LeagueView, raw: JsonObject): Pair<List<String>, Set<String>> {
+    val humans = raw.at("members").list().mapNotNull { it.at("teamName").str() }.toSet()
+    val others = raw.at("teamNames").list().mapNotNull { it.str() }.filter { it != view.teamName }
+    return (others.filter { it in humans } + others.filter { it !in humans }) to humans
 }
 
 /** 相手の名簿（その場で読む。12球団ぶんをいつもビューに載せると重い） */
@@ -120,6 +194,12 @@ private fun partnerRoster(model: AppViewModel, partner: String?): Pair<List<Json
     return roster to failure
 }
 
+private fun namesOf(ids: Set<Long>, vararg rosters: List<JsonObject>?): String {
+    if (ids.isEmpty()) return "なし"
+    val byId = rosters.flatMap { it.orEmpty() }.associateBy { it.pid }
+    return ids.joinToString("、") { id -> byId[id]?.at("name").str() ?: "?" }
+}
+
 @Composable
 private fun TradeCard(model: AppViewModel, view: LeagueView, raw: JsonObject, trade: JsonObject) {
     val mine = trade.at("mine").bool() == true
@@ -135,15 +215,16 @@ private fun TradeCard(model: AppViewModel, view: LeagueView, raw: JsonObject, tr
     val give = giveEntries.filter { it.at("gone").bool() != true }.map { it.pid }.toSet()
     val get = getEntries.filter { it.at("gone").bool() != true }.map { it.pid }.toSet()
     val problems = dealProblems(myRoster, theirs, give, get)
-    var countering by rememberSaveable(trade.at("id").str()) { mutableStateOf(false) }
     val tradeId = trade.at("id").str().orEmpty()
-    val respond = { action: String, counterGive: Set<Long>?, counterGet: Set<Long>? ->
+    // 確かめている返事（accept / reject）。押してすぐには送らない
+    var asking by remember(tradeId) { mutableStateOf<String?>(null) }
+    val respond = { action: String ->
         model.command(
             "tradeRespond",
-            Commands.tradeRespond(tradeId, action, mine, counterGive, counterGet),
+            Commands.tradeRespond(tradeId, action, mine),
             label = "返事を送信中…",
-            done = when (action) { "accept" -> "トレードが成立しました"; "reject" -> if (mine) "提案を取り下げました" else "断りました"; else -> "逆提案を送りました" },
-        ) { countering = false }
+            done = if (action == "accept") "トレードが成立しました" else if (mine) "提案を取り下げました" else "断りました",
+        )
     }
     Section(
         when {
@@ -157,28 +238,44 @@ private fun TradeCard(model: AppViewModel, view: LeagueView, raw: JsonObject, tr
             color = if (myTurn) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelLarge,
         )
-        if (!countering) {
-            DealSide("出す（自球団）", giveEntries, myRoster, model)
-            DealSide("もらう（${view.teamLabel(partner)}）", getEntries, theirs.orEmpty(), model)
-            theirError?.let { Muted("相手の名簿を読めませんでした: $it") }
-            if (theirs != null) AfterCounts(view, partner, myRoster, theirs, give, get)
-            if (stale) Text("移籍済みの選手が含まれているため、成立できません。", color = MaterialTheme.colorScheme.error)
-            problems.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-        if (myTurn && !countering) {
+        DealSide("出す（自球団）", giveEntries, myRoster, model)
+        DealSide("もらう（${view.teamLabel(partner)}）", getEntries, theirs.orEmpty(), model)
+        theirError?.let { Muted("相手の名簿を読めませんでした: $it") }
+        if (theirs != null) AfterCounts(view, partner, myRoster, theirs, give, get)
+        if (stale) Text("移籍済みの選手が含まれているため、成立できません。", color = MaterialTheme.colorScheme.error)
+        problems.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (myTurn) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { respond("accept", null, null) }, enabled = !stale && problems.isEmpty()) { Text("成立させる") }
-                if (trade.at("canCounter").bool() == true) OutlinedButton(onClick = { countering = true }) { Text("逆提案") }
-                OutlinedButton(onClick = { respond("reject", null, null) }) { Text("断る") }
+                Button(onClick = { asking = "accept" }, enabled = !stale && problems.isEmpty() && theirs != null) { Text("成立させる") }
+                if (trade.at("canCounter").bool() == true) {
+                    OutlinedButton(onClick = { model.tradeDraft = TradeDraft(partner, give, get, TradeStep.Players, counterOf = tradeId, counterMine = mine) }) { Text("逆提案") }
+                }
+                OutlinedButton(onClick = { asking = "reject" }) { Text("断る") }
             }
+        } else {
+            OutlinedButton(onClick = { asking = "reject" }) { Text(if (mine) "取り下げる" else "断る") }
         }
-        if (myTurn && countering) {
-            Muted("中身を作り替えて返します。逆提案はこの1回だけで、相手が受けなければこの提案は消えます。")
-            TradeComposer(model, view, raw, listOf(partner), emptySet(), locked = partner, initialGive = give, initialGet = get, submitLabel = "この内容で返す", onCancel = { countering = false }) { _, g, w, _ ->
-                respond("counter", g.toSet(), w.toSet())
-            }
-        }
-        if (!myTurn) OutlinedButton(onClick = { respond("reject", null, null) }) { Text(if (mine) "取り下げる" else "断る") }
+    }
+    asking?.let { action ->
+        val accept = action == "accept"
+        val verb = if (accept) "成立させる" else if (mine) "取り下げる" else "断る"
+        AlertDialog(
+            onDismissRequest = { asking = null },
+            title = { Text(if (accept) "トレードを成立させますか？" else if (mine) "提案を取り下げますか？" else "提案を断りますか？") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("出す: ${namesOf(give, myRoster)}")
+                    Text("もらう: ${namesOf(get, theirs)}")
+                    Text(
+                        if (accept) "成立すると取り消せません。" else "この提案は消えます。",
+                        color = if (accept) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (accept) FontWeight.Bold else FontWeight.Normal,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { asking = null; respond(action) }) { Text(verb) } },
+            dismissButton = { TextButton(onClick = { asking = null }) { Text("やめる") } },
+        )
     }
 }
 
@@ -214,76 +311,261 @@ private fun AfterCounts(view: LeagueView, partner: String, mine: List<JsonObject
 private val GROUPS = listOf("pitcher" to "投手", "catcher" to "捕手", "infielder" to "内野手", "outfielder" to "外野手")
 
 /**
- * 交換案を作る。守備位置ごとに自球団と相手の選手を並べ、行を押すと出す／もらうに入る（もう一度押すと外れる）。
+ * 新しい提案・逆提案を作る画面。「相手 → 選手 → 確認」の段を進み、**確認の段でだけ送れる**。
+ * 戻るボタンは1つ前の段へ（最初の段なら閉じる）。
  */
 @Composable
-private fun TradeComposer(
-    model: AppViewModel,
-    view: LeagueView,
-    raw: JsonObject,
-    partners: List<String>,
-    humans: Set<String>,
-    locked: String?,
-    initialGive: Set<Long>,
-    initialGet: Set<Long>,
-    submitLabel: String,
-    onCancel: (() -> Unit)? = null,
-    onSubmit: (to: String, give: List<Long>, get: List<Long>, reset: () -> Unit) -> Unit,
-) {
-    var partner by rememberSaveable { mutableStateOf(locked ?: partners.first()) }
-    var give by remember { mutableStateOf(initialGive) }
-    var get by remember(partner) { mutableStateOf(if (partner == locked) initialGet else emptySet()) }
-    var group by rememberSaveable { mutableStateOf("pitcher") }
-    var picker by remember { mutableStateOf(false) }
-    val (theirs, theirError) = partnerRoster(model, partner)
-    val myRoster = raw.at("roster").list().mapNotNull { it.obj() }
-    val lineupIds = remember(raw) {
-        (raw.at("lineup", "battingOrder").list().mapNotNull { it.at("playerId").long() } + raw.at("lineup", "starters").list().mapNotNull { it.long() }).toSet()
+private fun TradeBuilder(model: AppViewModel, view: LeagueView, raw: JsonObject, draft: TradeDraft) {
+    val counter = draft.counterOf != null
+    val set = { next: TradeDraft -> model.tradeDraft = next }
+    val close = { model.tradeDraft = null }
+    val back = {
+        when (draft.step) {
+            TradeStep.Partner -> close()
+            TradeStep.Players -> if (counter) close() else set(draft.copy(step = TradeStep.Partner))
+            TradeStep.Confirm -> set(draft.copy(step = TradeStep.Players))
+        }
     }
-    val problems = dealProblems(myRoster, theirs, give, get)
-    Section {
-        if (locked == null) {
-            Box {
-                TextButton(onClick = { picker = true }) {
-                    Text("相手: ${view.teamLabel(partner)}${if (partner in humans) "（参加者）" else "（CPU）"}", fontWeight = FontWeight.Bold)
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                }
-                DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
-                    partners.forEach { name ->
-                        DropdownMenuItem(
-                            text = { Text(view.teamLabel(name) + if (name in humans) "（参加者）" else "（CPU）") },
-                            onClick = { picker = false; partner = name },
-                        )
+    BackHandler(onBack = back)
+    val (theirs, theirError) = partnerRoster(model, draft.partner)
+    val myRoster = raw.at("roster").list().mapNotNull { it.obj() }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る") }
+            Column(Modifier.weight(1f)) {
+                Text(if (counter) "逆提案を作る" else "トレードを考える", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                StepLine(draft.step, counter)
+            }
+            TextButton(onClick = close) { Text("やめる") }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        val body = Modifier.weight(1f).fillMaxWidth()
+        val partner = draft.partner
+        if (draft.step == TradeStep.Partner || partner == null) {
+            PartnerStep(view, raw, draft.partner, body) { picked ->
+                // 相手を変えたら、もらう選手は選び直し（出す選手は残す）
+                set(draft.copy(partner = picked, get = if (picked == draft.partner) draft.get else emptySet(), step = TradeStep.Players))
+            }
+        } else if (draft.step == TradeStep.Players) {
+            PlayersStep(model, view, raw, draft, partner, myRoster, theirs, theirError, body, set)
+        } else {
+            ConfirmStep(model, view, draft, partner, myRoster, theirs, theirError, body, set)
+        }
+    }
+}
+
+/** 今どの段か（逆提案は相手が決まっているので「相手」の段を出さない） */
+@Composable
+private fun StepLine(step: TradeStep, counter: Boolean) {
+    val steps = TradeStep.entries.filter { !counter || it != TradeStep.Partner }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        steps.forEachIndexed { i, s ->
+            if (i > 0) Muted("›")
+            Text(
+                "${i + 1} ${s.label}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (s == step) FontWeight.Bold else FontWeight.Normal,
+                color = if (s == step) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PartnerStep(view: LeagueView, raw: JsonObject, current: String?, modifier: Modifier, onPick: (String) -> Unit) {
+    val (partners, humans) = tradePartners(view, raw)
+    LazyColumn(modifier, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("参加者の球団" to partners.filter { it in humans }, "CPU球団" to partners.filter { it !in humans }).forEach { (title, names) ->
+            if (names.isEmpty()) return@forEach
+            item(key = "h-$title") { Caption(title) }
+            items(names, key = { it }) { name ->
+                Surface(
+                    color = if (name == current) MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onPick(name) },
+                ) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(view.teamLabel(name), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Muted("›")
                     }
                 }
             }
         }
-        Muted("出す ${give.size}人 · もらう ${get.size}人")
-        theirs?.let { AfterCounts(view, partner, myRoster, it, give, get) }
-        problems.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { onSubmit(partner, give.toList(), get.toList()) { give = emptySet(); get = emptySet() } },
-                enabled = (give.isNotEmpty() || get.isNotEmpty()) && problems.isEmpty() && theirs != null,
-            ) { Text(submitLabel) }
-            if (onCancel != null) OutlinedButton(onClick = onCancel) { Text("やめる") }
-            else if (give.isNotEmpty() || get.isNotEmpty()) TextButton(onClick = { give = emptySet(); get = emptySet() }) { Text("選び直す") }
+    }
+}
+
+@Composable
+private fun PlayersStep(
+    model: AppViewModel,
+    view: LeagueView,
+    raw: JsonObject,
+    draft: TradeDraft,
+    partner: String,
+    myRoster: List<JsonObject>,
+    theirs: List<JsonObject>?,
+    theirError: String?,
+    modifier: Modifier,
+    set: (TradeDraft) -> Unit,
+) {
+    // まず「もらう」から（欲しい選手を決めてから、釣り合う選手を出すほうが考えやすい）
+    var side by rememberSaveable { mutableStateOf("get") }
+    var group by rememberSaveable { mutableStateOf("pitcher") }
+    val lineupIds = remember(raw) {
+        (raw.at("lineup", "battingOrder").list().mapNotNull { it.at("playerId").long() } + raw.at("lineup", "starters").list().mapNotNull { it.long() }).toSet()
+    }
+    val problems = dealProblems(myRoster, theirs, draft.give, draft.get)
+    val giving = side == "give"
+    val picked = if (giving) draft.give else draft.get
+    val roster = if (giving) myRoster else theirs
+    Column(modifier) {
+        ChipTabs(
+            listOf("get" to "もらう（${view.teamLabel(partner)}）${draft.get.size}人", "give" to "出す（自球団）${draft.give.size}人"),
+            side,
+            { side = it },
+            Modifier.padding(top = 8.dp),
+        )
+        ChipTabs(
+            GROUPS.map { (key, label) ->
+                val n = roster.orEmpty().count { rosterGroup(it.at("position").str()) == key && it.pid in picked }
+                key to (label + if (n > 0) " $n" else "")
+            },
+            group,
+            { group = it },
+        )
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+            when {
+                !giving && theirError != null -> item { Muted("相手の名簿を読めませんでした: $theirError") }
+                roster == null -> item { Muted("読み込み中…") }
+                else -> items(
+                    roster.filter { rosterGroup(it.at("position").str()) == group }.sortedByDescending { overallScore(it) },
+                    key = { it.pid },
+                ) { p ->
+                    TradeRow(model, p, p.pid in picked, if (giving && p.pid in lineupIds) "スタメン・ローテ" else null) {
+                        val id = p.pid
+                        if (giving) set(draft.copy(give = if (id in draft.give) draft.give - id else draft.give + id))
+                        else set(draft.copy(get = if (id in draft.get) draft.get - id else draft.get + id))
+                    }
+                }
+            }
         }
-        ChoiceRow(GROUPS, group) { group = it }
-        val target = ONLINE_ROSTER_TARGETS[group]
-        Caption("自球団（${view.teamLabel(view.teamName.orEmpty())}）${target?.let { " 目標$it" } ?: ""}")
-        myRoster.filter { rosterGroup(it.at("position").str()) == group }.sortedByDescending { overallScore(it) }.forEach { p ->
-            TradeRow(model, p, p.pid in give, if (p.pid in lineupIds) "スタメン・ローテ" else null) { give = if (p.pid in give) give - p.pid else give + p.pid }
-        }
-        Caption(view.teamLabel(partner))
-        when {
-            theirError != null -> Muted("相手の名簿を読めませんでした: $theirError")
-            theirs == null -> Muted("読み込み中…")
-            else -> theirs.filter { rosterGroup(it.at("position").str()) == group }.sortedByDescending { overallScore(it) }.forEach { p ->
-                TradeRow(model, p, p.pid in get, null) { get = if (p.pid in get) get - p.pid else get + p.pid }
+        // 下の帯: 選んだ選手と、確認へ進むボタン（ここでは送らない）
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                PickedLine("出す", namesOf(draft.give, myRoster))
+                PickedLine("もらう", namesOf(draft.get, theirs))
+                problems.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (draft.give.isNotEmpty() || draft.get.isNotEmpty()) {
+                        TextButton(onClick = { set(draft.copy(give = emptySet(), get = emptySet())) }) { Text("選び直す") }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Button(
+                        onClick = { set(draft.copy(step = TradeStep.Confirm)) },
+                        enabled = (draft.give.isNotEmpty() || draft.get.isNotEmpty()) && theirs != null && problems.isEmpty(),
+                    ) { Text("確認へ") }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun PickedLine(label: String, names: String) {
+    Row {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp).alignByBaseline())
+        Text(names, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
+    }
+}
+
+@Composable
+private fun ConfirmStep(
+    model: AppViewModel,
+    view: LeagueView,
+    draft: TradeDraft,
+    partner: String,
+    myRoster: List<JsonObject>,
+    theirs: List<JsonObject>?,
+    theirError: String?,
+    modifier: Modifier,
+    set: (TradeDraft) -> Unit,
+) {
+    val humans = model.raw?.at("members").list().mapNotNull { it.at("teamName").str() }.toSet()
+    val problems = dealProblems(myRoster, theirs, draft.give, draft.get)
+    val counter = draft.counterOf
+    val submit = {
+        if (counter != null) {
+            model.command(
+                "tradeRespond",
+                Commands.tradeRespond(counter, "counter", draft.counterMine, draft.give, draft.get),
+                label = "逆提案を送信中…",
+                done = "逆提案を送りました",
+            ) { model.tradeDraft = null }
+        } else {
+            model.command("tradeOffer", Commands.tradeOffer(partner, draft.give, draft.get), label = "提案を送信中…") {
+                model.tradeDraft = null
+                model.message = offerOutcome(view, model.raw, partner, draft)
+            }
+        }
+    }
+    Column(modifier) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ConfirmSide("出す（自球団）", draft.give, myRoster, model)
+            ConfirmSide("もらう（${view.teamLabel(partner)}）", draft.get, theirs, model)
+            theirError?.let { Muted("相手の名簿を読めませんでした: $it") }
+            if (theirs != null) Section("交換後の名簿") { AfterCounts(view, partner, myRoster, theirs, draft.give, draft.get) }
+            problems.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // ⚠ 送ったあとどうなるかは、送るボタンの真上に（ここだけは常に出す。取り消せないことがあるため）
+                Text(
+                    when {
+                        counter != null -> "逆提案はこの1回だけです。相手が受けなければ、この提案は消えます。"
+                        partner in humans -> "相手が受けた時点で成立します。返事が来るまでは取り下げられます。"
+                        else -> "CPU球団はすぐに答えます。受けたらその場で成立し、取り消せません。"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (counter == null && partner !in humans) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { set(draft.copy(step = TradeStep.Players)) }) { Text("選手を選び直す") }
+                    Spacer(Modifier.weight(1f))
+                    Button(
+                        onClick = submit,
+                        enabled = (draft.give.isNotEmpty() || draft.get.isNotEmpty()) && theirs != null && problems.isEmpty(),
+                    ) { Text(if (counter != null) "逆提案を送る" else "提案を送る") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfirmSide(title: String, ids: Set<Long>, roster: List<JsonObject>?, model: AppViewModel) {
+    val players = roster.orEmpty().filter { it.pid in ids }
+    Section(title, trailing = { if (players.isNotEmpty()) Muted("総合 計${players.sumOf { overallScore(it) }.roundToInt()}") }) {
+        if (ids.isEmpty()) Muted("なし")
+        else if (roster == null) Muted("読み込み中…")
+        players.forEach { p -> PlayerSummary(p, { model.openPlayer = it }) { Overall(p) } }
+    }
+}
+
+/**
+ * 提案を送ったあとの結果。CPU球団はその場で答えるので、名簿と提案の一覧から読み取る
+ * （受けた＝選手が動いた、逆提案＝自分の番の提案が残った、断った＝サーバーが失敗で返すのでここには来ない）。
+ */
+private fun offerOutcome(view: LeagueView, raw: JsonObject?, partner: String, draft: TradeDraft): String {
+    val mine = raw?.at("roster").list().mapNotNull { it.obj()?.pid }.toSet()
+    val moved = (draft.give.isNotEmpty() && draft.give.none { it in mine }) || (draft.get.isNotEmpty() && draft.get.all { it in mine })
+    if (moved) return "${view.teamLabel(partner)}が受けて、トレードが成立しました"
+    val countered = raw?.at("trades").list().mapNotNull { it.obj() }.any {
+        it.at("toTeam").str() == partner && it.at("mine").bool() == true && it.at("myTurn").bool() == true
+    }
+    return if (countered) "${view.teamLabel(partner)}から逆提案が届きました。内容を見て返事をしてください" else "提案を送りました。相手の返事を待っています"
 }
 
 @Composable
