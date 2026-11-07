@@ -110,6 +110,13 @@ val GAME_TIPS: List<GameTip> = listOf(
 /** 今のチームに当てはまるTIPS。`who` はその状態の選手（「名前（疲労85）」など） */
 data class SituationTip(val tip: GameTip, val who: List<String>)
 
+/**
+ * 前に読んだときに無かったTIPSがあるか（あれば「i」マークを点滅させる。いしだ指定: 一度読んだら点滅を止める）。
+ * [seen] は最後に読んだときに出ていたTIPSの id。中の選手（疲れた人の顔ぶれ）が変わっただけでは点滅させない
+ * （毎日のように点滅してしまうため）。別の種類のTIPSが出たときだけ、また点滅する。
+ */
+fun hasUnreadTips(tips: List<SituationTip>, seen: Set<String>): Boolean = tips.any { it.tip.id !in seen }
+
 /** これ未満の守備適性で守っていたら知らせる（80で発揮90%。それより上は差が小さいので出さない） */
 const val OFF_POSITION_NOTICE_FITNESS = 80
 

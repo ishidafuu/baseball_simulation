@@ -7,6 +7,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TipsTest {
@@ -51,6 +52,20 @@ class TipsTest {
         val roster = listOf(Player(1, "元気", position = "center", fatigue = 0, condition = 2), Player(4, "先発", position = "pitcher", fatigue = 0))
         assertTrue(situationTips(roster, lineup(listOf(1L to "center"), listOf(4L))).isEmpty())
         assertTrue(situationTips(roster, null).isEmpty())
+    }
+
+    @Test
+    fun blinksOnlyForTipsNotReadYet() {
+        val roster = listOf(Player(1, "疲れ太郎", position = "center", fatigue = 85), Player(4, "先発A", position = "pitcher", fatigue = 45))
+        val tips = situationTips(roster, lineup(listOf(1L to "center"), listOf(4L)))
+        assertTrue(hasUnreadTips(tips, emptySet()), "まだ読んでいない")
+        val seen = tips.map { it.tip.id }.toSet()
+        assertFalse(hasUnreadTips(tips, seen), "一度読んだら点滅を止める")
+        // 顔ぶれ（疲労の数字）が変わっただけでは点滅させない
+        val later = situationTips(roster.map { it.copy(fatigue = (it.fatigue ?: 0) + 5) }, lineup(listOf(1L to "center"), listOf(4L)))
+        assertFalse(hasUnreadTips(later, seen))
+        // 別の種類のTIPSが出たら、また点滅する
+        assertTrue(hasUnreadTips(tips, setOf("fielderRest")))
     }
 
     @Test

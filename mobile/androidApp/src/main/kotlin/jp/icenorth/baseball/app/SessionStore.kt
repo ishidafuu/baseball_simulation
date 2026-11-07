@@ -35,6 +35,11 @@ class SessionStore(context: Context) {
         get() = prefs.getString("homeStyle", null)
         set(value) = prefs.edit().putString("homeStyle", value).apply()
 
+    /** 状況に応じたTIPSを最後に読んだときに出ていたTIPSの id（読んだら点滅を止めるため） */
+    var seenSituationTips: Set<String>
+        get() = prefs.getStringSet("seenSituationTips", null)?.toSet().orEmpty()
+        set(value) = prefs.edit().putStringSet("seenSituationTips", value).apply()
+
     var viewJson: String?
         get() = prefs.getString("view", null)
         set(value) = prefs.edit().putString("view", value).apply()

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import jp.icenorth.baseball.shared.GAME_TIPS
 import jp.icenorth.baseball.shared.GameTip
 import jp.icenorth.baseball.shared.TIP_CATEGORIES
+import jp.icenorth.baseball.shared.hasUnreadTips
 
 /** ゲームのTIPS一覧（ホームから開く。戻るボタンで閉じる） */
 @Composable
@@ -84,23 +85,38 @@ private fun TipCard(tip: GameTip) {
 }
 
 /**
- * 今のチームに当てはまるTIPSがあるときだけ出す、点滅する「i」マーク。押すとTIPSを出す。
+ * 今のチームに当てはまるTIPSがあるときだけ出す「i」マーク。押すとTIPSを出す。
+ * まだ読んでいないTIPSがあるときだけ点滅し、一度開いたら止まる（いしだ指定。[hasUnreadTips]）。
  * ⚠ 画面の枠は取らない（角に重ねるだけ）。当てはまらなければ何も出さない。
  */
 @Composable
-fun SituationTipsBadge(tips: List<SituationTip>, onOpenAll: () -> Unit, modifier: Modifier = Modifier) {
+fun SituationTipsBadge(
+    tips: List<SituationTip>,
+    seen: Set<String>,
+    onRead: (Set<String>) -> Unit,
+    onOpenAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     if (tips.isEmpty()) return
     var open by remember { mutableStateOf(false) }
-    val pulse by rememberInfiniteTransition(label = "tip-pulse").animateFloat(
-        initialValue = 1f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-        label = "tip-alpha",
-    )
+    val alpha = if (!open && hasUnreadTips(tips, seen)) {
+        val pulse by rememberInfiniteTransition(label = "tip-pulse").animateFloat(
+            initialValue = 1f,
+            targetValue = 0.35f,
+            animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+            label = "tip-alpha",
+        )
+        pulse
+    } else {
+        1f
+    }
     SmallFloatingActionButton(
-        onClick = { open = true },
+        onClick = {
+            open = true
+            onRead(tips.map { it.tip.id }.toSet())
+        },
         containerColor = MaterialTheme.colorScheme.secondary,
-        modifier = modifier.alpha(if (open) 1f else pulse).testTag("situation-tips"),
+        modifier = modifier.alpha(alpha).testTag("situation-tips"),
     ) {
         Icon(Icons.Filled.Info, contentDescription = "今の状態に当てはまるTIPS")
     }

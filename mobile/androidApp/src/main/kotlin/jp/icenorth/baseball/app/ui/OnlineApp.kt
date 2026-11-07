@@ -136,7 +136,13 @@ fun OnlineApp(model: AppViewModel) {
                 // ⚠ 枠は取らず左下の角に重ねる。ホームと編成だけ（当てはまらなければ出ない）
                 //    右下だと編成の行の「並べ替え」つまみに重なる。左下は打順の数字なので触る物が無い
                 if (tab == Tab.Home || tab == Tab.Plan) {
-                    SituationTipsBadge(situations, onOpenAll = { showTips = true }, modifier = Modifier.align(Alignment.BottomStart).padding(12.dp))
+                    SituationTipsBadge(
+                        situations,
+                        seen = model.seenSituationTips,
+                        onRead = model::markSituationTipsSeen,
+                        onOpenAll = { showTips = true },
+                        modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                    )
                 }
             }
         }

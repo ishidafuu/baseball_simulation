@@ -59,6 +59,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.homeStyle = name
     }
 
+    /** 状況に応じたTIPSを最後に読んだときのTIPSの id。端末に覚える（[jp.icenorth.baseball.shared.hasUnreadTips]） */
+    var seenSituationTips by mutableStateOf(store.seenSituationTips)
+        private set
+
+    fun markSituationTipsSeen(ids: Set<String>) {
+        if (ids == seenSituationTips) return
+        seenSituationTips = ids
+        store.seenSituationTips = ids
+    }
+
     fun changeWeights(next: Map<String, Int>) {
         tryoutWeights = sanitizeWeights(next)
         store.tryoutWeights = tryoutWeights
