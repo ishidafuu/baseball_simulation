@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import jp.icenorth.baseball.shared.paperNameIndex
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -192,6 +194,10 @@ fun HomeScreen(
         if (showChronicle) ChronicleDialog(model, team, view.teamShort(team)) { showChronicle = false }
         val style = homeStyleOf(model.homeStyle)
         val uriHandler = LocalUriHandler.current
+        val names = remember(model.raw, team, lastGame, opponent, oppName) {
+            paperNameIndex(model.raw, team, lastGame, oppName?.let { n -> opponent?.let { n to it } })
+        }
+        val paperLinks = remember(names) { PaperLinks(names) { ref, name -> model.openPlayerOf(ref.team, ref.id, name) } }
         LazyColumn(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 72.dp), // 左下の TIPS の印に隠れないよう
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -203,6 +209,8 @@ fun HomeScreen(
                 PaperTabs(paper, localPage.title) { model.changeHomePaper(it.name) }
             }
             item(key = "page") {
+                // 記事の中の選手名を押すと、その選手の詳細を開く（手元で分かる選手だけ）
+                CompositionLocalProvider(LocalPaperLinks provides paperLinks) {
                 HomePage(
                     style = style,
                     page = page,
@@ -218,6 +226,7 @@ fun HomeScreen(
                     },
                     onOpenProcedures = onOpenProcedures,
                 )
+                }
             }
         }
     }

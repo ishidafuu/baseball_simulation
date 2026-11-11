@@ -358,7 +358,7 @@ private fun TradeBuilder(model: AppViewModel, view: LeagueView, raw: JsonObject,
         val body = Modifier.weight(1f).fillMaxWidth()
         val partner = draft.partner
         if (draft.step == TradeStep.Partner || partner == null) {
-            PartnerStep(view, raw, draft.partner, body) { picked ->
+            PartnerStep(model, view, raw, draft.partner, body) { picked ->
                 // 相手を変えたら、もらう選手は選び直し（出す選手は残す）
                 set(draft.copy(partner = picked, get = if (picked == draft.partner) draft.get else emptySet(), step = TradeStep.Players))
             }
@@ -388,12 +388,26 @@ private fun StepLine(step: TradeStep, counter: Boolean) {
 }
 
 @Composable
-private fun PartnerStep(view: LeagueView, raw: JsonObject, current: String?, modifier: Modifier, onPick: (String) -> Unit) {
+private fun PartnerStep(model: AppViewModel, view: LeagueView, raw: JsonObject, current: String?, modifier: Modifier, onPick: (String) -> Unit) {
     val (partners, humans) = tradePartners(view, raw)
     val places = remember(view.standings, view.teamLeagues) {
         standingGroups(view).flatMap { group ->
             group.rows.mapIndexed { i, row -> row.team to "${group.title.removeSuffix(" 順位").removeSuffix("順位")}${i + 1}位 · ${row.wins}勝${row.losses}敗${if (row.draws > 0) "${row.draws}分" else ""}" }
         }.toMap()
+    }
+    // 各球団の人数（投・捕・内・外）。どこが余っていて、どこが足りないかが、相手を選ぶ手がかりになる。
+    // ⚠ 名簿はビューに無いので、球団ごとに読む（版ごとに覚えているので、選手の段で同じ相手を選んでも読み直さない）。
+    //    1つの読み込みで順に読む（行ごとに読むと、送って行が消えるたびに読み込みが取り消される）。読めない球団は人数を出さないだけ
+    var counts by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    LaunchedEffect(partners, view.revision) {
+        partners.forEach { name ->
+            try {
+                val roster = model.read("team", mapOf("team" to name)).at("roster").list().mapNotNull { it.obj() }
+                counts = counts + (name to countsText(roster))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
+        }
     }
     LazyColumn(modifier, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("参加者の球団" to partners.filter { it in humans }, "CPU球団" to partners.filter { it !in humans }).forEach { (title, names) ->
@@ -410,6 +424,7 @@ private fun PartnerStep(view: LeagueView, raw: JsonObject, current: String?, mod
                             Text(view.teamLabel(name), fontWeight = FontWeight.SemiBold)
                             // どんな球団か（部・順位・勝敗）。選ぶ前の手がかり
                             places[name]?.let { Muted(it) }
+                            counts[name]?.let { Muted(it) }
                         }
                         Muted("›")
                     }

@@ -455,7 +455,7 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     standings: l.season.standings,
     // 球団ごとの今の連勝・連敗（全国紙の「○○、5連勝」）。引き分けは続きを切る
     teamStreaks: teamStreaks(l.season.schedule),
-    // ⚠ 各項目のベスト5。12球団×24人をなめるので**1回の投影で1度だけ**作る
+    // ⚠ 各項目の上位10人（Web は5人まで出す）。12球団×24人をなめるので**1回の投影で1度だけ**作る
     // ⚠ 数える項目の上位には「このままなら年間○」（`pace`）を添える
     leaders: withPace(leagueLeaders(l, seasonStatsOf, labelOf), l, left),
     // 優勝・昇格・残留のマジックと決定（部ごと）。手続きの時期も決着は残す

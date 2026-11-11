@@ -51,7 +51,7 @@ import jp.icenorth.baseball.shared.teamLabel
 import jp.icenorth.baseball.shared.teamShort
 import kotlinx.serialization.json.JsonObject
 
-private enum class PlayersMode(val label: String) { Season("選手成績"), Career("通算成績"), Ranking("能力ランキング") }
+private enum class PlayersMode(val label: String) { Season("今季"), Career("通算"), Ranking("能力順") }
 
 /** 選手タブ: 選手成績・通算成績（球団を切り替えて同じ表）と、リーグ全体の能力ランキング */
 @Composable
@@ -64,17 +64,22 @@ fun PlayersScreen(model: AppViewModel) {
     //    mode は毎回「選手成績」から始まる（以前の合図 seenJump は、入った時点で合図と同じ値になり働いていなかった）
     val team = model.playersTeam ?: view.teamName.orEmpty()
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ChipTabs(PlayersMode.entries.map { it.name to it.label }, mode.name, { mode = PlayersMode.valueOf(it) }, Modifier.weight(1f).padding(top = 8.dp))
+        // ⚠ 絞り込みは2段にまとめる（以前は 表の種類／球団・打撃投球／項目 の3段で、表が画面の半ばから始まった）。
+        //    1段目に表の種類と球団、2段目（TeamStats の中）に打撃・投球と項目
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            ChipTabs(PlayersMode.entries.map { it.name to it.label }, mode.name, { mode = PlayersMode.valueOf(it) })
+            Box(Modifier.weight(1f)) {
+                if (mode != PlayersMode.Ranking) TeamPicker(view, raw, team) { model.playersTeam = it }
+            }
             InfoButton(
                 "選手",
                 listOf("表の見出しを押すと並べ替え、名前を押すと選手の詳細を開きます。", "自球団の表で色の付いた行は、スタメン・先発ローテの選手です。ランキングでは自球団の選手に色が付きます。"),
-                Modifier.padding(top = 8.dp, end = 8.dp),
+                Modifier.padding(end = 8.dp),
             )
         }
         when (mode) {
             PlayersMode.Ranking -> AbilityRanking(model, view, raw)
-            else -> TeamStats(model, view, raw, team, { model.playersTeam = it }, career = mode == PlayersMode.Career)
+            else -> TeamStats(model, view, raw, team, career = mode == PlayersMode.Career)
         }
     }
 }
@@ -102,7 +107,7 @@ private fun TeamPicker(view: LeagueView, raw: JsonObject, team: String, onPick: 
 }
 
 @Composable
-private fun TeamStats(model: AppViewModel, view: LeagueView, raw: JsonObject, team: String, onTeam: (String) -> Unit, career: Boolean) {
+private fun TeamStats(model: AppViewModel, view: LeagueView, raw: JsonObject, team: String, career: Boolean) {
     val own = team == view.teamName
     // 自球団の今季は手元のビューで出す。他球団と通算はその場で読みに行く（全球団ぶんをビューに載せない）
     var loaded by remember(team, career) { mutableStateOf<List<JsonObject>?>(null) }
@@ -141,12 +146,11 @@ private fun TeamStats(model: AppViewModel, view: LeagueView, raw: JsonObject, te
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TeamPicker(view, raw, team, onTeam)
-            Box(Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             ChoiceRow(listOf("bat" to "打撃", "pit" to "投球"), if (batting) "bat" else "pit") { batting = it == "bat" }
+            // 項目は残りの幅で横に送る
+            ChipTabs(groups.map { it.id to it.label }, group.id, { groupId = it }, Modifier.weight(1f))
         }
-        ChipTabs(groups.map { it.id to it.label }, group.id, { groupId = it })
         if (career && roster != null) {
             val years = roster.maxOfOrNull { it.at("career", "years").int() ?: 0 } ?: 0
             val partial = roster.any { it.at("career", "partial").bool() == true }

@@ -250,6 +250,9 @@ const SECTIONS = [
   { id: 'pitching', label: '投手部門', has: (c) => PITCHING_IDS.has(c.id) },
 ];
 
+/** 個人成績ランキングの1つの箱に出す人数 */
+const LEADERS_SHOWN = 5;
+
 function Leaders({ leaders, ownTeam }) {
   const shown = (leaders || []).filter((c) => c.rows.length);
   if (!shown.length) return null;
@@ -267,7 +270,8 @@ function Leaders({ leaders, ownTeam }) {
                 <div key={category.id} className="online-leader-box">
                   <h4>{category.label}</h4>
                   <ol>
-                    {category.rows.map((row, i) => (
+                    {/* ⚠ サーバーは10人まで返す（アプリ用）。Web の箱は5人に揃える */}
+                    {category.rows.slice(0, LEADERS_SHOWN).map((row, i) => (
                       <li
                         key={`${row.team}:${row.name}`}
                         /* ⚠ 自球団の選手は黄色で強調する */

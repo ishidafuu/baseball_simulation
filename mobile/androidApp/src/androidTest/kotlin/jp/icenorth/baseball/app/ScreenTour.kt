@@ -187,8 +187,8 @@ class ScreenTour {
                     rule.runOnUiThread { model.openPlayer = null }
                     pause()
                 }
-                step("career") { click("通算成績"); pause(2500); page("players-career", scrolls = 1) }
-                step("ranking") { click("能力ランキング"); pause(2500); page("players-ranking", scrolls = 1) }
+                step("career") { click("通算"); pause(2500); page("players-career", scrolls = 1) }
+                step("ranking") { click("能力順"); pause(2500); page("players-ranking", scrolls = 1) }
 
                 tab("Plan")
                 page("plan-order", scrolls = 2)

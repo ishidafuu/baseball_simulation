@@ -96,11 +96,12 @@ const LEADER_CATEGORIES = [
 ];
 
 /**
- * 各項目のベスト5。
+ * 各項目の上位（既定は10人。PC・スマホの Web は上の5人を出し、アプリは10人を出す）。
+ * 行には選手の id を添える（アプリが行から選手の詳細を開く。同じ名前の選手を取り違えないように）。
  * ⚠ 並びを決定的にすること（同値は名前で分ける）。実行のたびに順位が
  *    入れ替わると、見るたび違う人が1位になる。
  */
-export function leagueLeaders(league, statsOf, labelOf = (n) => n, top = 5) {
+export function leagueLeaders(league, statsOf, labelOf = (n) => n, top = 10) {
   const names = league.season.settings.teamNames || [];
   const played = Object.fromEntries(
     (league.season.standings || []).map((s) => [s.team, s.gamesPlayed || 0]),
@@ -134,6 +135,7 @@ export function leagueLeaders(league, statsOf, labelOf = (n) => n, top = 5) {
         if (!category.qualified && value <= 0) return null;
         return {
           // ⚠ アプリは行を押すと選手の詳細を id で開く（名前で探すと、同じ球団の同名の別人に当たる）
+          id: entry.player.id,
           id: entry.player.id,
           name: entry.player.name,
           team: entry.team,

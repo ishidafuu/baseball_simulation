@@ -174,7 +174,7 @@ private fun WebNewsPage(page: FrontPage, nextAdvanceAt: String?, menu: @Composab
                 }
                 Text(page.headline, fontWeight = FontWeight.Black, fontSize = 21.sp, lineHeight = 27.sp)
                 page.subhead?.let { Text(it, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                page.lead?.let { Text(it, fontSize = 13.sp, lineHeight = 20.sp) }
+                page.lead?.let { Text(paperText(it), fontSize = 13.sp, lineHeight = 20.sp) }
                 if (page.box.isNotEmpty()) Text(page.box.joinToString("　") { (k, v) -> "$k $v" }, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -193,7 +193,7 @@ private fun WebNewsPage(page: FrontPage, nextAdvanceAt: String?, menu: @Composab
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                                 Text(a.kicker, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = categoryColor(a.kicker))
                                 Text(a.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 20.sp)
-                                Text(a.body, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(paperText(a.body), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             if (link != null) Text("›", fontSize = 20.sp, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 6.dp).align(Alignment.CenterVertically))
                         }
@@ -257,7 +257,7 @@ private fun PlainPage(page: FrontPage, nextAdvanceAt: String?, menu: @Composable
                 }
                 Text(page.headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 page.subhead?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                page.lead?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                page.lead?.let { Text(paperText(it), style = MaterialTheme.typography.bodySmall) }
                 if (page.box.isNotEmpty()) Text(page.box.joinToString("　") { (k, v) -> "$k $v" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -270,7 +270,7 @@ private fun PlainPage(page: FrontPage, nextAdvanceAt: String?, menu: @Composable
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(a.kicker, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(a.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(a.body, style = MaterialTheme.typography.bodySmall)
+                    Text(paperText(a.body), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

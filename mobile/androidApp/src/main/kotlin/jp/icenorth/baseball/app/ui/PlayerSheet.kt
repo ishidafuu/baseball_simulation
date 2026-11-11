@@ -105,7 +105,7 @@ private fun PlayerDetail(model: AppViewModel, p: JsonObject) {
                 ).joinToString(" · "),
             )
         }
-        // ⚠ 能力は投打の両方をいつも出す（二刀流が売り。投手を野手で、野手を投手で起用できる）。本職を先に
+        // ⚠ 能力は投打の両方を持つ（二刀流が売り。投手を野手で、野手を投手で起用できる）。本職を先に
         // ⚠ **効き方で分けて並べ、項目を押すと何にどう効くかを出す**（いしだ指摘 2026-11-08: 体幹などが
         //    何に効いているのか分からず、アプリでは見えもしなかった）。Web 版の並べ方・説明と同じ
         val pitchingBlock: @Composable () -> Unit = {
@@ -135,7 +135,22 @@ private fun PlayerDetail(model: AppViewModel, p: JsonObject) {
             }
         }
         Text("能力", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        if (pitcher) { pitchingBlock(); battingBlock() } else { battingBlock(); pitchingBlock() }
+        // ⚠ 本職でない側は畳んでおき、見出しを押して開く（いしだ 2026-11-11: シートが長い）。
+        //    二刀流の選手は両方が本職なので、いつも両方を開いておく
+        val twoWay = p.at("isTwoWay").bool() == true
+        var otherOpen by remember(id) { mutableStateOf(false) }
+        val (mainBlock, otherBlock) = if (pitcher) pitchingBlock to battingBlock else battingBlock to pitchingBlock
+        mainBlock()
+        if (twoWay || otherOpen) otherBlock()
+        if (!twoWay) {
+            Row(
+                Modifier.fillMaxWidth().clickable { otherOpen = !otherOpen }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Muted(if (pitcher) "打撃・守備の能力（本職でない）" else "投球の能力（本職でない）", Modifier.weight(1f))
+                Text(if (otherOpen) "閉じる ▴" else "開く ▾", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         AbilityGroup("体力・精神") {
             Item("体力", p.at("physical", "bodyStamina").int())
             Item("回復", p.at("physical", "recovery").int())

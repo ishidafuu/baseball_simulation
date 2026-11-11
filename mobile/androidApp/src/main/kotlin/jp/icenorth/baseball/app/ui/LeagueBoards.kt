@@ -143,6 +143,9 @@ fun StandingsBoard(view: LeagueView, onTeam: ((String) -> Unit)? = null) {
     }
 }
 
+/** タイトル争いに並べる人数（サーバーは10人まで返す。Web は5人） */
+private const val LEADERS_SHOWN = 10
+
 /**
  * タイトル争い（リーグの上位）。
  * @param onPlayer 行を押したとき。id はサーバーの行の選手 id（古いサーバーには無いので、そのときは名前で探す）
@@ -155,7 +158,7 @@ fun LeadersBoard(view: LeagueView, boards: List<JsonObject>, onPlayer: ((team: S
     val digits = board.at("digits").int() ?: 0
     Section("タイトル争い") {
         ChoiceRow(boards.map { it.at("id").str().orEmpty() to it.at("label").str().orEmpty() }, board.at("id").str()) { selected = it }
-        board.at("rows").list().mapNotNull { it.obj() }.take(5).forEachIndexed { i, row ->
+        board.at("rows").list().mapNotNull { it.obj() }.take(LEADERS_SHOWN).forEachIndexed { i, row ->
             val mine = row.at("team").str() == view.teamName
             val team = row.at("team").str().orEmpty()
             val name = row.at("name").str().orEmpty()

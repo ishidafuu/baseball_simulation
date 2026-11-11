@@ -175,7 +175,8 @@ try {
   for (const id of ['avg', 'homeruns', 'rbis', 'stolenBases', 'era', 'wins', 'strikeouts', 'saves'])
     assert.ok(leaders[id], `${id} の項目が無い`);
   assert.ok(leaders.avg.rows.length > 0, '打率の上位が空');
-  assert.ok(leaders.avg.rows.length <= 5, '5人を超えている');
+  assert.ok(leaders.avg.rows.length <= 10, '10人を超えている');
+  assert.ok(leaders.avg.rows.every((r) => r.id != null), '行に選手の id が無い');
   // 打率は降順、防御率は昇順
   const avgValues = leaders.avg.rows.map((r) => r.value);
   assert.deepEqual(avgValues, [...avgValues].sort((a, b) => b - a), '打率が降順でない');

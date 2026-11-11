@@ -108,7 +108,7 @@ fun FrontPageCard(
             Text(it, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Ink, modifier = Modifier.padding(top = 6.dp))
         }
         page.lead?.let {
-            Text("　$it", fontFamily = FontFamily.Serif, fontSize = 14.sp, lineHeight = 22.sp, color = Ink, modifier = Modifier.padding(top = 8.dp))
+            Text(paperText("　$it"), fontFamily = FontFamily.Serif, fontSize = 14.sp, lineHeight = 22.sp, color = Ink, modifier = Modifier.padding(top = 8.dp))
         }
         // 勝敗投手・本塁打の欄（新聞の小さな定型欄）
         if (page.box.isNotEmpty()) {
@@ -231,7 +231,7 @@ private fun ArticleBlock(article: FrontPage.Article, modifier: Modifier, onLink:
             modifier = Modifier.background(Ink).padding(horizontal = 4.dp, vertical = 1.dp),
         )
         Text(article.title, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 17.sp, lineHeight = 22.sp, color = Ink, modifier = Modifier.padding(top = 4.dp))
-        Text(article.body, fontFamily = FontFamily.Serif, fontSize = 13.sp, lineHeight = 20.sp, color = Ink, modifier = Modifier.padding(top = 3.dp))
+        Text(paperText(article.body), fontFamily = FontFamily.Serif, fontSize = 13.sp, lineHeight = 20.sp, color = Ink, modifier = Modifier.padding(top = 3.dp))
     }
 }
 
