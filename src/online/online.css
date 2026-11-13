@@ -4695,6 +4695,15 @@ small.online-gain:not(:where(.online-sp *)) {
   display: flex;
   flex-direction: column;
 }
+/* 方針の効き目（能力の増減と効き方。`strategyEffectText`） */
+.online-strategy-effect {
+  display: block;
+  color: #9fb0c4;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
 .online-staff-actual {
   display: block;
   color: var(--accent);

@@ -67,6 +67,7 @@ import jp.icenorth.baseball.shared.ROLE_HINT
 import jp.icenorth.baseball.shared.STARTER_ORDER
 import jp.icenorth.baseball.shared.STARTER_ROLES
 import jp.icenorth.baseball.shared.STARTER_SKIP_FATIGUE
+import jp.icenorth.baseball.shared.STRATEGY_EFFECTS
 import jp.icenorth.baseball.shared.STRATEGY_FIELDS
 import jp.icenorth.baseball.shared.SUBSTITUTE_MIN_FITNESS
 import jp.icenorth.baseball.shared.SUBSTITUTE_FRESH_FATIGUE
@@ -797,6 +798,8 @@ private fun TacticsEditor(view: LeagueView, draft: PlanDraft, edit: Edit) {
             STRATEGY_FIELDS.forEach { f ->
                 Text(f.label, style = MaterialTheme.typography.labelLarge)
                 ChoiceRow(f.options.map { it.key to it.label }, draft.strategy[f.key]) { v -> edit { it.withStrategy(f.key, v) } }
+                // 選んだ方針の効き目（能力の増減と効き方。Web 版と同じ文）
+                STRATEGY_EFFECTS["${f.key}.${draft.strategy[f.key] ?: f.default}"]?.let { Muted(it) }
                 StaffActual(view, "strategy", f.key)
             }
         }

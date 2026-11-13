@@ -6,6 +6,7 @@ import { StaffActual as Actual, TacticsDelegateNote } from './StaffPage.jsx';
 import {
   STARTER_ROLES,
   STRATEGY_FIELDS,
+  strategyEffectText,
   RELIEF_ROLES,
   TACTIC_FIELDS,
   TACTIC_DEFAULTS,
@@ -115,6 +116,9 @@ export default function MobileTactics({
                   </option>
                 ))}
               </select>
+              <small className="online-strategy-effect">
+                {strategyEffectText(key, plan.strategy?.[key] ?? Object.keys(options)[0])}
+              </small>
               <Actual view={view} field="strategy" name={key} />
             </label>
           ))}

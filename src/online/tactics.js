@@ -85,6 +85,67 @@ export const TACTIC_FIELDS = {
     },
   ],
 };
+/**
+ * 方針が能力の数字に足す分（自動試合 `autoSimulation.js` が読む。画面の説明 `strategyEffectText` も同じ表から作る）。
+ * ⚠ 足すなら必ず引く分も置く（得だけの方針は作らない。いしだ 2026-11-13）。
+ *    数字を変えたら tactic-strength の測り（双子の球団の対戦）で、選んだだけで勝率が動かないことを確かめる。
+ * - batting … 打者のミート・パワー・選球眼
+ * - defense … 守る野手の守備（内野=一二三遊・捕手・投手 / 外野）
+ * 投球方針と走塁方針は数字を変えない（配球・盗塁の回数だけ）。
+ */
+export const STRATEGY_MODS = {
+  batting: {
+    patient: { meet: 3, power: -5, eye: 10 },
+    aggressive: { meet: -5, power: 8, eye: -5 },
+  },
+  defense: {
+    infield_in: { infield: 10, outfield: -15 },
+    shift: { infield: 5, outfield: -10 },
+  },
+};
+/** 方針の中身（数字以外の効き方）。数字は `STRATEGY_MODS` から足して `strategyEffectText` が1行にする */
+export const STRATEGY_NOTES = {
+  batting: {
+    balanced: '能力はそのまま。',
+    patient: 'よく見て当てにいく。',
+    aggressive: '長打を狙って強く振る。',
+  },
+  pitching: {
+    balanced: '能力は変わらない。配球は捕手に任せる。',
+    strikeout: '能力は変わらない。誘い球と変化球を増やし、空振りを取りにいく（四球は増える）。',
+    contact: '能力は変わらない。ストライクゾーンで勝負し、ゴロを打たせる球種を選ぶ（四球は減るが打たれやすい）。',
+  },
+  baseRunning: {
+    normal: '能力は変わらない。',
+    aggressive: '能力は変わらない。盗塁を試みる回数が約1.5倍。',
+    conservative: '能力は変わらない。盗塁を試みる回数が半分以下。',
+    never: '盗塁しない。',
+  },
+  defense: {
+    normal: '能力はそのまま。',
+    infield_in: '内野は打球に早く追いつくが、外野の間を抜かれやすい。',
+    shift: '内野の網を厚くするぶん、外野が手薄になる。',
+  },
+};
+const MOD_LABELS = {
+  meet: 'ミート',
+  power: 'パワー',
+  eye: '選球眼',
+  infield: '内野の守備',
+  outfield: '外野の守備',
+};
+const signed = (n) => (n > 0 ? `+${n}` : String(n));
+/** 方針1つの効き目の文（PC・スマホの作戦画面、アプリは gen-tables で同じ文） */
+export function strategyEffectText(key, value) {
+  const note = STRATEGY_NOTES[key]?.[value] || '';
+  const mods = STRATEGY_MODS[key]?.[value];
+  const nums = mods
+    ? Object.entries(mods)
+        .map(([k, n]) => `${MOD_LABELS[k] || k}${signed(n)}`)
+        .join('・')
+    : '';
+  return nums ? `${nums}。${note}` : note;
+}
 /** 方針の既定（各項目の最初の値）。保存に項目が無いときと同じ */
 export const STRATEGY_DEFAULTS = Object.fromEntries(
   Object.entries(STRATEGY_FIELDS).map(([key, [, options]]) => [key, Object.keys(options)[0]]),

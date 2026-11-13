@@ -71,6 +71,13 @@ const fields = (obj, defaults = {}) => {
 lines.push('val STRATEGY_FIELDS: List<ChoiceField> = '); fields(tactics.STRATEGY_FIELDS);
 lines.push('val TACTIC_FIELDS: List<ChoiceField> = '); fields(tactics.TACTIC_FIELDS, tactics.TACTIC_DEFAULTS);
 const map = (name, obj) => out(`val ${name}: Map<String, String> = mapOf(${Object.entries(obj).map(([k, v]) => `${q(k)} to ${q(v)}`).join(', ')})`);
+// 方針の効き目（Web 版の作戦画面と同じ文。キーは「項目.値」。`strategyEffectText`）
+{
+  const effects = {};
+  for (const [key, [, options]] of Object.entries(tactics.STRATEGY_FIELDS))
+    for (const value of Object.keys(options)) effects[`${key}.${value}`] = tactics.strategyEffectText(key, value);
+  map('STRATEGY_EFFECTS', effects);
+}
 map('STARTER_ROLES', tactics.STARTER_ROLES);
 map('RELIEF_ROLES', tactics.RELIEF_ROLES);
 map('ROLE_HINT', pitching.ROLE_HINT);

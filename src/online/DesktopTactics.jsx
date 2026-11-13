@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { STRATEGY_FIELDS, TACTIC_FIELDS, TACTIC_DEFAULTS } from './tactics.js';
+import { STRATEGY_FIELDS, TACTIC_FIELDS, TACTIC_DEFAULTS, strategyEffectText } from './tactics.js';
 import { useDraftState } from './Drafts.jsx';
 import {
   rebaseLineupSave,
@@ -134,6 +134,9 @@ export default function DesktopTactics({ view, busy, run, command }) {
                   disabled={busy}
                   onChange={(value) => setStrategy(key, value)}
                 />
+                <small className="online-strategy-effect">
+                  {strategyEffectText(key, draft.strategy?.[key] || Object.keys(values)[0])}
+                </small>
                 <Actual view={view} field="strategy" name={key} />
               </div>
             ))}

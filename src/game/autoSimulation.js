@@ -1,4 +1,4 @@
-import { tacticalChance, tacticalPitchLimit, tacticalDamageLimit } from '../online/tactics.js';
+import { tacticalChance, tacticalPitchLimit, tacticalDamageLimit, STRATEGY_MODS } from '../online/tactics.js';
 import { createDecisionLog, observeDecisionLog, decisionsFromResult, recordDecisions } from './pitcherDecisions.js';
 import { TEAMS_DATA, LEAGUE_SETTINGS, normalizeMaxExtraInnings } from '../teams-data.js';
 import { calculatePhysicsContact, calculateBattedBallPhysics, judgeFielderReach, getTunnelingEffect, getThrowErrorRate, spinAdjustedArsenal } from '../simulation-logic.js';
@@ -758,9 +758,10 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
   const buildDefense = (team) => {
     const defense = {};
     const defStrat = team.strategy?.defense || 'normal';
-    // 守備方針: 前進守備は内野守備+10/外野守備-5, シフトは全体+5
-    const infieldBonus = defStrat === 'infield_in' ? 10 : defStrat === 'shift' ? 5 : 0;
-    const outfieldBonus = defStrat === 'infield_in' ? -5 : defStrat === 'shift' ? 5 : 0;
+    // 守備方針の得と損（数字は tactics.js の STRATEGY_MODS。画面の説明も同じ表から）
+    const defMod = STRATEGY_MODS.defense[defStrat] || {};
+    const infieldBonus = defMod.infield || 0;
+    const outfieldBonus = defMod.outfield || 0;
     const infieldPositions = ['first', 'second', 'short', 'third', 'catcher', 'pitcher'];
 
     // DH制: 投手はbattingOrder=0だが守備参加、DHはbattingOrder>0だが守備不参加
@@ -795,9 +796,10 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
     const pitchingStrat = defenseStrategy?.pitching || 'balanced';
 
     // 打撃方針の効果
-    const stratMeetMod = battingStrat === 'patient' ? 3 : battingStrat === 'aggressive' ? -5 : 0;
-    const stratPowerMod = battingStrat === 'aggressive' ? 8 : battingStrat === 'patient' ? -5 : 0;
-    const stratEyeMod = battingStrat === 'patient' ? 10 : battingStrat === 'aggressive' ? -5 : 0;
+    const batMod = STRATEGY_MODS.batting[battingStrat] || {};
+    const stratMeetMod = batMod.meet || 0;
+    const stratPowerMod = batMod.power || 0;
+    const stratEyeMod = batMod.eye || 0;
 
     // コンディション補正
     const batterCondition = batterPlayer.condition ?? CONDITION_LEVELS.NORMAL;
@@ -900,8 +902,9 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
     const isBreaking = selectedPitch.type !== 'straight';
     // 変化球のばらつきは pitchShape.shapeSigma に一本化した
     // （旧 breakingControlPenalty。自動と采配で係数が 0.20 / 0.30 と食い違っていた）
-    // 投球方針: contact=ゾーンで勝負しやすく / strikeout=誘い球を増やす（callPitchTarget側）
-    const strategyControlBonus = pitchingStrat === 'contact' ? 4 : 0;
+    // 投球方針は配球だけを変える（contact=ゾーンで勝負しやすく / strikeout=誘い球を増やす。
+    // callPitchTarget・selectPitchType 側）。⚠ 以前は打たせて取るに制球+4が付いていた
+    // （選ぶだけで勝率 .524。いしだ 2026-11-13「型で強さを変えない」で外した）
 
     const aim = callPitchTarget({
       balls: count.balls, strikes: count.strikes, batterEye: batter.eye,
@@ -910,7 +913,7 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
     });
     const loc = resolvePitchLocation({
       aim,
-      control: effectiveControl + strategyControlBonus,
+      control: effectiveControl,
       catcherDefense: catcherPlayer?.fielding?.defense ?? 50,
       // 捕手は打者の弱点コースを要求する（狙いの配分は変えない）
       batterZone: batter.zone,
