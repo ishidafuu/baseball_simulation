@@ -3,6 +3,7 @@ package jp.icenorth.baseball.app.ui
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,6 +90,7 @@ import jp.icenorth.baseball.shared.rosterGroup
 import jp.icenorth.baseball.shared.rostersAfterTrade
 import jp.icenorth.baseball.shared.str
 import jp.icenorth.baseball.shared.teamLabel
+import jp.icenorth.baseball.shared.teamShort
 import jp.icenorth.baseball.shared.offerOutcome
 import jp.icenorth.baseball.shared.tradeIds
 import jp.icenorth.baseball.shared.unseenTrades
@@ -477,6 +481,7 @@ private fun PartnerStep(model: AppViewModel, view: LeagueView, raw: JsonObject, 
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlayersStep(
     model: AppViewModel,
@@ -521,19 +526,46 @@ private fun PlayersStep(
             { group = it },
             Modifier.padding(top = 8.dp),
         )
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
-            item(key = "h-get") { Caption("${view.teamLabel(partner)}（もらう）") }
+        // ⚠ **自球団の選手が見つからなかった**（いしだ 2026-11-13「相手チームしか選べない」）。相手の一覧の
+        //    下に自球団を置いていたので、投手なら13人ほど送らないと出す選手が見えなかった。
+        //    - 「相手（もらう）／自球団（出す）」の2つを上に置き、押すとその見出しへ飛ぶ（切り替えではない。
+        //      両方は1つの一覧に並んだまま）。選ばれている方は、いま画面の上にある方
+        //    - 見出しは上に貼り付ける（どちらの選手を見ているか分かるように）
+        //    - もらう選手が決まっていて出す選手がまだのとき（補強から「考える」・選手の詳細から）は、
+        //      最初から自球団の見出しを出す（次にするのは出す選手を選ぶこと）
+        val theirList = remember(theirPlayers, group) { theirPlayers.filter(inGroup).sortedByDescending { it.tradeValue ?: 0.0 } }
+        val myList = remember(myPlayers, group) { myPlayers.filter(inGroup).sortedByDescending { it.tradeValue ?: 0.0 } }
+        val giveHeader = 1 + if (theirError != null || theirs == null) 1 else theirList.size
+        val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        var jumped by rememberSaveable(draft.partner) { mutableStateOf(false) }
+        LaunchedEffect(theirs != null) {
+            if (!jumped && theirs != null && draft.get.isNotEmpty() && draft.give.isEmpty()) listState.scrollToItem(giveHeader)
+            if (theirs != null) jumped = true
+        }
+        val showingGive = listState.firstVisibleItemIndex >= giveHeader
+        ChipTabs(
+            listOf(
+                "get" to "${view.teamShort(partner)}（もらう）${theirList.size}人",
+                "give" to "自球団（出す）${myList.size}人",
+            ),
+            if (showingGive) "give" else "get",
+            { side -> scope.launch { listState.animateScrollToItem(if (side == "give") giveHeader else 0) } },
+            Modifier.padding(top = 4.dp).testTag("trade-side"),
+        )
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+            stickyHeader(key = "h-get") { SideHeader("${view.teamLabel(partner)}（もらう）") }
             when {
                 theirError != null -> item { LoadFailed(theirError, retryTheirs, title = "相手の名簿を読めませんでした") }
                 theirs == null -> item { Muted("読み込み中…") }
-                else -> items(theirPlayers.filter(inGroup).sortedByDescending { it.tradeValue ?: 0.0 }, key = { "get-${it.id}" }) { p ->
+                else -> items(theirList, key = { "get-${it.id}" }) { p ->
                     TradeRow(model, partner, p, p.id in draft.get, null, tier(p.tradeValue)) {
                         set(draft.copy(get = if (p.id in draft.get) draft.get - p.id else draft.get + p.id))
                     }
                 }
             }
-            item(key = "h-give") { Caption("自球団（出す）") }
-            items(myPlayers.filter(inGroup).sortedByDescending { it.tradeValue ?: 0.0 }, key = { "give-${it.id}" }) { p ->
+            stickyHeader(key = "h-give") { SideHeader("自球団（出す）") }
+            items(myList, key = { "give-${it.id}" }) { p ->
                 TradeRow(model, view.teamName.orEmpty(), p, p.id in draft.give, if (p.id in usage.lineupIds) "スタメン・ローテ" else null, tier(p.tradeValue)) {
                     set(draft.copy(give = if (p.id in draft.give) draft.give - p.id else draft.give + p.id))
                 }
@@ -561,6 +593,12 @@ private fun PlayersStep(
             }
         }
     }
+}
+
+/** 一覧の見出し（上に貼り付く）。⚠ 下の行が透けないように地色を敷く */
+@Composable
+private fun SideHeader(text: String) {
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) { Caption(text) }
 }
 
 @Composable
