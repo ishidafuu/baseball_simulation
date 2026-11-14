@@ -350,6 +350,28 @@ assert.equal(row.views._records.games[1].path, archived.games[1].path);
   assert.deepEqual(row.views._records, before, '索引の作り直しを省いても前の索引が残る');
   assert.equal(objects.size, uploads, '索引を作り直さないので新しい記録を上げない（世界一式の差し替えのみ）');
 }
+// ⚠ ただし**球団の索引は作り直す**（球団情報に今の起用が入る）。以前は前の索引を丸ごと使い、
+//    他球団の画面に次の進行まで古いスタメンが出ていた（監査 2026-11-14）
+{
+  const before = row.views._records;
+  await store.transaction((bundle) => {
+    bundle.league.revision++;
+    bundle.league.game.teams.B.players[0].name = '起用替え';
+    return { value: { ok: true }, archiveUnchanged: true };
+  });
+  assert.notEqual(row.views._records.teams.path, before.teams.path, '球団の索引を作り直していない');
+  assert.equal(row.views._records.players.path, before.players.path, '選手の索引まで作り直している');
+  assert.equal(row.views._records.games[1].path, before.games[1].path, '試合の索引まで作り直している');
+  const info = await store.readTeamInfo('a', 'B');
+  assert.ok(JSON.stringify(info).includes('起用替え'), '他球団の球団情報が古いまま');
+  assert.ok(
+    (row.views._records.previous || []).some((x) => x.teams?.path === before.teams.path),
+    '古い球団の索引を前の世代に残していない',
+  );
+  await store.transaction((bundle) => {
+    bundle.league.game.teams.B.players[0].name = '参照選手2';
+  });
+}
 // 命令の返事に載せたビューには、公開した世代が押される（端末は次の読み直しでビューを取り直さずに済む）
 {
   const replied = await store.transaction((bundle) => {

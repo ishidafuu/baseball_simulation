@@ -15,11 +15,7 @@ export function buildArchiveIndex(bundle, retainedYears = []) {
       players[member.userId][p.id] = info;
     }
   }
-  const teams = Object.fromEntries(
-    (league.members.length ? league.season.settings.teamNames : []).map(
-      (name) => [name, projectTeamInfo(bundle, league.members[0].userId, name)],
-    ),
-  );
+  const teams = buildTeamsIndex(bundle);
   const games = {};
   const years = new Set([
     league.season.year,
@@ -38,6 +34,21 @@ export function buildArchiveIndex(bundle, retainedYears = []) {
     );
   }
   return { players, teams, games };
+}
+/**
+ * 球団の索引（他球団を開いたときの球団情報）だけ。
+ * ⚠ 球団情報には**今の起用**（打順・ローテ・役割）が入るので、編成の保存でも作り直す。
+ *    選手・試合の索引（全試合をなめて重い）は編成の保存では変わらないので、
+ *    保存側は `archiveUnchanged` のときこれだけ作り直す（`supabaseStore.attemptCommand`）
+ */
+export function buildTeamsIndex(bundle) {
+  const league = bundle.league;
+  if (!league) return null;
+  return Object.fromEntries(
+    (league.members.length ? league.season.settings.teamNames : []).map(
+      (name) => [name, projectTeamInfo(bundle, league.members[0].userId, name)],
+    ),
+  );
 }
 export function archiveReferences(meta) {
   return new Set(

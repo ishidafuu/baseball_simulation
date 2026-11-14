@@ -14,7 +14,7 @@ import {
   projectPlayerInfo,
   projectTeamInfo,
 } from '../projection.mjs';
-import { buildArchiveIndex, archiveReferences } from '../archiveIndex.mjs';
+import { buildArchiveIndex, buildTeamsIndex, archiveReferences } from '../archiveIndex.mjs';
 import {
   isCurrent,
   migrationState,
@@ -514,6 +514,23 @@ export class SupabaseStore {
         .slice(0, 2),
     };
   }
+  /** 球団の索引だけ作り直す（選手・試合の索引は前のまま）。中身が同じなら前の索引をそのまま返す */
+  async refreshTeamsArchive(bundle, previous) {
+    const data = buildTeamsIndex(bundle);
+    if (!data) return previous;
+    const teams = await this.publishArchive(data, previous.teams);
+    if (teams === previous.teams) return previous;
+    return {
+      ...previous,
+      teams,
+      // ⚠ 古い球団の索引も前の世代として残す（読んでいる途中の人が消えたファイルを踏まないように。
+      //    `createArchive` と同じ）
+      previous: [
+        { players: previous.players, teams: previous.teams, games: previous.games },
+        ...(previous.previous || []),
+      ].slice(0, 2),
+    };
+  }
   /**
    * 保存一式を書き換える（リースを取って読み、命令を当て、新しい世代として公開する）。
    *
@@ -548,10 +565,12 @@ export class SupabaseStore {
           ),
         ]),
       );
-      // ⚠ 記録に関わらない命令（編成の保存）は、前の索引をそのまま使う（作り直しは全試合をなめて重い）
+      // ⚠ 記録に関わらない命令（編成の保存）は、選手・試合の索引に前のものを使う（作り直しは全試合をなめて重い）。
+      //    **球団の索引だけは作り直す**。球団情報に今の起用（打順・ローテ）が入るので、前のままだと
+      //    他球団の画面に次の進行まで古いスタメンが出ていた（ファイル保存は毎回作るので本番だけ食い違った）
       archives =
         outcome?.archiveUnchanged && row.views?._records
-          ? row.views._records
+          ? await this.refreshTeamsArchive(value, row.views._records)
           : await this.createArchive(value, row.views?._records);
       if (archives) views._records = archives;
       views._meta = leagueMetaOf(value.league);

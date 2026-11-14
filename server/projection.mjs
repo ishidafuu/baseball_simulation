@@ -688,8 +688,8 @@ function tradePlayers(league, teamName, ids) {
   });
 }
 
-// 参加者向けに、確定済み名簿・今季成績・能力だけを公開する。
-// 編成、次回先発、戦術、契約、未提出案や成長の内部値を含めない。
+// 参加者向けに、確定済み名簿・今季成績・能力と、今の起用（打順・守備・ローテ・救援の役割）を公開する。
+// 方針・作戦、次回先発、契約、未提出案や成長の内部値を含めない。
 export function projectTeamInfo(bundle, userId, teamName) {
   const l = bundle.league;
   requireOnline(

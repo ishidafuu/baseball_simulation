@@ -475,7 +475,7 @@ export function leagueStaffView(league, labelOf) {
 /**
  * 他球団の指導者（`projectTeamInfo`）。カードは全部見せる。
  * ⚠ **采配の内訳はCPU球団だけ**。人の球団の采配・編成は他の人に見せない
- *    （`projectTeamInfo` は「編成・戦術を含めない」決まり）。
+ *    （`projectTeamInfo` は今の起用だけ出し、方針・作戦を含めない決まり）。
  */
 export function teamStaffView(league, teamName, team, labelOf) {
   if (!league.coaches) return null;
