@@ -1,7 +1,7 @@
 import { validateTactics } from './lineupTactics.mjs';
 import { placeholderPitcherId } from '../src/game/lineup.js';
 import { staffModesOf } from '../src/online/coaches.js';
-import { TACTIC_DEFAULTS, STRATEGY_DEFAULTS } from '../src/online/tactics.js';
+import { TACTIC_DEFAULTS, STRATEGY_DEFAULTS, STRATEGY_FIELDS } from '../src/online/tactics.js';
 import { projectLineup } from './projection.mjs';
 import {
   requireOnline,
@@ -48,15 +48,11 @@ export function saveLineup(league, userId, plan) {
   const before = staffAreasOf(team);
   let strategy = team.strategy;
   if (plan.strategy) {
-    const allowed = {
-      batting: ['balanced', 'aggressive', 'patient'],
-      pitching: ['balanced', 'strikeout', 'contact'],
-      baseRunning: ['normal', 'aggressive', 'conservative', 'never'],
-      defense: ['normal', 'infield_in', 'shift'],
-    };
+    // ⚠ 許す値は画面と同じ表（`STRATEGY_FIELDS`）から作る。手で写すと、方針を足したときに保存だけ弾かれる
     strategy = {};
-    for (const [key, values] of Object.entries(allowed)) {
-      const value = plan.strategy[key] ?? team.strategy?.[key] ?? values[0];
+    for (const [key, [, options]] of Object.entries(STRATEGY_FIELDS)) {
+      const values = Object.keys(options);
+      const value = plan.strategy[key] ?? team.strategy?.[key] ?? STRATEGY_DEFAULTS[key];
       requireOnline(values.includes(value), '采配方針が不正です');
       strategy[key] = value;
     }

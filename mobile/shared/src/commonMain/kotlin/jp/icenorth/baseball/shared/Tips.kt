@@ -90,7 +90,8 @@ val GAME_TIPS: List<GameTip> = listOf(
     ),
     GameTip(
         "試合", "打撃方針の効き方",
-        "慎重はミート+3・選球眼+10・パワー-5。積極はパワー+8・ミート-5・選球眼-5。",
+        // ⚠ 数字は方針の表（Web 版 tactics.js の STRATEGY_MODS → Tables.kt の STRATEGY_EFFECTS）から引く。手で写すと数字を変えたときに古くなる
+        "慎重は${STRATEGY_EFFECTS["batting.patient"].orEmpty().substringBefore("。")}。積極は${STRATEGY_EFFECTS["batting.aggressive"].orEmpty().substringBefore("。")}。",
     ),
     // ---- 成長
     // ⚠ いしだ指摘: 成長がいつ・どれだけ起きるか分からない（実測 2026-11-08: シーズン中の変化はゼロ）
