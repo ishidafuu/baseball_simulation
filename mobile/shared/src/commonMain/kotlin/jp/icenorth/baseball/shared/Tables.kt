@@ -88,12 +88,12 @@ val SEASON_STEPS: List<SeasonStep> = listOf(
     SeasonStep("opening", "開幕", "月 0:00", "キャンプで伸びた能力を見て、スタメン設定・投手起用を整えて開幕を待ちます。"),
 )
 val CAMP_POLICY_GUIDE: Map<String, Pair<String, String>> = mapOf(
-    "balanced:skill" to ("ミート+5 パワー+1 回復+1 肩力+1" to "制球+5 スタミナ+4 回復+1 球速+1"),
-    "balanced:physique" to ("体力+12 体幹+8 走力+4 盗塁+2" to "体力+12 スタミナ+10 体幹+8 球速+4 肩力+4"),
-    "sharpen:skill" to ("ミート+2 選球眼+2（いちばん高い能力に集中）" to "制球+4 守備+2"),
-    "sharpen:physique" to ("体幹+8 走力+3 肩力+2 パワー+2" to "体幹+8 肩力+4 守備+3 球速+2"),
-    "patch:skill" to ("ミート+3 守備+2 バント+1（いちばん低い能力を底上げ）" to "守備+4 制球+2 スタミナ+2"),
-    "patch:physique" to ("体力+12 体幹+8 走力+3 盗塁+2" to "体力+12 スタミナ+10 体幹+8 球速+2 肩力+2"),
+    "balanced:skill" to ("ミート+3 パワー+2 回復+1 選球眼+1" to "スタミナ+4 制球+2 回復+1 球速+1"),
+    "balanced:physique" to ("体力+12 体幹+8 盗塁+2 バント+1" to "体力+12 スタミナ+10 体幹+8 球速+2 肩力+2"),
+    "sharpen:skill" to ("ミート+2 選球眼+2（いちばん高い能力に集中）" to "制球+2 守備+1"),
+    "sharpen:physique" to ("体幹+8 肩力+2 盗塁+2 パワー+2" to "体幹+8 肩力+3 球速+2 守備+1 スタミナ+1"),
+    "patch:skill" to ("バント+2 守備+2 ミート+1 盗塁+1（いちばん低い能力を底上げ）" to "守備+3 スタミナ+2"),
+    "patch:physique" to ("体力+12 体幹+8 盗塁+2 バント+1" to "体力+12 スタミナ+10 体幹+8 球速+1 肩力+1"),
 )
 val ONLINE_ROSTER_TARGETS: Map<String, Int> = mapOf("pitcher" to 11, "catcher" to 2, "infielder" to 6, "outfielder" to 7)
 val RETRY_ON_REVISION: Set<String> = setOf("lineup", "submit", "campRound")
