@@ -844,6 +844,26 @@ try {
         /逆提案は1回/,
         'CPUの逆提案に投げ返せた',
       );
+      // ⚠ **受けるときにCPUが測り直す**。提案に期限は無いので、逆提案を取っておいて名簿や
+      //    値段が変わってから受けると、戦力の開きの線や値段を回り込めた（監査 2026-11-14）。
+      //    中身を「CPUが応じない形」（頼んだ選手そのまま）に差し替えて、受けられないことを確かめる
+      await store.transaction((bundle) => {
+        bundle.league.trades.find((t) => t.id === countered.id).want = [pair.ask.id];
+        bundle.league.revision += 1;
+      });
+      await assert.rejects(
+        () => send('a', sa, 'tradeRespond', { tradeId: countered.id, action: 'accept' }),
+        /もう応じません/,
+        'CPUが応じない中身の逆提案を、受けるだけで成立させた',
+      );
+      assert.ok(
+        rosterOf(await live(), cpu).some((p) => p.id === pair.ask.id),
+        '応じないのに選手が動いた',
+      );
+      await store.transaction((bundle) => {
+        bundle.league.trades.find((t) => t.id === countered.id).want = countered.want;
+        bundle.league.revision += 1;
+      });
       await send('a', sa, 'tradeRespond', {
         tradeId: countered.id,
         action: 'accept',
@@ -1148,6 +1168,27 @@ try {
       'accept',
       '戦力の開かない交換まで断った',
     );
+    // ⚠ 逆提案の顔ぶれが開きすぎて断るときは、理由を「戦力の開き」にしない。出した形は
+    //    開いていないので「そちらの戦力ばかり上がる」は誤り（監査 2026-11-14）
+    {
+      const ask = [...teams[fair.to]]
+        .filter((p) => rosterGroup(p.position) === rosterGroup(fair.want.position))
+        .sort((x, y) => judge.valueOf(y, fair.to) - judge.valueOf(x, fair.to))[0];
+      const factor = tradeFactorFor(l, fair.to);
+      const counterOnly = cpuTradeDecision({
+        // 値段は1未満に切り上がる（`Math.max(1, …)`）ので、出す側を10にして控えを払えるようにする
+        valueOf: () => 10,
+        valueOfOwn: (p) => (p.id === ask.id ? 1000 : 1) * factor(p),
+        fromPlayers: mine,
+        toPlayers: teams[fair.to],
+        offerIds: [fair.offer[0].id],
+        wantIds: [ask.id],
+        // 出した形は開いていない、組み直した形だけが開く
+        strengthGap: (give, get) => (get.length === 1 && get[0] === ask.id ? 0 : 99),
+      });
+      assert.equal(counterOnly.action, 'reject', '前提: 組み直した形が開くので断る');
+      assert.equal(counterOnly.reason, undefined, '開いていない提案に「戦力ばかり上がる」理由を付けた');
+    }
     // 画面の式（`tradeStrengthGap`）は、サーバーの交換後の名簿（`rostersAfterTrade`）で測った差と同じ
     const after = rostersAfterTrade(
       mine,

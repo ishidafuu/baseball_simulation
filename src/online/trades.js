@@ -198,9 +198,10 @@ export function cpuTradeDecision({
   }
   // まとめて抜けた穴の上乗せで予算を超えるなら、どう組んでも釣り合わない
   if (lossOf && setLoss(picked) > budget) return { action: 'reject', gain, loss };
-  // ⚠ 差し替えた顔ぶれでも戦力の差が開きすぎるなら、逆提案にしない（受けない案を返さない）
-  if (lopsided(picked.map((p) => p.id)))
-    return { action: 'reject', gain, loss, reason: 'lopsided' };
+  // ⚠ 差し替えた顔ぶれでも戦力の差が開きすぎるなら、逆提案にしない（受けない案を返さない）。
+  // ⚠ 理由は付けない（`lopsided` は「出した形そのものが開きすぎる」ときだけ）。付けると、
+  //    開いていない提案に「そちらの戦力ばかり上がる」と出ていた（監査 2026-11-14）
+  if (lopsided(picked.map((p) => p.id))) return { action: 'reject', gain, loss };
   // ⚠ 中身が同じなら逆提案にならない（受けないのだから断る）
   if (picked.length === outgoing.length &&
       picked.every((p, i) => p.id === outgoing[i].id))

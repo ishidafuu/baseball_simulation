@@ -501,6 +501,35 @@ function assertNoPendingPack(league, teamNames) {
 export { tradeValueOf };
 
 /**
+ * CPU球団 `to` の返事（`cpuTradeDecision`）。提案のときと、CPUの逆提案を受けるときに使う。
+ */
+function cpuDecisionFor(league, fromTeam, to, offerIds, wantIds) {
+  const theirs = TEAMS_DATA[to];
+  // ⚠ CPU球団の監督の見る目（育成なら若手を高く、勝負なら主力の年齢を高く）
+  const factor = tradeFactorFor(league, to);
+  // ⚠ 値段は**画面に出すものと同じ関数**（`tradeJudge`。素質・いまの力・成績・
+  //    その球団の事情）。ここだけ変えると、見込みメーターが「受けるはず」と
+  //    出したのに断られる
+  const judge = tradeJudgeForLeague(league);
+  return cpuTradeDecision({
+    // 受け取る選手（こちらが出す選手）は、相手の事情を抜いた値段で見る
+    valueOf: (player) => judge.valueOf(player) * factor(player),
+    // 自分が出す選手は、その球団の事情こみ（抜けると穴が空く選手ほど高い）
+    valueOfOwn: (player) => judge.valueOf(player, to) * factor(player),
+    // まとめて出すときは、まとめて抜けた穴で値段を付ける（`needFactors`）
+    lossOf: (players) =>
+      judge.setValuesOf(players, to).map((v, i) => v * factor(players[i])),
+    fromPlayers: fromTeam.players,
+    toPlayers: theirs.players,
+    offerIds,
+    wantIds,
+    // ⚠ 交換で開く戦力の差（画面の見込みメーターも同じ式で出す。`tradeSearch.js`）
+    strengthGap: (give, get) =>
+      tradeStrengthGap(fromTeam.players, theirs.players, give, get),
+  });
+}
+
+/**
  * トレードを提案する。相手は**CPU球団でもよい**。
  *
  * ⚠ **CPU球団はその場で答える**。返事を待つ相手が居ないので、提案した瞬間に
@@ -557,28 +586,7 @@ export function openTrade(league, userId, { to, offer, want }, now) {
     return { id, status: 'offered' };
   }
   // --- CPU球団はその場で答える
-  // ⚠ CPU球団の監督の見る目（育成なら若手を高く、勝負なら主力の年齢を高く）
-  const factor = tradeFactorFor(league, to);
-  // ⚠ 値段は**画面に出すものと同じ関数**（`tradeJudge`。素質・いまの力・成績・
-  //    その球団の事情）。ここだけ変えると、見込みメーターが「受けるはず」と
-  //    出したのに断られる
-  const judge = tradeJudgeForLeague(league);
-  const decision = cpuTradeDecision({
-    // 受け取る選手（こちらが出す選手）は、相手の事情を抜いた値段で見る
-    valueOf: (player) => judge.valueOf(player) * factor(player),
-    // 自分が出す選手は、その球団の事情こみ（抜けると穴が空く選手ほど高い）
-    valueOfOwn: (player) => judge.valueOf(player, to) * factor(player),
-    // まとめて出すときは、まとめて抜けた穴で値段を付ける（`needFactors`）
-    lossOf: (players) =>
-      judge.setValuesOf(players, to).map((v, i) => v * factor(players[i])),
-    fromPlayers: mine.team.players,
-    toPlayers: theirs.players,
-    offerIds,
-    wantIds,
-    // ⚠ 交換で開く戦力の差（画面の見込みメーターも同じ式で出す。`tradeSearch.js`）
-    strengthGap: (give, get) =>
-      tradeStrengthGap(mine.team.players, theirs.players, give, get),
-  });
+  const decision = cpuDecisionFor(league, mine.team, to, offerIds, wantIds);
   if (decision.action === 'accept') {
     applyTrade(league, trade);
     return { id, status: 'accepted' };
@@ -658,6 +666,21 @@ export function respondTrade(league, userId, { tradeId, action, offer, want }, n
   }
 
   requireOnline(action === 'accept', 'トレードの操作が不正です');
+  // ⚠ **CPUの逆提案を受けるときは、いまの名簿でもう一度CPUに判断させる**。提案に期限は無く、
+  //    逆提案を取っておいて別のトレードや成長で名簿を変えてから受けると、戦力の開きの線
+  //    （`STRENGTH_GAP_LIMIT`）や値段を回り込めた（監査 2026-11-14）。
+  //    応じなくなったら成立させない（提案は残すので、断って出し直してもらう）
+  if (trade.to === null) {
+    assertNoPendingPack(league, [trade.fromTeam, trade.toTeam]);
+    assertTradeAllowed(fromTeam, toTeam, trade.offer, trade.want);
+    const again = cpuDecisionFor(league, fromTeam, trade.toTeam, trade.offer, trade.want);
+    requireOnline(
+      again.action === 'accept',
+      `${trade.toTeam} は、名簿や選手の力が変わったので、この逆提案ではもう応じません。断ってから出し直してください`,
+      409,
+      'trade',
+    );
+  }
   applyTrade(league, trade);
   drop();
   return { status: 'accepted' };
