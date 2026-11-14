@@ -62,6 +62,34 @@ class EventNoticeTest {
     }
 
     @Test
+    fun tradeNotesAreQuoted() {
+        val offer = events(""""trades":[{"id":"t1","mine":false,"fromTeam":"美瑛","toTeam":"津田沼","myTurn":true,"note":"捕手が欲しいです",
+            "offer":[{"name":"高橋"}],"want":[{"name":"田中"}]}]""").single()
+        assertEquals("もらう: 高橋\n出す: 田中\n「捕手が欲しいです」", offer.body)
+        // 逆提案が返ってきたら、相手が逆提案に添えた方を出す
+        val counter = events(""""trades":[{"id":"t2","mine":true,"fromTeam":"津田沼","toTeam":"美瑛","myTurn":true,"countered":true,
+            "note":"自分の文","replyNote":"この形なら","offer":[{"name":"田中"}],"want":[{"name":"高橋"}]}]""").single()
+        assertEquals("もらう: 高橋\n出す: 田中\n「この形なら」", counter.body)
+    }
+
+    @Test
+    fun inboxNotices() {
+        val list = events(""""inbox":[
+            {"id":"n5","type":"challenge","text":"美瑛から練習試合の申し込みが届きました"},
+            {"id":"n4","type":"tradeCountered","text":"逆提案"},
+            {"id":"n3","type":"awayEnded","text":"おかえりなさい"},
+            {"id":"n2","type":"starterAvoided","text":"田中は疲れていたため、予告先発を回避しました"},
+            {"id":"n1","type":"tradeAccepted","text":"美瑛とのトレードが成立しました"}]""")
+        assertEquals(listOf("inbox:n5", "inbox:n2", "inbox:n1"), list.map { it.key }, "逆提案と「来た」は出さない")
+        assertEquals("練習試合の申し込みが届きました", list[0].title)
+        assertEquals("美瑛から練習試合の申し込みが届きました", list[0].body)
+        assertEquals("トレードが成立しました", list[2].title)
+        // 見たお知らせは二度知らせない
+        assertNull(eventNotice(list, list.map { it.key }.toSet()))
+        assertEquals("inbox:n6", eventNotice(events(""""inbox":[{"id":"n6","type":"challengePlayed","text":"練習試合 美瑛 3-2"}]"""), list.map { it.key }.toSet())!!.key)
+    }
+
+    @Test
     fun procedureResults() {
         val r = events(""""lastTryout":{"year":2027,"picks":[{"name":"A"},{"name":"B"}],"lost":[{"name":"C"}]}""").single()
         assertEquals("result:tryout:2027", r.key)

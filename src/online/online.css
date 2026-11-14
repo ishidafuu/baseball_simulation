@@ -5533,3 +5533,209 @@ small.online-gain:not(:where(.online-sp *)) {
   display: block;
   font-size: 11px;
 }
+
+/* --- 人どうしの関わり（2026-11-14: お知らせ・オーナーたち・取引の記録・予告先発・練習試合・得点経過） ---
+   ⚠ `SocialPages.jsx`・`ScoringPlays.jsx`・`TradeScreen.jsx` のひとこと。色は手続きの帯と同じ考え方で、
+      急ぎでないもの（留守中のまとめ）は青、人の言葉（ひとこと）は引用の形にする。 */
+.online-procedure-banner.is-away {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+}
+.online-procedure-banner.is-away strong:not(:where(.online-sp *)) {
+  color: #f0f9ff;
+}
+.online-inbox-list:not(:where(.online-sp *)),
+.online-owner-list:not(:where(.online-sp *)) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.online-inbox-list li:not(:where(.online-sp *)) {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: 8px;
+  font-size: 13px;
+}
+.online-inbox-list small:not(:where(.online-sp *)) {
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+.online-owner-list li:not(:where(.online-sp *)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 13px;
+}
+.online-owner-list li.is-own b:not(:where(.online-sp *)) {
+  color: #fde68a;
+}
+.online-owner-list li button:not(:where(.online-sp *)) {
+  margin-left: auto;
+}
+.online-owner-comment:not(:where(.online-sp *)) {
+  flex-basis: 100%;
+  color: #e2e8f0;
+  font-size: 12px;
+}
+.online-owner-away:not(:where(.online-sp *)) {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.18);
+  color: #bae6fd;
+  font-size: 11px;
+}
+.online-confirm:not(:where(.online-sp *)) {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f8717199;
+  border-radius: 8px;
+  background: #f8717114;
+  font-size: 13px;
+}
+.online .online-danger:not(:where(.online-sp *)) {
+  background: #b91c1c;
+  border-color: #ef4444;
+  color: #fff;
+}
+/* 予告先発の印（順位表の下の「次の試合」と予告先発のページ） */
+.online-starter-mark:not(:where(.online-sp *)) {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.online-starter-mark.is-pick:not(:where(.online-sp *)) {
+  background: rgba(134, 239, 172, 0.16);
+  color: #bbf7d0;
+}
+.online-starter-picks select:not(:where(.online-sp *)) {
+  min-width: 12em;
+}
+/* 得点経過 */
+.online-scoring:not(:where(.online-sp *)) {
+  margin: 0 0 12px;
+}
+.online-scoring h3:not(:where(.online-sp *)) {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+.online-scoring ol:not(:where(.online-sp *)) {
+  margin: 0;
+  padding-left: 1.4em;
+  font-size: 13px;
+  line-height: 1.7;
+}
+/* 取引の記録 */
+.online-transactions:not(:where(.online-sp *)) {
+  display: grid;
+  gap: 10px;
+}
+.online-transactions article:not(:where(.online-sp *)) {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-left-width: 4px;
+  border-radius: 6px;
+}
+.online-transactions article.is-trade:not(:where(.online-sp *)) {
+  border-left-color: #facc15;
+}
+.online-transactions article.is-release:not(:where(.online-sp *)) {
+  border-left-color: #f87171;
+}
+.online-transactions article.is-signing:not(:where(.online-sp *)) {
+  border-left-color: #4ade80;
+}
+.online-transactions header:not(:where(.online-sp *)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 4px;
+}
+.online-transaction-kind:not(:where(.online-sp *)) {
+  font-size: 12px;
+  font-weight: 700;
+}
+.online-transactions ul:not(:where(.online-sp *)) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16em, 1fr));
+  gap: 2px 16px;
+  font-size: 13px;
+}
+.online-transactions li:not(:where(.online-sp *)) {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+/* 練習試合 */
+.online-challenge:not(:where(.online-sp *)) + .online-challenge {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+.online-challenge-list:not(:where(.online-sp *)) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.online-challenge-list li:not(:where(.online-sp *)) {
+  display: grid;
+  grid-template-columns: minmax(8em, max-content) minmax(6em, 1fr) minmax(10em, 2fr) max-content;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.online-challenge-out:not(:where(.online-sp *)) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+/* トレードのひとこと（入れる欄と、カードの上の引用） */
+.online-trade-note:not(:where(.online-sp *)) {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.online-trade-note textarea:not(:where(.online-sp *)) {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 13px;
+}
+.online-trade-note small:not(:where(.online-sp *)) {
+  justify-self: end;
+}
+.online-trade-notes:not(:where(.online-sp *)) {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.online-trade-notes blockquote:not(:where(.online-sp *)) {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid #facc15;
+  background: rgba(250, 204, 21, 0.08);
+  font-size: 13px;
+}
+.online-trade-notes blockquote small:not(:where(.online-sp *)) {
+  display: block;
+  color: #cbd5e1;
+  font-size: 11px;
+}

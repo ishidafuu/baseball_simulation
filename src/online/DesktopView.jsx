@@ -42,6 +42,14 @@ import {
 } from './lineupBridge.js';
 import { restoreFromTapDraft } from './tapLineup.js';
 import { TradeStartContext } from './tradeStart.js';
+import { OWNER_COMMENT_MAX } from './social.js';
+import {
+  AwaySummaryBanner,
+  TransactionsPage,
+  StarterPicksPage,
+  ExhibitionPage,
+  MembersAdmin,
+} from './SocialPages.jsx';
 import { rosterGroup } from '../utils/constants.js';
 // ============================================================
 // PC版の画面。**どのページも同じ形にする**:
@@ -76,6 +84,8 @@ const NAV = [
       ['chronicle', '球団史・記録'],
       ['ranking', '能力ランキング'],
       ['games', '試合結果'],
+      // トレード・退団・入団の記録（改善案 A2）
+      ['transactions', '取引の記録'],
     ],
   },
   {
@@ -85,6 +95,8 @@ const NAV = [
       ['lineup', 'スタメン設定'],
       ['rotation', '投手起用'],
       ['tactics', '方針・采配'],
+      // この先の試合の先発を指名する（改善案 B1）
+      ['starters', '予告先発'],
       // 監督・コーチと任せ方（いしだ依頼 2026-11-09）
       ['staff', '指導者'],
     ],
@@ -95,6 +107,8 @@ const NAV = [
     items: [
       ['decisions', '現在の手続き'],
       ['transfer', 'トレード'],
+      // 人の球団どうしの1試合（改善案 B4）
+      ['exhibition', '練習試合'],
     ],
   },
 ];
@@ -216,6 +230,8 @@ export function RenameDialog({ view, busy, run, command, close }) {
     () => me?.displayName || teamLabel(view.teamName),
   );
   const [playerName, setPlayerName] = useState(() => me?.label || '');
+  // オーナーのひとこと（順位表・球団の画面・紙面に出す）
+  const [comment, setComment] = useState(() => me?.comment || '');
   // ⚠ 失敗はダイアログの中に出す。画面上部の帯はダイアログ（最前面）の裏に隠れる
   const [error, setError] = useState('');
   useEffect(() => {
@@ -238,11 +254,11 @@ export function RenameDialog({ view, busy, run, command, close }) {
       }}
     >
       <header>
-        <h2 id="online-rename-title">球団名・名前を変える</h2>
+        <h2 id="online-rename-title">球団名・名前・ひとこと</h2>
         <button onClick={close}>閉じる</button>
       </header>
       <p className="online-muted">
-        順位表には「球団名（あなたの名前）」と出ます。いつでも変えられます。
+        順位表には「球団名（あなたの名前）」と出ます。ひとことはほかのオーナーにも見えます。いつでも変えられます。
       </p>
       <form
         onSubmit={async (e) => {
@@ -252,6 +268,7 @@ export function RenameDialog({ view, busy, run, command, close }) {
             command('profile', {
               teamName: teamName.trim(),
               playerName: playerName.trim(),
+              comment: comment.trim(),
             }),
           );
           if (result?.ok) close();
@@ -274,6 +291,16 @@ export function RenameDialog({ view, busy, run, command, close }) {
             maxLength={24}
             disabled={busy}
             onChange={(e) => setPlayerName(e.target.value)}
+          />
+        </label>
+        <label>
+          ひとこと（{OWNER_COMMENT_MAX}字まで。空にすると消えます）
+          <input
+            value={comment}
+            maxLength={OWNER_COMMENT_MAX}
+            placeholder="例: 今年は昇格しかない"
+            disabled={busy}
+            onChange={(e) => setComment(e.target.value)}
           />
         </label>
         {error && (
@@ -406,6 +433,7 @@ export default function DesktopView(props) {
     today: campHere ? notice.procedure : 0,
     decisions: campHere ? 0 : notice.procedure,
     transfer: notice.trades,
+    exhibition: notice.challenges,
   };
   const procedure = pendingProcedure(view);
   const waiting = packWaiting(view);
@@ -449,7 +477,13 @@ export default function DesktopView(props) {
                 {counts[id] > 0 && (
                   <span
                     className="online-count"
-                    aria-label={id === 'decisions' ? '未完了の手続き' : '返事が必要な提案'}
+                    aria-label={
+                      id === 'decisions'
+                        ? '未完了の手続き'
+                        : id === 'exhibition'
+                          ? '届いた練習試合の申し込み'
+                          : '返事が必要な提案'
+                    }
                   >
                     {counts[id]}
                   </span>
@@ -529,6 +563,8 @@ export default function DesktopView(props) {
           「現在の手続き」の中に畳むと、開いていることに気づかないまま
           締め切りで自動になっていた。ほかの手続き（契約更改・トライアウト・
           年度更新）は決めて待つものなので、これまでどおり手続きのページ。 */}
+      {/* 留守中のまとめ（前に開いたときから何が起きたか）。ホームの上に、閉じるまで出す */}
+      {current === 'today' && <AwaySummaryBanner away={props.away} close={props.dismissAway} />}
       {current === 'today' && (
         <Page>
           {campHere ? (
@@ -574,6 +610,9 @@ export default function DesktopView(props) {
         </Page>
       )}
       {current === 'careers' && <CareerStats view={view} />}
+      {current === 'transactions' && <TransactionsPage view={view} />}
+      {current === 'starters' && <StarterPicksPage {...props} />}
+      {current === 'exhibition' && <ExhibitionPage {...props} />}
       {current === 'chronicle' && <Chronicle view={view} />}
       {current === 'ranking' && <AbilityRanking view={view} />}
       {current === 'players' && (
@@ -666,6 +705,7 @@ export default function DesktopView(props) {
       {current === 'admin' && (
         <Page title="リーグ管理">
           <Admin {...props} />
+          <MembersAdmin {...props} />
         </Page>
       )}
     </TradeStartContext.Provider>

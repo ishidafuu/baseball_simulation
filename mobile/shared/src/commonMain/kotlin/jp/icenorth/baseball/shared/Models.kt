@@ -49,6 +49,58 @@ data class LeagueView(
     val staff: StaffView? = null,
     /** リーグ全球団の指導者と最近の人事（server/coachView.mjs leagueStaffView）。古いサーバーには無い */
     val leagueStaff: LeagueStaff? = null,
+    /** あなたへのお知らせ（新しい順。トレードの返事・練習試合・予告先発の回避・おるすばん）。古いサーバーには無い */
+    val inbox: List<InboxEntry> = emptyList(),
+    /** 練習試合（申し込み中と最近の結果。server/exhibition.mjs exhibitionsView）。古いサーバーには無い */
+    val exhibitions: List<Exhibition> = emptyList(),
+    /** 予告先発を選ぶための先の試合と指名（server/projection.mjs starterPlan）。古いサーバーには無い */
+    val starterPlan: StarterPlan? = null,
+)
+
+/** あなたへのお知らせの1件。文（text）はサーバーが作る（PC と同じ文） */
+@Serializable
+data class InboxEntry(val id: String, val at: String? = null, val type: String? = null, val text: String = "")
+
+/** 練習試合（status: offered / played）。mine は自分が申し込んだ側 */
+@Serializable
+data class Exhibition(
+    val id: String,
+    val status: String = "offered",
+    val mine: Boolean = false,
+    val fromTeam: String = "",
+    val toTeam: String = "",
+    val note: String? = null,
+    val createdAt: String? = null,
+    val playedAt: String? = null,
+    /** 結果（試合の詳細と同じ形の箱。played のときだけ） */
+    val result: JsonObject? = null,
+)
+
+/** 予告先発（canPick: 自分で選べるか。picks: 試合 id → 指名した投手 id） */
+@Serializable
+data class StarterPlan(
+    val lockTurns: Int = 3,
+    val canPick: Boolean = false,
+    val games: List<ScheduledGame> = emptyList(),
+    val picks: Map<String, Long> = emptyMap(),
+)
+
+/** 回ごとの得点（away・home の順。サヨナラの裏は途中まで） */
+@Serializable
+data class LineScore(val away: List<Int> = emptyList(), val home: List<Int> = emptyList())
+
+/** 得点経過の1件（server/recordedStats.mjs scoringPlaysOf）。half は top / bottom、away・home は得点後の点 */
+@Serializable
+data class ScoringPlay(
+    val inning: Int = 1,
+    val half: String = "top",
+    val team: String? = null,
+    val id: Long? = null,
+    val name: String? = null,
+    val kind: String? = null,
+    val runs: Int = 0,
+    val away: Int = 0,
+    val home: Int = 0,
 )
 
 @Serializable
@@ -68,6 +120,13 @@ data class Member(
     val cpu: Boolean = false,
     /** この手続きを指導者に任せている */
     val delegated: Boolean = false,
+    /** オーナーのひとこと（順位表・紙面に出す） */
+    val comment: String? = null,
+    val commentAt: String? = null,
+    /** しばらく来ていない（おるすばん。指導者に任せた扱い） */
+    val away: Boolean = false,
+    /** 最後に来た日（日本時間の 2026-11-14。時刻は出さない） */
+    val lastSeenDay: String? = null,
 )
 
 @Serializable
@@ -114,6 +173,10 @@ data class OwnGame(
     val decisions: Decisions? = null,
     /** 本塁打（打った人と何号）。記録の無い試合では null */
     val homeruns: List<OwnHomerun>? = null,
+    /** 回ごとの得点（速報再生）。古い試合では null */
+    val lineScore: LineScore? = null,
+    /** 得点経過。記録の無い試合では null */
+    val scoring: List<ScoringPlay>? = null,
 )
 
 @Serializable
@@ -121,6 +184,7 @@ data class OwnHomerun(val name: String? = null, val team: String? = null, val nu
 
 @Serializable
 data class StarterInfo(
+    val id: Long? = null,
     val name: String? = null,
     val throws: String? = null,
     val wins: Int = 0,
@@ -137,6 +201,11 @@ data class ScheduledGame(
     val away: String,
     val homeStarterInfo: StarterInfo? = null,
     val awayStarterInfo: StarterInfo? = null,
+    /** 予告先発の印（pick: 自分が指名・確定前、fixed: 確定した予告先発） */
+    val homeStarterMark: String? = null,
+    val awayStarterMark: String? = null,
+    /** 先発が確定した（試合の [StarterPlan.lockTurns] ターン前から） */
+    val starterLocked: Boolean = false,
 )
 
 @Serializable

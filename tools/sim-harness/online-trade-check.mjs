@@ -613,10 +613,20 @@ try {
       !rosterOf(await live(), teamA).some((p) => p.id === sameGuy),
       '前提: 1件目で選手が移っている',
     );
-    // ⚠ 2件目は、もう持っていない選手を出す提案。**成立させてはいけない**
+    // ⚠ 2件目は、もう持っていない選手を出す提案。**成立させてはいけない**。
+    //    成立した時点で取り下げられ（`pruneTrades`）、両方にお知らせが届く（2026-11-14 改善 A1）
+    const after = await live();
+    assert.ok(!after.trades.some((t) => t.id === second.id), '移った選手を出す提案が残っている');
+    for (const name of [teamA, teamB]) {
+      const member = after.members.find((m) => m.teamName === name);
+      assert.ok(
+        (member.inbox || []).some((n) => n.type === 'tradeWithdrawn' && /移籍・退団したため/.test(n.text)),
+        `${name} に取り下げのお知らせが無い`,
+      );
+    }
     await assert.rejects(
       () => send('b', sb, 'tradeRespond', { tradeId: second.id, action: 'accept' }),
-      /出す選手が名簿にいません/,
+      /そのトレードはもうありません/,
       '移った選手を2度出せた',
     );
     // 名簿が壊れていないこと

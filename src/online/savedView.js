@@ -42,6 +42,17 @@ export function readSavedView(auth, storage = local()) {
   }
 }
 
+/** 残したビューの時刻（`readSavedView` と同じ照合。無ければ null） */
+export function readSavedViewAt(auth, storage = local()) {
+  if (!readSavedView(auth, storage)) return null;
+  try {
+    const at = JSON.parse(storage.getItem(VIEW_KEY) || 'null')?.savedAt;
+    return Number.isFinite(at) ? at : null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveView(auth, view, storage = local()) {
   if (!auth || !storage || !view) return;
   // 端末のログインが別の人（またはログアウト済み）なら書かない。消しもしない
@@ -54,7 +65,8 @@ export function saveView(auth, view, storage = local()) {
   try {
     storage.setItem(
       VIEW_KEY,
-      JSON.stringify({ userId: auth.userId, sessionId: auth.sessionId, view }),
+      // ⚠ 残した時刻も持つ（留守中のまとめの「前回（11/14 7:00）から」。`awaySummary.js`）
+      JSON.stringify({ userId: auth.userId, sessionId: auth.sessionId, view, savedAt: Date.now() }),
     );
   } catch {
     forgetView(storage);

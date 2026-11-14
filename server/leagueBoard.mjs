@@ -23,15 +23,28 @@ import { observedSeason, completeCoverage } from './recordedStats.mjs';
  * ⚠ 同じ球団が続けて出るときは**ローテを回すこと**。毎回同じだと
  *    1人が全試合に先発する予定になる。
  */
-export function withStarters(games, teams, statsOf = null) {
-  const seen = {};
-  const nextStarter = (name, offset) => {
+export function withStarters(games, teams, statsOf = null, picks = null) {
+  // 球団ごとの「次に投げるローテの位置」。⚠ 予告先発で指名した投手が投げると、ローテは
+  //    その投手の次から回る（`dailyLineup.prepareDailyLineup`）ので、指名の後ろも同じく数える
+  const cursor = {};
+  // 予告先発（`picks`）: `{ ownTeam, picksOf(team), lockedOf(game) }`。
+  //   - 自球団の指名は確定前から出す（印は 'pick'、確定したら 'fixed'）
+  //   - ほかの球団の指名は**確定してから**出す（印は 'fixed'）。確定前の指名を混ぜて数えると、
+  //     その後ろの先発予定から指名が読めてしまう
+  const starterOf = (name, game) => {
     const rotation = teams[name]?.pitchingRotation;
     const list = rotation?.starters || [];
-    if (!list.length) return null;
-    const base = rotation.currentStarterIndex || 0;
-    const id = list[(base + offset) % list.length];
-    return teams[name].players.find((p) => p.id === id) || null;
+    if (!list.length) return { player: null, mark: null };
+    if (!(name in cursor)) cursor[name] = rotation.currentStarterIndex || 0;
+    const locked = !!picks?.lockedOf?.(game);
+    const pick = picks?.picksOf?.(name)?.[game.id];
+    const visible = pick != null && (name === picks?.ownTeam || locked) && list.includes(pick);
+    const id = visible ? pick : list[cursor[name] % list.length];
+    cursor[name] = (visible ? list.indexOf(pick) : cursor[name]) + 1;
+    return {
+      player: teams[name].players.find((p) => p.id === id) || null,
+      mark: visible ? (locked ? 'fixed' : 'pick') : null,
+    };
   };
   // ⚠ 投げる手と今季成績は `statsOf` を渡したときだけ付ける。渡さない呼び出し
   //    （試合結果の画面が使う `upcoming`）は名前だけのままにする——あちらは
@@ -41,6 +54,7 @@ export function withStarters(games, teams, statsOf = null) {
     const pitching = statsOf(teamName, player)?.pitching;
     const outs = pitching?.inningsPitched || 0;
     return {
+      id: player.id,
       name: player.name,
       // ⚠ 投げる手は `physical.throws`（選手直下ではない）。選手直下を見ると
       //    全員 undefined になり、**全員が右投げ**として出る。
@@ -53,20 +67,20 @@ export function withStarters(games, teams, statsOf = null) {
     };
   };
   return games.map((g) => {
-    const homeOffset = seen[g.home] || 0;
-    const awayOffset = seen[g.away] || 0;
-    seen[g.home] = homeOffset + 1;
-    seen[g.away] = awayOffset + 1;
-    const home = nextStarter(g.home, homeOffset);
-    const away = nextStarter(g.away, awayOffset);
+    const home = starterOf(g.home, g);
+    const away = starterOf(g.away, g);
     return {
       ...g,
-      homeStarter: home?.name || null,
-      awayStarter: away?.name || null,
+      homeStarter: home.player?.name || null,
+      awayStarter: away.player?.name || null,
+      // 予告先発の印（'pick'＝自球団の指名・確定前、'fixed'＝確定）。無ければ載せない
+      ...(home.mark ? { homeStarterMark: home.mark } : null),
+      ...(away.mark ? { awayStarterMark: away.mark } : null),
+      ...(picks?.lockedOf ? { starterLocked: !!picks.lockedOf(g) } : null),
       ...(statsOf
         ? {
-            homeStarterInfo: profile(g.home, home),
-            awayStarterInfo: profile(g.away, away),
+            homeStarterInfo: profile(g.home, home.player),
+            awayStarterInfo: profile(g.away, away.player),
           }
         : null),
     };

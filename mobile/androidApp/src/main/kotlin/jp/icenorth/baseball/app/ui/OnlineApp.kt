@@ -184,7 +184,7 @@ fun OnlineApp(model: AppViewModel) {
             val notice = if (onTrades || view == null) null else tradeNoticeText(view, raw, model.seenTrades)
             // ⚠ 自分が決める手続きは、その画面を開いていない間ずっと上に帯で出す（閉じられない。済んだら消える）。
             //    初期メンバー選択・人員整理・キャンプは「手続き」のタブの中なので、うっかり飛ばしやすかった
-            val onProcedure = tab == Tab.Procedures && !model.procTrade
+            val onProcedure = tab == Tab.Procedures && model.procFace == "Current"
             Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
                 Column {
                     // ⚠ 帯は重ねず上に並べる（重ねると、ホームの右上のメニューのような画面の上の操作を塞ぐ）。
@@ -263,21 +263,29 @@ fun OnlineApp(model: AppViewModel) {
     }
 }
 
-/** 球団名とプレイヤー名（順位表には「球団名（あなたの名前）」と出る） */
+/** 球団名・プレイヤー名・ひとこと（順位表には「球団名（あなたの名前）」と出る。ひとことは紙面とオーナーの一覧に） */
 @Composable
 fun RenameDialog(model: AppViewModel, close: () -> Unit) {
     val view = model.view ?: return
     val me = model.raw?.at("members").list().firstOrNull { it.at("teamName").str() == view.teamName }
     var teamName by remember { mutableStateOf(me?.at("displayName").str() ?: view.teamLabel(view.teamName.orEmpty())) }
     var playerName by remember { mutableStateOf(me?.at("label").str().orEmpty()) }
+    var comment by remember { mutableStateOf(me?.at("comment").str().orEmpty()) }
     AlertDialog(
         onDismissRequest = close,
-        title = { Text("球団名・名前を変える") },
+        title = { Text("球団名・名前・ひとこと") },
         text = {
             Column {
-                Muted("順位表には「球団名（あなたの名前）」と出ます。いつでも変えられます。")
+                Muted("順位表には「球団名（あなたの名前）」と出ます。ひとことは全国紙とオーナーの一覧に出ます。いつでも変えられます。")
                 OutlinedTextField(teamName, { teamName = it.take(24) }, label = { Text("球団名") }, singleLine = true)
                 OutlinedTextField(playerName, { playerName = it.take(24) }, label = { Text("あなたの名前") }, singleLine = true)
+                OutlinedTextField(
+                    comment,
+                    { comment = it.replace('\n', ' ').take(jp.icenorth.baseball.shared.OWNER_COMMENT_MAX) },
+                    label = { Text("ひとこと（${comment.length}/${jp.icenorth.baseball.shared.OWNER_COMMENT_MAX}字）") },
+                    placeholder = { Text("例: 今年こそ昇格") },
+                    singleLine = true,
+                )
             }
         },
         confirmButton = {
@@ -286,8 +294,8 @@ fun RenameDialog(model: AppViewModel, close: () -> Unit) {
                 onClick = {
                     model.command(
                         "profile",
-                        Commands.profile(teamName, playerName),
-                        done = "名前を保存しました",
+                        Commands.profile(teamName, playerName, comment),
+                        done = "保存しました",
                     ) { close() }
                 },
             ) { Text("保存") }

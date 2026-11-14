@@ -32,6 +32,9 @@ import {
   projectGameInfo,
 } from './projection.mjs';
 import { saveLineup } from './lineupCommand.mjs';
+import { touchPresence } from './social.mjs';
+import { setStarterPick } from './starterPicks.mjs';
+import { projectTransactions } from './projection.mjs';
 const digest = (value) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const clone = (value) => structuredClone(value);
@@ -52,6 +55,9 @@ const FULL_COMMANDS = new Set([
   'tradeRespond',
   // 守備位置の変更も世界を読み込む（`convertPosition` の前の `loadLeagueWorld`）
   'convert',
+  // 球団をCPUに戻すと編成を作り直す。練習試合を受けるとその場で1試合する
+  'releaseMember',
+  'challengeRespond',
 ]);
 // ⚠ **バックアップは圧縮した文字列で持つ**。リーグ（世界の写し込み）をそのまま
 //    抱えると、操作のたびに読み書きする一式が倍の大きさになり、
@@ -157,8 +163,41 @@ export class LeagueService {
       //    管理者が作ったアカウントだけ。できることは `command` 側で絞る。
       const sessionId = randomUUID();
       bundle.sessions[userId] = withLogin(bundle.sessions[userId], client, sessionId);
+      // 最後に来た時刻（おるすばんを解く）。⚠ 古い形のリーグには書かない（移行の前に形を変えない）
+      if (bundle.league && isCurrent(bundle.league)) touchPresence(bundle.league, userId, this.clock());
       return { value: { sessionId } };
     });
+  }
+  /**
+   * 画面を開いた・アプリに戻ったことを知らせる（最後に来た時刻とおるすばん。改善案 A3）。
+   * ⚠ **revision は上げない**（誰かの操作ではない。送信中の提出を弾かない）。書くのは
+   *    前に書いてから数時間経ったとき・おるすばん中のときだけ（`touchPresence`）
+   */
+  async presence(userId, sessionId) {
+    return this.store.transaction((bundle) => {
+      const l = bundle.league;
+      if (
+        !l ||
+        !isCurrent(l) ||
+        !isLiveSession(bundle.sessions, userId, sessionId) ||
+        !touchPresence(l, userId, this.clock())
+      )
+        return { unchanged: true, value: { ok: true } };
+      return { value: { ok: true }, archiveUnchanged: true };
+    });
+  }
+  /** 取引の記録（トレード・退団・入団）。⚠ 芯にあるので軽い読みで足りる */
+  async transactions(userId, query) {
+    if (this.store.readLight) {
+      const light = await this.store.readLight();
+      try {
+        const result = projectTransactions(light.bundle, userId, query);
+        if (!light.touched()) return result;
+      } catch (error) {
+        if (!light.touched()) throw error;
+      }
+    }
+    return projectTransactions(await this.store.read(), userId, query);
   }
   async teamInfo(userId, teamName) {
     if (this.store.readTeamInfo)
@@ -334,6 +373,8 @@ export class LeagueService {
           '参加者ではありません',
           403,
         );
+        // 最後に来た時刻。⚠ **命令の前に**おるすばんを解く（来た人の操作を、留守の扱いのまま通さない）
+        touchPresence(l, userId, now);
         // ⚠ 指導者の命令（任せ方・人事）も版を見る。移行前のリーグには指導者がいない
         if (['submit', 'lineup', 'step', 'resume', 'staffModes', 'staff'].includes(command.type))
           assertLeagueVersion(l);
@@ -437,6 +478,8 @@ export class LeagueService {
             userId,
             teamName: command.payload?.teamName,
             playerName: command.payload?.playerName,
+            comment: command.payload?.comment,
+            now,
           });
         } else if (command.type === 'staffModes') {
           // 分野ごとの任せ方（自分で / 意見を聞く / 任せる）。⚠ スタメン・投手起用を
@@ -470,6 +513,22 @@ export class LeagueService {
             e.respondTrade(l, userId, command.payload || {}, now);
             l.game = e.captureLeagueWorld();
           });
+        } else if (command.type === 'starterPick') {
+          // 予告先発（改善案 B1）。世界は読まない（保存した世界の名簿で確かめる）
+          setStarterPick(l, userId, command.payload || {});
+        } else if (command.type === 'challenge') {
+          // 練習試合の申し込み（改善案 B4）
+          await this.engine((e) => e.openChallenge(l, userId, command.payload || {}, now));
+        } else if (command.type === 'challengeRespond') {
+          // ⚠ 受けるとその場で1試合する。**世界は保存し直さない**（写しで行う。`respondChallenge`）
+          await this.engine((e) => e.respondChallenge(l, userId, command.payload || {}, now));
+        } else if (command.type === 'releaseMember') {
+          // 来なくなった人の球団をCPUに戻す（改善案 A3）。管理者だけ
+          requireOnline(userId === this.adminId, '球団をCPUに戻せるのは管理者だけです', 403);
+          assertLeagueVersion(l);
+          await this.engine((e) =>
+            e.releaseMember(l, this.adminId, command.payload?.userId, now),
+          );
         } else if (command.type === 'campRound') {
           // ⚠ **キャンプは1クールずつ自分で実行する**（一人用と同じ）。
           //    伸びた能力を見てから次のクールを決められるようにするため、
@@ -634,7 +693,11 @@ export class LeagueService {
         //    （`online-coach-check` で確かめている）。人事（`staff`）は球団の指導者の欄が変わるので作り直す
         // ⚠ ただし**任せ方の変更で手続きが進んだときは作り直す**（トライアウト・退団・キャンプで
         //    選手と能力が動く。`updateStaffModes`）
-        ...(command.type === 'lineup' || (command.type === 'staffModes' && !settledByModes)
+        // ⚠ 予告先発・練習試合の申し込みと返事・ひとことも索引に関わらない（選手も能力も動かない。
+        //    練習試合は写しで行い、世界を保存し直さない）
+        ...(command.type === 'lineup' ||
+        (command.type === 'staffModes' && !settledByModes) ||
+        ['starterPick', 'challenge', 'challengeRespond'].includes(command.type)
           ? { archiveUnchanged: true }
           : {}),
       };

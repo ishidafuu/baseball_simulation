@@ -8,6 +8,7 @@ import { turnLabel } from './shared.js';
 import { formatStat } from './statsView.js';
 import { ownOutcome, teamShort, teamLabel } from './gameText.js';
 import { inOnlineRoot } from './dialogPortal.js';
+import { ScoringPlays } from './ScoringPlays.jsx';
 const GROUPS = {
   batting: [
     [
@@ -94,7 +95,7 @@ const GROUPS = {
     ],
   ],
 };
-function Panel({ title, close, children, wide = false, mobileReplay = false }) {
+export function Panel({ title, close, children, wide = false, mobileReplay = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const node = ref.current,
@@ -148,7 +149,7 @@ function RequestState({ result }) {
 }
 // スマホで1ページに出す人数。⚠ PC はページを分けない（下記）
 const COMPACT_PAGE_SIZE = 6;
-function BoxScore({ game, ownTeam }) {
+export function BoxScore({ game, ownTeam }) {
   // ⚠ **PC はページを分けず全員を出す**（小窓の中を縦に送る）。以前は12人で区切っていて、
   //    1試合に出た打者は13〜16人いるので毎回2ページ目ができ、ページ送りは表の下
   //    （1280×800 では小窓の外）にあって、残りの数人が見えないままになっていた
@@ -409,7 +410,11 @@ function GameRecord({ id, year, ownTeam, close }) {
               <ReplayViewer game={game} />
             )
           ) : game.teams ? (
-            <BoxScore game={game} ownTeam={ownTeam} />
+            <>
+              {/* 得点経過（記録を取り始めた後の試合だけ。古い試合には無い） */}
+              <ScoringPlays game={game} />
+              <BoxScore game={game} ownTeam={ownTeam} />
+            </>
           ) : (
             <p>この試合は得点のみの記録です。</p>
           )}

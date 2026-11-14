@@ -23,16 +23,18 @@
 - `shared/.../Tables.kt` は `tools/gen-tables.mjs` が Web 版の表から書き出す（手で直さない）。
 - キャンプの方針（`trainingPolicy.js`）とトライアウトの希望順（`tryoutPlan.js`）は Kotlin に写してあり、
   `tools/expect-logic.mjs` が書き出す期待値（`logic-expected.json`）と `LogicTest` で答え合わせする。
-- CI はどちらも `--check` で、Web 版だけ直して写しが古くなっていないかを見る。
+- 得点経過・最終ログイン・留守中のまとめの文（`social.js`・`awaySummary.js`）は `Social.kt`・`AwaySummary.kt` に写してあり、
+  `tools/expect-social.mjs` が書き出す期待値（`social-expected.json`）と `SocialTest` で答え合わせする。
+- CI はどれも `--check` で、Web 版だけ直して写しが古くなっていないかを見る。
 
 - 接続先の既定は本番（`https://baseball-simulation-neon.vercel.app/api/online`）。ログイン画面の「接続先を変える（開発用）」でローカルの開発サーバーにも繋げる（エミュレーターから PC へは `http://10.0.2.2:3002/`）。
 - ログインは Web 版と同じアカウント。1アカウントで同時に操作できるのは**ブラウザ1台とアプリ1台**まで（`server/sessions.mjs`）。アプリはログインのときに `client: "app"` を送る。同じ種類の別の端末でログインすると、前の端末だけが閲覧のみになる。
 
-- 試合結果の通知は端末の中で出す（サーバーからは送らない）。WorkManager がおよそ15分ごとに裏で `view` を `since` 付きで読み（`ResultWorker`）、ビューの `recentGames`（自球団の直近5試合）にアプリで見ていない試合があれば1つの通知にまとめて出す（`shared/.../ResultNotice.kt`）。同じ確認で、手続きの開始・締め切り3時間前でまだ決めていない・トレードの提案や逆提案・トライアウト／キャンプ／年度更新の結果も別の通知で出す（`shared/.../EventNotice.kt`。手続きの数え方は「手続き」の数字と同じ `pendingProcedure`）。アプリが前に出ている間は読まない。ホームのメニューの「通知（試合結果・手続き）」で切り替え、Android 13 以降はログインのあとに一度だけ許可を聞く。トークンの更新は画面と裏で同じ鍵（`AuthLock`）を使う（更新トークンを2か所で使うとログインごと無効になるため）。
+- 試合結果の通知は端末の中で出す（サーバーからは送らない）。WorkManager がおよそ15分ごとに裏で `view` を `since` 付きで読み（`ResultWorker`）、ビューの `recentGames`（自球団の直近5試合）にアプリで見ていない試合があれば1つの通知にまとめて出す（`shared/.../ResultNotice.kt`）。同じ確認で、手続きの開始・締め切り3時間前でまだ決めていない・トレードの提案や逆提案・トライアウト／キャンプ／年度更新の結果・あなたへのお知らせ（ビューの `inbox`。トレードの成立や取り下げ・練習試合・予告先発の回避・おるすばん）も別の通知で出す（`shared/.../EventNotice.kt`。手続きの数え方は「手続き」の数字と同じ `pendingProcedure`）。アプリが前に出ている間は読まない。ホームのメニューの「通知（試合結果・手続き）」で切り替え、Android 13 以降はログインのあとに一度だけ許可を聞く。トークンの更新は画面と裏で同じ鍵（`AuthLock`）を使う（更新トークンを2か所で使うとログインごと無効になるため）。
 
 ## サーバーとの約束（壊さないために）
 
-- アプリは `?action=login / refresh / view / defaults / team / player / games / game / command` を使う。ビューの項目名を変えるとアプリが壊れる。
+- アプリは `?action=login / refresh / view / defaults / team / player / games / game / command / presence` を使う。`presence` はアプリに戻るたび（10分に1回まで）送り、最終ログインとおるすばんの解除に使う（版は上がらない）。ビューの項目名を変えるとアプリが壊れる。
 - ビューの `recentGames`（`server/projection.mjs` の `ownRecentGames`）は試合結果の通知が読む。`id`・`date`・`number`・`home`・`away`・スコアの名前を変えないこと。
 - `view` には手元のビューの世代 `since`（ビューの `viewGeneration`）を添える。世代が同じ（かつ保存の版が今のサーバーと同じ）なら、サーバーはビューを送らず `{ unchanged: true, viewGeneration, writable }` だけ返す（`server/leagueService.mjs` の `view`）。アプリはこのとき `writable`（書き込めるか）だけを合わせる。世代を持たない保存先（開発サーバーの `FileStore`）は `since` を無視して毎回全部返す。
 - `command` の返事の `view` は最新のビューで、`view.viewGeneration` に公開した世代が入る（`server/storage/supabaseStore.mjs`）。アプリは読み直さずにこれを使い、次の `since` にする。返事に `view` が無ければ読み直す。
@@ -48,11 +50,12 @@
 
 | ファイル | 中身 | 作り方 | 使う検査 |
 | --- | --- | --- | --- |
-| `view-running.json` | 開幕3日目（4月4日）のビュー | `node mobile/tools/view-fixture.mjs` のあと、必ず `node mobile/tools/expect-logic.mjs > mobile/shared/src/jvmTest/resources/logic-expected.json` | `ViewTest`・`LogicTest`・`TipsTest`・`TwoWayTest` |
+| `view-running.json` | 開幕3日目（4月4日）のビュー | `node mobile/tools/view-fixture.mjs` のあと、必ず `node mobile/tools/expect-logic.mjs > mobile/shared/src/jvmTest/resources/logic-expected.json` と下の `expect-social.mjs` | `ViewTest`・`LogicTest`・`TipsTest`・`TwoWayTest`・`SocialTest` |
 | `front/view.json`・`game.json`・`games.json`・`team.json` | 同じリーグの6月12日のビュー、自球団の最新の試合の詳細、今季の自球団の試合、次の相手の名簿 | 同じ `view-fixture.mjs` が一緒に書き出す | `FrontPageTest`（紙面） |
 | `chronicle/view-late.json`・`view-offseason.json`・`team.json` | 1年目の終盤（マジックが出る頃）のビュー、2年目のキャンプのビュー（引退・裏の大会）、球団史 | `node mobile/tools/chronicle-fixtures.mjs`（引退が出ない年は1人分を作って載せる） | `ChronicleTest`（年代記の紙面） |
 | `staff-view.json` | 指導者（監督・コーチ）の入ったビュー（2年目のキャンプ） | `WRITE_APP_FIXTURE=1 node tools/sim-harness/online-coach-check.mjs` | `StaffTest` |
 | `logic-expected.json` | Web 版の計算の答え（`view-running.json` の名簿から） | 上の `expect-logic.mjs`。CI は `--check` | `LogicTest` |
+| `social-expected.json` | Web 版の得点経過・時刻・最終ログイン・留守中のまとめの答え（`view-running.json` の要点から） | `node mobile/tools/expect-social.mjs > mobile/shared/src/jvmTest/resources/social-expected.json`。CI は `--check` | `SocialTest` |
 
 - ⚠ 試合の結果は命令の `requestId` で決まる（同じコードなら同じ答え）。`ViewTest` の紙面の検査は「4月4日の自球団の最新の試合が負け」を前提にしているので、`view-fixture.mjs` はその形になる回まで `requestId` を変えて作り直す。試合の計算を変えて30回で合わなくなったら、検査の期待値をビューの中身から作る形に直すかを決める（`docs/audit/2026-11-08.md` の判断待ち 2）。
 

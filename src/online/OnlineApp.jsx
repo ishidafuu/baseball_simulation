@@ -9,6 +9,7 @@ import { ReadContext } from './useRead.js';
 import { createReadCache } from './readCache.js';
 import {
   readSavedView,
+  readSavedViewAt,
   saveView,
   forgetView,
   readSavedConfig,
@@ -19,6 +20,7 @@ import { useMobile } from './useMobile.js';
 import { setTeamLabels } from './gameText.js';
 import { Drafts } from './Drafts.jsx';
 import { staffModesDoneText } from './notices.js';
+import { awaySummary } from './awaySummary.js';
 import {
   readAuth,
   sameSession,
@@ -94,7 +96,10 @@ const COMMAND_MESSAGES = {
       ? `第${payload.round}クールの練習を実行しました。キャンプの練習はこれで終わりです`
       : `第${payload?.round}クールの練習を実行しました`,
   lineup: '編成を保存しました',
-  profile: '名前を保存しました',
+  profile: (payload) =>
+    payload && 'comment' in payload && !('teamName' in payload)
+      ? 'ひとことを保存しました'
+      : '名前とひとことを保存しました',
   convert: '守備位置を変えました（打順と投手起用は組み直しました）',
   pack: '初期メンバーのセットを選びました',
   tradeOffer: 'トレードを提案しました',
@@ -104,6 +109,18 @@ const COMMAND_MESSAGES = {
       : payload?.action === 'counter'
         ? '逆提案を返しました'
         : '提案を断りました',
+  // 予告先発（ローテのページ）
+  starterPick: (payload) =>
+    payload?.playerId == null ? '予告先発の指名を外しました' : '予告先発を指名しました',
+  // 練習試合
+  challenge: '練習試合を申し込みました',
+  challengeRespond: (payload) =>
+    payload?.action === 'accept'
+      ? '練習試合をしました。結果は練習試合のページにあります'
+      : payload?.action === 'withdraw'
+        ? '練習試合の申し込みを取り下げました'
+        : '練習試合の申し込みを見送りました',
+  releaseMember: '球団をCPUに戻しました',
 };
 
 // 版のずれ（`code: 'revision'`）だけなら最新の版で1回だけ送り直す命令（`command` の注記）。
@@ -119,6 +136,18 @@ export default function OnlineApp() {
     const saved = readSavedView(current);
     return saved ? viewForSession(saved, current) : null;
   });
+  // 留守中のまとめ（`awaySummary.js`）。⚠ **開いた直後に残っていたビュー**と、最初に届いた
+  //    新しいビューを比べる。そのあとの読み直し（60秒ごと）は比べない（開いている間の変化は画面に出ている）
+  const visit = useRef(null);
+  if (visit.current === null) {
+    const current = readAuth();
+    visit.current = {
+      view: readSavedView(current),
+      at: readSavedViewAt(current),
+      done: false,
+    };
+  }
+  const [away, setAway] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showTimes, setShowTimes] = useState(false);
@@ -139,13 +168,22 @@ export default function OnlineApp() {
   viewRef.current = view;
   // ⚠ ビューを入れるときは必ずここを通す（世代を覚え、変わっていない返事なら今のビューを残す）
   const acceptView = useCallback((result, current) => {
-    if (result?.unchanged) return;
+    if (result?.unchanged) {
+      // 前に開いたときから何も変わっていない（留守中のまとめは出さない）
+      visit.current.done = true;
+      return;
+    }
     viewGeneration.current = Number.isInteger(result?.viewGeneration)
       ? result.viewGeneration
       : null;
     const next = viewForSession(result, current);
     viewRef.current = next;
     setView(next);
+    if (!visit.current.done && next?.revision != null) {
+      visit.current.done = true;
+      const lines = awaySummary(visit.current.view, next);
+      if (lines) setAway({ lines, at: visit.current.at });
+    }
     saveView(current, result);
   }, []);
   const sinceQuery = () =>
@@ -281,6 +319,22 @@ export default function OnlineApp() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', poll);
     };
+  }, [auth]);
+  // 最後に来た時刻（しばらく来ないと「おるすばん」で指導者に任せた扱いになる。来たら解く）。
+  // ⚠ 開いたとき・タブに戻ったときに知らせるだけ。サーバーは数時間に1回しか書かない
+  //    （`touchPresence`）ので、ここでは10分より短い間隔で送らないだけにする
+  useEffect(() => {
+    if (!auth) return;
+    let last = 0;
+    const ping = () => {
+      if (document.hidden || Date.now() - last < 10 * 60000) return;
+      if (auth.refreshToken && auth.expiresAt <= Date.now()) return;
+      last = Date.now();
+      api('presence', auth, {}).catch(() => {});
+    };
+    ping();
+    document.addEventListener('visibilitychange', ping);
+    return () => document.removeEventListener('visibilitychange', ping);
   }, [auth]);
   useEffect(() => {
     if (!auth?.refreshToken) return;
@@ -661,6 +715,8 @@ export default function OnlineApp() {
                     busy={busy || !view.writable}
                     run={run}
                     command={command}
+                    away={away}
+                    dismissAway={() => setAway(null)}
                   />
                 ) : (
                   <DesktopView
@@ -675,6 +731,8 @@ export default function OnlineApp() {
                     busy={busy || !view.writable}
                     run={run}
                     command={command}
+                    away={away}
+                    dismissAway={() => setAway(null)}
                   />
                 )}
               </Drafts>

@@ -5,6 +5,7 @@ import { Standings } from './LeaguePanels.jsx';
 import { GameRecordButton } from './GameHistory.jsx';
 import { TeamPlayerButton } from './PlayerPerformance.jsx';
 import { turnOfDate } from './shared.js';
+import { InboxCard, OwnersCard } from './SocialPages.jsx';
 
 // ============================================================
 // 「ホーム」に出すリーグ全体の眺め。
@@ -32,13 +33,19 @@ import { turnOfDate } from './shared.js';
  * ⚠ 防御率は投げていなければ `null`。0.00 と出すと「無失点の好投手」に見える。
  * ⚠ 先頭の0は省かない（0.34 を .34 にすると桁を読み違える）。
  */
-function Starter({ info, fallback }) {
+function Starter({ info, fallback, mark }) {
   if (!info) return <small>{fallback || '先発未定'}</small>;
   return (
     <>
       <small className="online-starter-name">
         {info.name}
         <b>{info.throws === 'left' ? '左' : '右'}</b>
+        {/* 予告先発（確定）と、自分の指名（確定前）。⚠ 相手の指名は確定してからしか来ない */}
+        {mark && (
+          <em className={`online-starter-mark is-${mark}`} title={mark === 'fixed' ? '予告先発（確定）' : 'あなたが指名した先発（確定前）'}>
+            {mark === 'fixed' ? '予告' : '指名'}
+          </em>
+        )}
       </small>
       <small className="online-starter-line">
         {info.wins}勝{info.losses}敗
@@ -314,6 +321,7 @@ function Upcoming({ row, view }) {
           <Starter
             info={home ? game.homeStarterInfo : game.awayStarterInfo}
             fallback={home ? game.homeStarter : game.awayStarter}
+            mark={home ? game.homeStarterMark : game.awayStarterMark}
           />
         </span>
         <span className="online-slot-starter">
@@ -321,6 +329,7 @@ function Upcoming({ row, view }) {
           <Starter
             info={home ? game.awayStarterInfo : game.homeStarterInfo}
             fallback={home ? game.awayStarter : game.homeStarter}
+            mark={home ? game.awayStarterMark : game.homeStarterMark}
           />
         </span>
       </span>
@@ -421,8 +430,12 @@ export default function LeagueBoard({ view }) {
         <Leaders view={view} />
       </div>
       <div className="online-board-side">
+        {/* あなたへのお知らせ（トレードの返事・練習試合など）。無ければ出さない */}
+        <InboxCard view={view} />
         <Standings view={view} />
         <LeagueTopics view={view} />
+        {/* オーナーたち（呼び名・ひとこと・最後に来た日）。人が2人以上のときだけ */}
+        <OwnersCard view={view} />
       </div>
     </div>
   );

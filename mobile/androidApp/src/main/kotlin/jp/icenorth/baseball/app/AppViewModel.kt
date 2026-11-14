@@ -26,6 +26,8 @@ import jp.icenorth.baseball.shared.obj
 import jp.icenorth.baseball.shared.list
 import jp.icenorth.baseball.shared.long
 import jp.icenorth.baseball.shared.at
+import jp.icenorth.baseball.shared.awaySummary
+import jp.icenorth.baseball.shared.awayDigest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -81,8 +83,18 @@ class AppViewModel internal constructor(
      */
     var parkedTradeDraft by mutableStateOf<TradeDraft?>(null)
 
-    /** 手続きタブでトレードの側を開いているか（届いた提案の知らせから直接開くため、ここに置く） */
-    var procTrade by mutableStateOf(false)
+    /**
+     * 手続きタブで開いている面（Current・Trade・Exhibition・Starters。[jp.icenorth.baseball.app.ui.ProceduresScreen]）。
+     * 届いた提案の知らせから直接トレードを開くため、ここに置く
+     */
+    var procFace by mutableStateOf("Current")
+
+    /** 手続きタブでトレードの側を開いているか（[procFace] の見方の1つ。立てるとトレード、下ろすと現在の手続き） */
+    var procTrade: Boolean
+        get() = procFace == "Trade"
+        set(value) {
+            procFace = if (value) "Trade" else "Current"
+        }
 
     /**
      * 次に編成タブを開いたときに出す面（PlanTab の名前。「Staff」なら指導者）。編成タブが開いたら null に戻す。
@@ -333,9 +345,83 @@ class AppViewModel internal constructor(
         }
     }
 
+    /** 留守中のまとめ（ホームの上。閉じるまで出す）。at は前に開いた時刻 */
+    data class AwayNote(val at: Long, val lines: List<String>)
+
+    var away by mutableStateOf<AwayNote?>(null)
+        private set
+
+    fun dismissAway() {
+        away = null
+    }
+
+    /**
+     * 比べる前のビュー（開いた直後に残っていたもの）と、その時刻。次に読めたビューと比べて [away] を作る。
+     * ⚠ 自分の操作（指示の返事のビュー）では作らない（自分でしたことを「留守中」と出さない）
+     */
+    private var visit: Pair<JsonObject, Long>? = null
+
+    /** 開いた（アプリに戻ってきた）。前に画面に出したビューが [AWAY_AFTER_MS] より古ければ、次の読み込みと比べる */
+    private fun startVisit() {
+        if (away != null || visit != null) return
+        val at = store.shownAt
+        if (at <= 0 || System.currentTimeMillis() - at < AWAY_AFTER_MS) return
+        val before = store.shownDigest?.let(::parseRaw) ?: return
+        visit = before to at
+    }
+
+    private fun finishVisit() {
+        val (before, at) = visit ?: return
+        visit = null
+        awaySummary(before, raw)?.let { away = AwayNote(at, it) }
+    }
+
+    /** 最後に「来た」と知らせた時刻（アプリに戻るたびに送らない） */
+    private var presenceAt = 0L
+
+    /**
+     * アプリに戻ってきた（MainActivity の onResume）。来たことを知らせ、留守中のまとめを用意して読み直す。
+     * ⚠ 来たことは10分に1回まで（サーバーも3時間に1回しか書かない）。失敗しても黙って次に回す
+     */
+    fun resumed() {
+        startVisit()
+        val current = auth
+        val now = System.currentTimeMillis()
+        if (current != null && now - presenceAt >= PRESENCE_EVERY_MS) {
+            presenceAt = now
+            val epoch = sessionEpoch
+            viewModelScope.launch {
+                try {
+                    authed(current, epoch) { api.presence(it) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (ignored: Exception) {
+                    presenceAt = 0L
+                }
+            }
+        }
+        reload()
+    }
+
+    /** 速報再生で見た試合（[jp.icenorth.baseball.app.ui.QuickReplayCard]）。端末に覚える */
+    var quickSeen by mutableStateOf(store.quickSeen)
+        private set
+
+    fun markQuickSeen(ids: Set<String>) {
+        val next = quickSeen.orEmpty() + ids
+        // 直近の試合だけ覚えていれば足りる（ビューの直近は5試合）
+        val trimmed = if (next.size > 40) ids else next
+        quickSeen = trimmed
+        store.quickSeen = trimmed
+    }
+
     init {
         checkLatestApp()
-        if (auth != null) reload()
+        if (auth != null) {
+            // 開いた直後に残っていたビューを、最初に読めたビューと比べる（留守中のまとめ）
+            startVisit()
+            reload()
+        }
     }
 
     fun changeEndpoint(value: String) {
@@ -403,6 +489,10 @@ class AppViewModel internal constructor(
         refreshing = false
         store.auth = null
         auth = null
+        visit = null
+        away = null
+        presenceAt = 0L
+        quickSeen = null
         view = null
         loadFailure = null
         raw = null
@@ -598,10 +688,13 @@ class AppViewModel internal constructor(
             if (head?.get("unchanged")?.jsonPrimitive?.booleanOrNull == true) {
                 // 書き込めるかどうか（保守中など）だけは世代と関係なく変わるので合わせる
                 head["writable"]?.jsonPrimitive?.booleanOrNull?.let { w -> if (view?.writable != w) view = view?.copy(writable = w) }
+                // 何も変わっていない（留守中のまとめも無い）
+                visit = null
                 return
             }
         }
         applyView(text)
+        finishVisit()
     }
 
     private fun applyView(text: String) {
@@ -612,6 +705,7 @@ class AppViewModel internal constructor(
         // 古いサーバーの返事には無いので、そのときは null にして次は全部読む
         viewGeneration = raw?.get("viewGeneration")?.jsonPrimitive?.longOrNull
         store.viewJson = text
+        raw?.let { store.shownDigest = awayDigest(it).toString() }
         markResultsSeen()
     }
 
@@ -710,6 +804,12 @@ class AppViewModel internal constructor(
         else -> "通信できませんでした。電波の良いところで、もう一度試してください" + (networkCause(this)?.let { "（$it）" } ?: "")
     }
 }
+
+/** 前に開いてからこれだけ経っていたら、留守中のまとめを作る（すぐ戻ったときは出さない） */
+private const val AWAY_AFTER_MS = 10 * 60_000L
+
+/** 「来た」と知らせる間隔 */
+private const val PRESENCE_EVERY_MS = 10 * 60_000L
 
 /** 通信の失敗の原因（画面に添える短い言葉）。包まれた例外の中も見る。分からなければ null */
 internal fun networkCause(e: Throwable): String? = generateSequence(e) { it.cause }.take(5).firstNotNullOfOrNull { c ->

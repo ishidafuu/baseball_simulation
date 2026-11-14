@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
  * - 締め切りが近いのに、まだ決めていない（残り [DUE_SOON_MILLIS] 以内）
  * - トレードの提案・逆提案が届いた（自分が返事をする番）
  * - トライアウト・キャンプ・年度更新の結果が出た
+ * - あなたへのお知らせ（トレードの成立・断られた・取り下げ、練習試合の申し込みと結果、予告先発の回避、おるすばん）
  *
  * ⚠ 手続きの数え方は「手続き」のタブの数字と同じ（[pendingProcedure]）。指導者に任せた手続きは知らせない。
  * ⚠ 印（[key]）は端末に覚え、同じことを二度知らせない。アプリの画面で見たものにも印を付ける。
@@ -79,9 +80,19 @@ fun eventNotices(
                 listOfNotNull(
                     theirs.takeIf { it.isNotEmpty() }?.let { "もらう: ${it.joinToString("・")}" },
                     ours.takeIf { it.isNotEmpty() }?.let { "出す: ${it.joinToString("・")}" },
+                    // 相手のひとこと（逆提案なら逆提案に添えた方）
+                    (if (countered && mine) t.at("replyNote") else t.at("note")).str()?.takeIf { it.isNotEmpty() }?.let { "「$it」" },
                 ).joinToString("\n"),
             ),
         )
+    }
+
+    // あなたへのお知らせ（文はサーバーが作る。PC と同じ文）。
+    // ⚠ 逆提案（tradeCountered）は上のトレードの知らせと同じことなので出さない。来たこと（awayEnded）も出さない
+    raw.at("inbox").list().mapNotNull { it.obj() }.forEach { n ->
+        val id = n.at("id").str() ?: return@forEach
+        val title = INBOX_TITLES[n.at("type").str()] ?: return@forEach
+        add(EventNotice("inbox:$id", title, n.at("text").str().orEmpty()))
     }
 
     // 手続きの結果（その年のもの。次の同じ手続きまでビューに残る）
@@ -113,6 +124,19 @@ fun eventNotices(
         )
     }
 }
+
+/** 通知に出すお知らせの種類と見出し（無い種類は通知しない） */
+private val INBOX_TITLES = mapOf(
+    "tradeAccepted" to "トレードが成立しました",
+    "tradeRejected" to "トレードの提案が断られました",
+    "tradeWithdrawn" to "トレードの提案が取り下げられました",
+    "challenge" to "練習試合の申し込みが届きました",
+    "challengePlayed" to "練習試合の結果",
+    "challengeDeclined" to "練習試合の申し込み",
+    "challengeWithdrawn" to "練習試合の申し込み",
+    "starterAvoided" to "予告先発を回避しました",
+    "awayStarted" to "おるすばんになりました",
+)
 
 /**
  * 知らせるものを1つの通知にまとめる（まだ印の無いものだけ）。無ければ null。

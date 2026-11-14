@@ -10,6 +10,7 @@ import { useRead, ReadContext } from './useRead.js';
 import { teamLabel, teamShort } from './gameText.js';
 import { POS } from './api.js';
 import { ROSTER_LIMIT, ONLINE_ROSTER_TARGETS } from './shared.js';
+import { TRADE_NOTE_MAX } from './social.js';
 import { Page } from './Page.jsx';
 import { Choice } from './Choice.jsx';
 import {
@@ -775,6 +776,8 @@ function TradeComposer({
     lockedPartner || (partners.includes(chosen) ? chosen : partners[0] || '');
   const [give, setGive] = useState(initialGive);
   const [get, setGet] = useState(initialGet);
+  // 相手へのひとこと（人の球団だけ。CPU球団は読まないので出さない）
+  const [note, setNote] = useState('');
   const [group, setGroup] = useState(() => {
     if (initialGroup) return initialGroup;
     const first = initialGive
@@ -807,9 +810,11 @@ function TradeComposer({
     const outcome = await onSubmit(partner, giveIds, getIds, {
       give: givePlayers,
       get: getPlayers,
+      note: cpu ? '' : note.trim(),
       reset: () => {
         setGive([]);
         setGet([]);
+        setNote('');
       },
     });
     setConfirming(false);
@@ -913,6 +918,23 @@ function TradeComposer({
               roster={theirRoster}
               myRoster={view.roster}
             />
+          )}
+          {/* ⚠ 人の球団だけ。CPU球団はひとことを読まない（サーバーも捨てる） */}
+          {!cpu && (
+            <label className="online-trade-note">
+              <span>相手へのひとこと（なくても送れます）</span>
+              <textarea
+                rows={2}
+                maxLength={TRADE_NOTE_MAX}
+                value={note}
+                disabled={busy}
+                placeholder="例: 捕手が足りなくて困っています"
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <small className="online-muted">
+                {note.length}/{TRADE_NOTE_MAX}字
+              </small>
+            </label>
           )}
           {confirming && !(!partner || empty || problems.length > 0 || !theirRoster) ? (
             <DealConfirm
@@ -1131,6 +1153,7 @@ function TradeCard({ view, trade, busy, run, command, onResult, mobile = false }
           {trade.countered && '（逆提案あり）'}
         </small>
       </div>
+      <TradeNotes trade={trade} />
       {!countering &&
         (mobile ? (
           <MobileDeal
@@ -1221,11 +1244,12 @@ function TradeCard({ view, trade, busy, run, command, onResult, mobile = false }
             confirmLabel="逆提案を送る"
             busy={busy}
             onCancel={() => setCountering(false)}
-            onSubmit={async (_, give, get) => {
+            onSubmit={async (_, give, get, extra) => {
               const outcome = await respond('counter', {
                 // ⚠ `offer` はいつも**提案した側**が出す選手。向きを変えない
                 offer: trade.mine ? give : get,
                 want: trade.mine ? get : give,
+                ...(extra?.note ? { note: extra.note } : {}),
               });
               if (outcome.ok) setCountering(false);
               // 結果（失敗の理由も）はページの上（`onResult`）に出している
@@ -1242,6 +1266,29 @@ function TradeCard({ view, trade, busy, run, command, onResult, mobile = false }
         </div>
       )}
     </section>
+  );
+}
+
+/** 提案と逆提案に添えたひとこと。誰の言葉かを前に書く */
+function TradeNotes({ trade }) {
+  if (!trade.note && !trade.replyNote) return null;
+  const proposer = trade.mine ? 'あなた' : teamLabel(trade.fromTeam);
+  const replier = trade.mine ? teamLabel(trade.toTeam) : 'あなた';
+  return (
+    <div className="online-trade-notes">
+      {trade.note && (
+        <blockquote>
+          <small>{proposer}のひとこと</small>
+          {trade.note}
+        </blockquote>
+      )}
+      {trade.replyNote && (
+        <blockquote>
+          <small>{replier}のひとこと（逆提案）</small>
+          {trade.replyNote}
+        </blockquote>
+      )}
+    </div>
   );
 }
 
@@ -1710,7 +1757,7 @@ export default function TradeScreen({
                   const outcome = await run(async () => {
                     text = await command(
                       'tradeOffer',
-                      { to, offer: give, want: get },
+                      { to, offer: give, want: get, ...(players.note ? { note: players.note } : {}) },
                       {
                         message: (after, before) =>
                           offerResultText({

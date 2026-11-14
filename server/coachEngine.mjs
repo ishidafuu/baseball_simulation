@@ -182,6 +182,9 @@ const memberOf = (league, teamName) =>
 export function effectiveStaffModes(league, member) {
   const modes = staffModesOf(member);
   if (!league.coaches) return Object.fromEntries(STAFF_AREA_KEYS.map((k) => [k, 'self']));
+  // ⚠ **おるすばん中は全部の分野を任せた扱い**（しばらく来ていない人。`social.mjs` の `markAway`）。
+  //    本人の設定（`member.staffModes`）は書き換えないので、来れば元に戻る。席が空いた分野は下で「自分で」
+  if (member.away) for (const area of STAFF_AREA_KEYS) modes[area] = 'delegate';
   for (const area of STAFF_AREA_KEYS) if (seatEmpty(league, member.teamName, area)) modes[area] = 'self';
   return modes;
 }

@@ -19,6 +19,7 @@ const pitching = await import(at('src/online/pitchingEdit.js'));
 const constants = await import(at('src/utils/constants.js'));
 const pyramid = await import(at('src/online/pyramidLeague.js'));
 const api = await import(at('src/online/api.js'));
+const social = await import(at('src/online/social.js'));
 
 // ⚠ Kotlin の文字列では `$` が式の始まりになるので逃がす
 const q = (s) => JSON.stringify(String(s)).replaceAll('$', '\\$');
@@ -133,6 +134,11 @@ map('CAMP_SUB_TARGETS', shared.CAMP_SUB_TARGETS);
 list('CAMP_PITCH_TYPES', shared.CAMP_PITCH_TYPES);
 list('CONVERT_POSITIONS', shared.CONVERT_POSITIONS);
 map('POSITION_NAMES', api.POS_FULL);
+// 人どうしの関わり（ひとことの字数・おるすばんの日数・予告先発の確定・練習試合の回数。Web 版 social.js）
+for (const k of ['TRADE_NOTE_MAX', 'OWNER_COMMENT_MAX', 'CHALLENGE_NOTE_MAX', 'AWAY_DAYS', 'STARTER_LOCK_TURNS', 'STARTER_PICK_GAMES', 'EXHIBITIONS_PER_DAY']) {
+  if (!Number.isInteger(social[k])) throw new Error(`${k} が読めない`);
+  out(`const val ${k}: Int = ${social[k]}`);
+}
 const text = lines.join('\n') + '\n';
 const file = path.join(root, 'mobile/shared/src/commonMain/kotlin/jp/icenorth/baseball/shared/Tables.kt');
 if (process.argv.includes('--check')) {

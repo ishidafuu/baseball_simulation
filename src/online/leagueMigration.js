@@ -189,6 +189,23 @@ export const MIGRATIONS = [
         upgradeCoach(coach, league.seed);
     },
   },
+  {
+    from: 12,
+    to: 13,
+    note: '人どうしの関わり（あなたへのお知らせ・取引の記録・最後に来た時刻・予告先発・練習試合・ひとこと）を足した',
+    apply(league, { now }) {
+      // ⚠ **足すだけ**。試合・能力・名簿には触らない。取引の記録と練習試合は空から始める
+      //    （過去のトレードは選手の経歴 `careerHistory` にしか残っていない）
+      league.transactions ??= [];
+      league.exhibitions ??= [];
+      for (const member of league.members || []) {
+        member.inbox ??= [];
+        // ⚠ **来た時刻の無い人は今の時刻にする**。無いままでも留守にはしない作り（`isAwayAt`）だが、
+        //    入れておかないと、この版の前から来ていない人がいつまでも留守にならない
+        member.lastSeenAt ??= now;
+      }
+    },
+  },
 ];
 
 // ⚠ **手順表と目標の版を差し替えられるようにしてある**。段が0本だった頃に、

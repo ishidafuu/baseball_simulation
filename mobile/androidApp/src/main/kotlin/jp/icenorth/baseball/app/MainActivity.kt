@@ -59,7 +59,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // 画面に出ている試合は見たことにする（裏の確認で知らせない）。出ている通知も消す
         model.markResultsSeen()
-        // アプリに戻ってきたら最新に（Web 版の visibilitychange と同じ）
-        model.reload()
+        // アプリに戻ってきたら最新に（Web 版の visibilitychange と同じ）。来たことも知らせ、
+        // しばらく空いていたら留守中のまとめを用意する
+        model.resumed()
     }
 }

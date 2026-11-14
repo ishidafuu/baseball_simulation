@@ -29,8 +29,9 @@ import OffseasonGrowth from './OffseasonGrowth.jsx';
 import { StaffBody } from './StaffPage.jsx';
 import { MobileTradeReplies } from './TradeScreen.jsx';
 import { RenameDialog } from './DesktopView.jsx';
+import { AwaySummaryBanner, InboxCard } from './SocialPages.jsx';
 export default function MobileView(props) {
-  const { view, local, loading, reloadView, logout, showTimes, tab, setTab } =
+  const { view, local, loading, reloadView, logout, showTimes, tab, setTab, away, dismissAway } =
     props;
   const [playersFrom, setPlayersFrom] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,6 +99,8 @@ export default function MobileView(props) {
           </button>
         </div>
       )}
+      {/* 前に開いたときから起きたこと（PC版と同じ文。閉じるまで出す） */}
+      {tab === 'today' && <AwaySummaryBanner away={away} close={dismissAway} />}
       {tab === 'today' && (
         <>
           <section className="online-mobile-overview">
@@ -114,6 +117,7 @@ export default function MobileView(props) {
           </section>
           {view.stage?.key !== 'season' && <SeasonFlow view={view} compact />}
           <TeamBrief view={view} />
+          <InboxCard view={view} limit={3} />
           <nav className="online-home-actions" aria-label="オンラインの画面">
             {tabs
               .filter(([id]) => id !== 'today')

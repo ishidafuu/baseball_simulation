@@ -70,7 +70,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 
-private enum class ProcTab(val label: String) { Current("現在の手続き"), Trade("トレード") }
+private enum class ProcTab(val label: String) { Current("現在の手続き"), Trade("トレード"), Exhibition("練習試合"), Starters("予告先発") }
 
 /**
  * 手続きタブ: 初期メンバー選択・キャンプ・契約更改・トライアウト・年度更新と、トレード。
@@ -80,23 +80,28 @@ private enum class ProcTab(val label: String) { Current("現在の手続き"), T
 fun ProceduresScreen(model: AppViewModel, onHome: () -> Unit = {}, onOpenStaff: () -> Unit = {}) {
     val raw = model.raw ?: return
     // ⚠ どちらの側を開いているかは AppViewModel に置く（届いた提案の知らせから、トレードの側を直接開くため）
-    val tab = if (model.procTrade) ProcTab.Trade else ProcTab.Current
+    val tab = ProcTab.entries.firstOrNull { it.name == model.procFace } ?: ProcTab.Current
+    val view = model.view
     val counts = mapOf(
         ProcTab.Current.name to (if (pendingProcedure(raw) != null) 1 else 0),
         ProcTab.Trade.name to waitingTradeCount(raw),
+        // 届いた練習試合の申し込み（返事をする番のもの）
+        ProcTab.Exhibition.name to (view?.exhibitions.orEmpty().count { it.status == "offered" && !it.mine }),
     )
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // ⚠ 球団名を変える入口はホームのメニューだけにした（以前はここの右上にもあった。手続きと関係が薄い）
         ChipTabs(
             ProcTab.entries.map { it.name to it.label },
             tab.name,
-            { model.procTrade = it == ProcTab.Trade.name },
+            { model.procFace = it },
             Modifier.fillMaxWidth().padding(top = 8.dp),
             counts = counts,
         )
         when (tab) {
             ProcTab.Current -> CurrentProcedure(model, raw, onHome, onOpenStaff)
             ProcTab.Trade -> TradeScreen(model, raw)
+            ProcTab.Exhibition -> if (view != null) ExhibitionScreen(model, view)
+            ProcTab.Starters -> if (view != null) StarterPicksScreen(model, view)
         }
     }
 }

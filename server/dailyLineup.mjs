@@ -191,7 +191,12 @@ export function benchTwoWayStarter(team) {
 }
 
 // 短い予約ローテでも疲労投手を固定登板させない。当日の代役だけ差し込み、予約は残す。
-export function prepareDailyLineup(team, name) {
+//
+// `pick`: 人が指名した先発（予告先発。`starterPicks.mjs`）。ローテに居て、疲れていなければ
+//   その投手から回す（ローテはその投手の次へ進む）。疲れている・ローテから外れたときは
+//   指名を使わずにいつもの決め方に戻し、`report.pick` に 'avoided' を入れる（呼ぶ側が知らせる）。
+// ⚠ 指名が無ければ今までとまったく同じ（CPU球団と任せた人の球団は指名を持たない）。
+export function prepareDailyLineup(team, name, { pick = null, report = null } = {}) {
   const rotation = team.pitchingRotation;
   const starters = rotation?.starters || [];
   requireOnline(
@@ -211,7 +216,17 @@ export function prepareDailyLineup(team, name) {
   const pitchers = team.players.filter(
     (p) => canStart(p) && (p.position === 'pitcher' || starters.includes(p.id)),
   );
-  const current = pitchers.find((p) => p.id === starters[index]);
+  if (pick != null) {
+    const at = starters.indexOf(pick);
+    const picked = at >= 0 ? pitchers.find((p) => p.id === pick) : null;
+    if (picked && (picked.fatigue || 0) < STARTER_SKIP_FATIGUE) {
+      rotation.currentStarterIndex = at;
+      if (report) report.pick = 'used';
+    } else if (report) report.pick = 'avoided';
+  }
+  const current = pitchers.find(
+    (p) => p.id === starters[rotation.currentStarterIndex],
+  );
   let restore = () => {};
   if (!current || (current.fatigue || 0) >= STARTER_SKIP_FATIGUE) {
     // ⚠ **今の順番から先へ**探すこと（一人用の `selectStarterFromRotation` と同じ）。

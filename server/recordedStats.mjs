@@ -297,6 +297,8 @@ export function createRecorder(league, teams, { replay: keepReplay = false } = {
         lineScore: result.lineScore ? clone(result.lineScore) : null,
         walkOff: !!result.walkOff,
         winningHit: winningHitOf(observer.events, result),
+        // 得点経過（点が動いた打席と、打席の外で入った点）。乱数は引かない（記録を読むだけ）
+        scoring: scoringPlaysOf(observer.events, result),
       };
       for (const team of [result.homeTeam, result.awayTeam]) {
         box.teams[team.name] = [];
@@ -430,6 +432,86 @@ export function winningHitOf(events, result) {
   }
   return hit;
 }
+/** 得点経過を残す行の上限（大差の試合でも箱を膨らませない） */
+export const SCORING_PLAYS_LIMIT = 30;
+
+/**
+ * 得点経過: 点が動いた打席（打った人・何点・その後の点）と、打席の外で入った点（暴投・盗塁など）。
+ * 行は `{ inning, half: 'top'|'bottom', team, id, name, kind, runs, away, home }`。
+ * `kind` は打席の結果（'homerun' / 'single' / 'double' / 'triple' / 'walk' / 'error' / 'out' など）、
+ * 打席の外は 'other'（名前なし）。`away` / `home` はその行の後の点。
+ * ⚠ 打席の前後の得点（`scoreBefore` / `scoreAfter`）が無い古い記録では空の配列。
+ * ⚠ 練習試合（`exhibition.mjs`）も同じ関数で作る。
+ */
+export function scoringPlaysOf(events, result) {
+  const homeName = result?.homeTeam?.name;
+  const awayName = result?.awayTeam?.name;
+  const plays = [];
+  let last = { home: 0, away: 0 };
+  let lastInning = 1;
+  let lastHalf = 'top';
+  const gap = (score, inning, half) => {
+    // 打席の外で入った点。⚠ 次の打席が相手の攻撃なら、点はその前の半回に入っている
+    for (const side of ['away', 'home']) {
+      const runs = (score[side] || 0) - (last[side] || 0);
+      if (runs <= 0) continue;
+      const ownHalf = side === 'away' ? 'top' : 'bottom';
+      const at = ownHalf === half ? inning : ownHalf === 'top' ? inning : Math.max(1, inning - 1);
+      plays.push({
+        inning: at,
+        half: ownHalf,
+        team: side === 'away' ? awayName : homeName,
+        id: null,
+        name: null,
+        kind: 'other',
+        runs,
+        away: score.away,
+        home: score.home,
+      });
+      last = { ...last, [side]: score[side] };
+    }
+  };
+  for (const e of events || []) {
+    if (e.runnerOnly || !e.scoreBefore || !e.scoreAfter) continue;
+    const half = e.offense === homeName ? 'bottom' : 'top';
+    gap(e.scoreBefore, e.inning, half);
+    const side = half === 'top' ? 'away' : 'home';
+    const runs = (e.scoreAfter[side] || 0) - (e.scoreBefore[side] || 0);
+    if (runs > 0)
+      plays.push({
+        inning: e.inning,
+        half,
+        team: e.offense,
+        id: e.batterId ?? null,
+        name: e.batterName || null,
+        kind: scoringKind(e),
+        runs,
+        away: e.scoreAfter.away,
+        home: e.scoreAfter.home,
+      });
+    last = { home: e.scoreAfter.home, away: e.scoreAfter.away };
+    lastInning = e.inning;
+    lastHalf = half;
+  }
+  // 最後の打席の後に入った点（暴投でのサヨナラなど）
+  if (events?.length && Number.isFinite(result?.homeScore) && Number.isFinite(result?.awayScore))
+    gap({ home: result.homeScore, away: result.awayScore }, lastInning, lastHalf);
+  return plays.slice(0, SCORING_PLAYS_LIMIT);
+}
+
+/** 打席の結果の種類。⚠ 打者の成績の増えた分から読む（投球の結果の形は打席の種類で違う） */
+function scoringKind(e) {
+  const d = e.delta || {};
+  if (d.homeruns > 0) return 'homerun';
+  if (d.triples > 0) return 'triple';
+  if (d.doubles > 0) return 'double';
+  if (d.hits > 0) return 'single';
+  if (d.walks > 0) return 'walk';
+  if (d.hitByPitch > 0) return 'hit_by_pitch';
+  if (e.result?.isError && !e.result?.hitWithError) return 'error';
+  return 'out';
+}
+
 export function recordedStats(record) {
   if (!record) return null;
   return {

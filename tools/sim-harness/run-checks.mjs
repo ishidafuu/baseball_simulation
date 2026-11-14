@@ -80,6 +80,8 @@ const CHECKS = [
   { name: 'online-chronicle-check', group: 'check', online: true, slow: 130 },
   // 指導者（監督・コーチ）。種・任せ方・人事・40年の入れ替わり・1年を通して翌年のキャンプまで
   { name: 'online-coach-check', group: 'check', online: true, slow: 200 },
+  // 人どうしの関わり（ひとこと・取引の記録・おるすばん・予告先発・練習試合・得点経過）
+  { name: 'online-social-check', group: 'check', online: true, slow: 125 },
   { name: 'progression-check', group: 'full', slow: 38 },
 ];
 

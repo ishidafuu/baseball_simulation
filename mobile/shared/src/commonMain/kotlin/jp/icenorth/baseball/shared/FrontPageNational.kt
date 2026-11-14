@@ -193,7 +193,15 @@ fun buildNationalPage(view: LeagueView, raw: JsonObject?, local: FrontPage): Fro
             val who = view.teamOwners[t]?.ifBlank { null }?.let { "${it}オーナーの" } ?: ""
             "${who}${view.teamShort(t)}は${LEAGUE_NAMES[league]}${rank + 1}位" + (table.getOrNull(rank)?.takeIf { it.gamesPlayed > 0 }?.let { "（${it.wins}勝${it.losses}敗）" } ?: "")
         }
-        articles += FrontPage.Article("オーナーたちの戦い", "${humans.size}人のオーナー、それぞれの現在地", lines.joinToString("、") + "。", LINK_GAMES)
+        // オーナーのひとこと（新しく書いたものから2つまで。順位表の横に出しているのと同じ文）
+        val voices = view.members.filter { !it.comment.isNullOrBlank() && it.teamName in humans }
+            .sortedByDescending { it.commentAt.orEmpty() }
+            .take(2)
+            .joinToString("") { m ->
+                val who = view.teamOwners[m.teamName]?.ifBlank { null } ?: view.teamShort(m.teamName.orEmpty())
+                "${who}オーナーは「${m.comment}」と語る。"
+            }
+        articles += FrontPage.Article("オーナーたちの戦い", "${humans.size}人のオーナー、それぞれの現在地", lines.joinToString("、") + "。" + voices, LINK_GAMES)
     }
     // 記録（最新の試合の日に届いた節目。リーグ全体）
     if (view.phase?.kind !in OFF_PHASES) {

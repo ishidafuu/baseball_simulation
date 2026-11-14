@@ -18,6 +18,8 @@ on:
       - 'src/online/pyramidLeague.js'
       - 'src/online/api.js'
       - 'src/online/campMenus.js'
+      - 'src/online/social.js'
+      - 'src/online/awaySummary.js'
       - 'src/utils/constants.js'
   pull_request:
     paths:
@@ -33,6 +35,8 @@ on:
       - 'src/online/pyramidLeague.js'
       - 'src/online/api.js'
       - 'src/online/campMenus.js'
+      - 'src/online/social.js'
+      - 'src/online/awaySummary.js'
       - 'src/utils/constants.js'
   workflow_dispatch:
 
@@ -64,6 +68,7 @@ jobs:
         run: |
           node tools/gen-tables.mjs --check
           node tools/expect-logic.mjs --check
+          node tools/expect-social.mjs --check
       - name: 共通部分の検査
         run: ./gradlew :shared:jvmTest --console=plain
       - name: アプリの通信・画面の回帰検査

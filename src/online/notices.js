@@ -109,7 +109,10 @@ export const waitingTradeCount = (view) =>
 export function noticeCounts(view) {
   const procedure = pendingProcedure(view) ? 1 : 0;
   const trades = waitingTradeCount(view);
-  return { procedure, trades, total: procedure + trades };
+  // 届いた練習試合の申し込み（PC の左メニューの「練習試合」に付ける）。
+  // ⚠ `total`（アプリの `Notices.kt` と同じ数え方）には入れない。返事をしなくても困らないので
+  const challenges = (view?.exhibitions || []).filter((e) => e.status === 'offered' && !e.mine).length;
+  return { procedure, trades, challenges, total: procedure + trades };
 }
 
 /**

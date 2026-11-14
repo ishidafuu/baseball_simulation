@@ -218,6 +218,8 @@ private fun GameDetail(model: AppViewModel, view: LeagueView, id: String, year: 
                         ).joinToString("  "),
                     )
                 }
+                // 得点経過（何回に誰が何で点を入れたか）。記録の無い古い試合には無い
+                ScoringList(view, scoringOf(g["scoring"]), away, home)
                 listOf(away, home).forEach { team ->
                     val players = g.at("teams", team).list().mapNotNull { it.obj() }
                     if (players.isNotEmpty()) BoxScore(view, team, players) { p -> model.openPlayerOf(team, p.at("id").num()?.toLong(), p.at("name").str()) }

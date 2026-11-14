@@ -59,29 +59,61 @@ object Commands {
 
     fun pack(packId: String): JsonObject = buildJsonObject { put("packId", packId) }
 
-    fun profile(teamName: String, playerName: String): JsonObject = buildJsonObject {
+    /**
+     * 球団名・呼び名・ひとこと。⚠ ひとこと（comment）は null なら送らない（いまのひとことのまま）。
+     * 空の文字列を送ると消える
+     */
+    fun profile(teamName: String, playerName: String, comment: String? = null): JsonObject = buildJsonObject {
         put("teamName", teamName.trim())
         put("playerName", playerName.trim())
+        if (comment != null) put("comment", comment.trim())
     }
 
-    /** 新しい提案。offer＝自分が出す、want＝相手からもらう */
-    fun tradeOffer(to: String, give: Collection<Long>, get: Collection<Long>): JsonObject = buildJsonObject {
+    /** 新しい提案。offer＝自分が出す、want＝相手からもらう。note は人の球団へのひとこと（空なら送らない） */
+    fun tradeOffer(to: String, give: Collection<Long>, get: Collection<Long>, note: String? = null): JsonObject = buildJsonObject {
         put("to", to)
         put("offer", ids(give))
         put("want", ids(get))
+        note?.trim()?.takeIf { it.isNotEmpty() }?.let { put("note", it) }
     }
 
     /**
      * 提案への返事（accept / reject / counter）。
      * ⚠ 逆提案の offer はいつも**提案した側**が出す選手。自分が提案した側か（mine）で向きを直す。
      */
-    fun tradeRespond(tradeId: String, action: String, mine: Boolean = false, give: Collection<Long>? = null, get: Collection<Long>? = null): JsonObject = buildJsonObject {
+    fun tradeRespond(
+        tradeId: String,
+        action: String,
+        mine: Boolean = false,
+        give: Collection<Long>? = null,
+        get: Collection<Long>? = null,
+        note: String? = null,
+    ): JsonObject = buildJsonObject {
         put("tradeId", tradeId)
         put("action", action)
         if (action == "counter" && give != null && get != null) {
             put("offer", ids(if (mine) give else get))
             put("want", ids(if (mine) get else give))
+            note?.trim()?.takeIf { it.isNotEmpty() }?.let { put("note", it) }
         }
+    }
+
+    /** 予告先発の指名（playerId が null なら指名を外して、ローテの順に戻す） */
+    fun starterPick(gameId: Long, playerId: Long?): JsonObject = buildJsonObject {
+        put("gameId", gameId)
+        put("playerId", playerId?.let(::JsonPrimitive) ?: JsonNull)
+    }
+
+    /** 練習試合を申し込む（相手は人の球団だけ） */
+    fun challenge(toTeam: String, note: String = ""): JsonObject = buildJsonObject {
+        put("toTeam", toTeam)
+        put("note", note.trim())
+    }
+
+    /** 練習試合の申し込みへの返事（accept / decline / withdraw） */
+    fun challengeRespond(id: String, action: String): JsonObject = buildJsonObject {
+        put("id", id)
+        put("action", action)
     }
 
     /**

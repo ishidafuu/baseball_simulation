@@ -121,6 +121,15 @@ export function createHandler(
             url.searchParams.get('id'),
             url.searchParams.get('year'),
           );
+        // 取引の記録（トレード・退団・入団）。`year` で年度を選ぶ
+        else if (action === 'transactions' && req.method === 'GET')
+          value = await service.transactions(
+            userId,
+            Object.fromEntries(url.searchParams),
+          );
+        // 画面を開いた・アプリに戻った（最後に来た時刻。おるすばんを解く）
+        else if (action === 'presence' && req.method === 'POST')
+          value = await service.presence(userId, sessionId);
         else if (action === 'command' && req.method === 'POST')
           value = await service.command(userId, sessionId, body);
         else throw new OnlineError('操作先が見つかりません', 404);

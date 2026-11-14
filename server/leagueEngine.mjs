@@ -112,6 +112,23 @@ import { setPlayerIdCounter } from '../src/state/playerIds.js';
 import { captureWorld, restoreWorld } from './worldSnapshot.mjs';
 import { createRecorder, freezeComparison } from './recordedStats.mjs';
 import {
+  pushInbox,
+  recordTransaction,
+  moveOf,
+  pruneTrades,
+  markAway,
+  teamLabelIn,
+} from './social.mjs';
+import { cleanText, TRADE_NOTE_MAX } from '../src/online/social.js';
+import { pickFor, clearPlayedPicks } from './starterPicks.mjs';
+import {
+  openChallenge as openChallengeIn,
+  respondChallenge as respondChallengeIn,
+  playExhibition,
+  clearOpenChallenges,
+  dropChallengesOf,
+} from './exhibition.mjs';
+import {
   ONLINE_SCHEMA,
   ONLINE_ENGINE_VERSION,
   assertLeagueVersion,
@@ -511,10 +528,13 @@ export { tradeValueOf };
  *    同じものを押し直せてしまう。理由をそのまま返して画面に出す。
  * ⚠ 抱えられる提案の数に上限を置く（`MAX_OPEN_TRADES`）。無制限だと
  *    相手の画面を埋められる。
- * ⚠ **提案に期限は無い**。消えるのは返事（受ける・断る）と、提案した側の取り下げ（`reject`）だけで、
- *    年度更新でも残る。画面の注記に「期限」と書かないこと（再監査 A4）。
+ * ⚠ **提案に時間の期限は無い**。消えるのは返事（受ける・断る）・提案した側の取り下げ（`reject`）と、
+ *    成り立たなくなったとき（選手が移籍・退団した、オーナーが替わった）・年度更新（`pruneTrades`）。
+ *    画面の注記に「期限」と書かないこと（再監査 A4）。年度更新で消えるのは、能力も年齢も
+ *    変わった後に古い条件で成立させないため（いしだ承認の改善案 A1）。
+ * ⚠ ひとこと（`note`）は人の球団宛てのときだけ残す。CPU球団はその場で答えるので読む人が居ない。
  */
-export function openTrade(league, userId, { to, offer, want }, now) {
+export function openTrade(league, userId, { to, offer, want, note }, now) {
   league.trades = league.trades || [];
   const mine = memberTeam(league, userId);
   requireOnline(
@@ -537,6 +557,7 @@ export function openTrade(league, userId, { to, offer, want }, now) {
   const offerIds = (offer || []).map(Number);
   const wantIds = (want || []).map(Number);
   assertTradeAllowed(mine.team, theirs, offerIds, wantIds);
+  const message = tradeNote(note);
   const id = `trade-${(league.tradeSeq = (league.tradeSeq || 0) + 1)}`;
   const trade = {
     id,
@@ -551,6 +572,7 @@ export function openTrade(league, userId, { to, offer, want }, now) {
     countered: false,
     createdAt: now,
     updatedAt: now,
+    ...(partner && message ? { note: message } : {}),
   };
   if (partner) {
     league.trades.push(trade);
@@ -580,7 +602,7 @@ export function openTrade(league, userId, { to, offer, want }, now) {
       tradeStrengthGap(mine.team.players, theirs.players, give, get),
   });
   if (decision.action === 'accept') {
-    applyTrade(league, trade);
+    applyTrade(league, trade, now);
     return { id, status: 'accepted' };
   }
   if (decision.action === 'counter') {
@@ -617,7 +639,7 @@ export function openTrade(league, userId, { to, offer, want }, now) {
  * ⚠ 逆提案は**最初の返事のときだけ**（`canCounter`）。投げ返しが続くと終わらない。
  * ⚠ 断るのは**どちらの側からでも**できる（取り下げも兼ねる）。
  */
-export function respondTrade(league, userId, { tradeId, action, offer, want }, now) {
+export function respondTrade(league, userId, { tradeId, action, offer, want, note }, now) {
   league.trades = league.trades || [];
   const trade = league.trades.find((t) => t.id === tradeId);
   requireOnline(trade, 'そのトレードはもうありません', 409);
@@ -629,8 +651,17 @@ export function respondTrade(league, userId, { tradeId, action, offer, want }, n
   const drop = () => {
     league.trades = league.trades.filter((t) => t.id !== tradeId);
   };
+  // 相手（人）に知らせる。⚠ 文はここで作る（PC とアプリが同じ文を出す）
+  const mine = trade.from === userId;
+  const otherId = mine ? trade.to : trade.from;
+  const myLabel = teamLabelIn(league, mine ? trade.fromTeam : trade.toTeam);
+  const tell = (type, text) =>
+    otherId && pushInbox(league, otherId, { type, tradeId: trade.id, text }, now);
   if (action === 'reject') {
     drop();
+    // ⚠ 断るのはどちらの側からでもできる。提案した側が引いたのなら「取り下げ」
+    if (mine) tell('tradeWithdrawn', `${myLabel}がトレードの提案を取り下げました`);
+    else tell('tradeRejected', `${myLabel}がトレードの提案を断りました`);
     return { status: 'rejected' };
   }
   requireOnline(canRespond(trade, userId), 'いまは相手の返事待ちです', 409);
@@ -654,13 +685,26 @@ export function respondTrade(league, userId, { tradeId, action, offer, want }, n
     trade.countered = true;
     trade.turn = 'from';
     trade.updatedAt = now;
+    const reply = tradeNote(note);
+    if (reply) trade.replyNote = reply;
+    else delete trade.replyNote;
+    tell('tradeCountered', `${myLabel}からトレードの逆提案が届きました`);
     return { status: 'countered' };
   }
 
   requireOnline(action === 'accept', 'トレードの操作が不正です');
-  applyTrade(league, trade);
   drop();
+  applyTrade(league, trade, now);
+  tell('tradeAccepted', `${myLabel}とのトレードが成立しました`);
   return { status: 'accepted' };
+}
+
+/** トレードに添えるひとこと（空なら null）。⚠ 長すぎれば断る（黙って切ると違う文が届く） */
+function tradeNote(note) {
+  if (note == null) return null;
+  const { text, tooLong } = cleanText(note, TRADE_NOTE_MAX);
+  requireOnline(!tooLong, `ひとことは${TRADE_NOTE_MAX}字までです`);
+  return text || null;
 }
 
 /**
@@ -672,7 +716,7 @@ export function respondTrade(league, userId, { tradeId, action, offer, want }, n
  *    `assertNoPendingPack`）。提案から返事までの間に、選手が別のトレードで
  *    移っていたり、相手が途中参加の入れ替え待ちになっていたりする。
  */
-function applyTrade(league, trade) {
+function applyTrade(league, trade, now) {
   const fromTeam = TEAMS_DATA[trade.fromTeam];
   const toTeam = TEAMS_DATA[trade.toTeam];
   requireOnline(fromTeam && toTeam, '球団が見つかりません', 409);
@@ -693,6 +737,24 @@ function applyTrade(league, trade) {
   // ⚠ **打順と投手起用を組み直す**。出した選手が打順に残ると試合が組めない
   refreshTeamPlan(league, trade.fromTeam);
   refreshTeamPlan(league, trade.toTeam);
+  // 取引の記録（年ごと・日付つき。お知らせは20件で消えるので、こちらに残す）
+  recordTransaction(
+    league,
+    {
+      kind: 'trade',
+      teams: [trade.fromTeam, trade.toTeam],
+      // 相手がCPU球団だったか（その場で答えた）
+      cpu: !trade.to,
+      moves: [
+        ...after.moving.map((p) => moveOf(p, trade.fromTeam, trade.toTeam)),
+        ...after.coming.map((p) => moveOf(p, trade.toTeam, trade.fromTeam)),
+      ],
+    },
+    now,
+  );
+  // ⚠ 動いた選手を含むほかの提案は成り立たない。残すと「（移籍済み）」のまま枠を埋める
+  //    （この提案はもう一覧から外してある。`respondTrade` は先に外してから呼ぶ）
+  pruneTrades(league, TEAMS_DATA, now);
   league.notices.unshift({
     type: 'trade',
     year: league.season.year,
@@ -713,6 +775,60 @@ function applyTrade(league, trade) {
     ],
   });
   return after;
+}
+
+/** 練習試合を申し込む（`exhibition.mjs`）。世界は読まない */
+export function openChallenge(league, userId, payload, now) {
+  return openChallengeIn(league, userId, payload, now);
+}
+
+/**
+ * 練習試合の申し込みに返事をする。受けたらその場で1試合する。
+ * ⚠ **世界は読み込むが、保存し直さない**（呼ぶ側は `captureLeagueWorld` しないこと）。
+ *    試合は2球団の写しで行うので、成績・疲労・調子は残らない（`playExhibition`）。
+ * ⚠ 乱数は申し込みの番号から（やり直しても同じ試合）
+ */
+export function respondChallenge(league, userId, payload, now) {
+  return respondChallengeIn(league, userId, payload, now, (ex) => {
+    loadLeagueWorld(league);
+    return seeded(league, `exhibition:${ex.id}`, () => playExhibition(league, ex));
+  });
+}
+
+/**
+ * 管理者が、参加者の球団をCPUに戻す（来なくなった人の球団。改善案 A3）。
+ * - 参加者から外し、球団名を元の名前に戻す（次に入る人が付け直せる）
+ * - その人のトレードの提案・練習試合の申し込み・手続きの提出を消す
+ * - 編成をCPUと同じく作り直す
+ * - 手続きがこの人だけを待っていたら、その場で進める
+ * ⚠ 選手・成績・記録はそのまま（球団の内部名で持っているので、引き継ぐ人にそのまま渡る）
+ * ⚠ 管理者は自分を外せない（外すと誰もリーグを動かせなくなる）
+ */
+export function releaseMember(league, adminId, targetUserId, now) {
+  requireOnline(targetUserId && targetUserId !== adminId, '管理者は自分の球団をCPUに戻せません');
+  const index = (league.members || []).findIndex((m) => m.userId === targetUserId);
+  requireOnline(index >= 0, 'その参加者は見つかりません', 409);
+  const member = league.members[index];
+  loadLeagueWorld(league);
+  league.members.splice(index, 1);
+  const team = (league.teams || []).find((t) => t.name === member.teamName);
+  if (team) team.displayName = team.name;
+  if (league.phase) {
+    delete league.phase.submissions?.[targetUserId];
+    delete league.phase.camp?.[targetUserId];
+  }
+  for (const key of ['campResults', 'tryoutResults', 'offseasonResults'])
+    if (league[key]) delete league[key][targetUserId];
+  pruneTrades(league, TEAMS_DATA, now);
+  dropChallengesOf(league, targetUserId, now);
+  assignTeamControllers(
+    TEAMS_DATA,
+    league.members.map((m) => m.teamName),
+  );
+  refreshTeamPlan(league, member.teamName, { force: true });
+  resolveSettledPhase(league, now);
+  league.game = captureWorld();
+  return { teamName: member.teamName };
 }
 
 /**
@@ -1372,7 +1488,7 @@ function resolvePackSelect(league, plans) {
   delete league.packs;
 }
 
-function resolveTryout(league, plans) {
+function resolveTryout(league, plans, now) {
   const phase = league.phase;
   // ⚠ 指名順は**前年の順位が上の球団から**（いしだ要望:「順位を上げることの
   //    ご褒美」）。同じ選手を複数の球団が希望したら、順位が上の球団が取る。
@@ -1526,6 +1642,19 @@ function resolveTryout(league, plans) {
     );
     team.players = combined;
   }
+  // 取引の記録（入団）。球団ごとに1件。前の所属（他球団を退団した選手）も残す
+  for (const name of names)
+    recordTransaction(
+      league,
+      {
+        kind: 'signing',
+        teams: [name],
+        moves: allPicked
+          .filter((p) => p.team === name)
+          .map(({ player }) => moveOf(player, player.previousTeam || null, name)),
+      },
+      now,
+    );
   for (const { team, player, round } of allPicked) {
     player.draftInfo = { year: league.season.year, round };
     player.careerHistory = [
@@ -1659,28 +1788,36 @@ function resolvePhase(league, now) {
   // ⚠ **指導者に任せた手続きは、提出があっても指導者の案で決める**（提出は「確認した」の印だけ）。
   //    自分で決めたいときは画面で任せ方を「意見を聞く」に戻してから出す。
   //    だからその人の決定は待たない（`waitsFor`）
+  // ⚠ **おるすばん（`member.away`）で任せた扱いになった人でも、自分で出した案があればそれを使う**。
+  //    留守の印は「決めていない分を指導者が埋める」ためのもので、出した決定を上書きしない
   const plans = Object.fromEntries(
     league.members.map((m) => [
       m.teamName,
-      (phaseDelegated(league, m)
+      (phaseDelegated(league, { ...m, away: false })
         ? null
         : league.phase.submissions[m.userId]?.plan) ||
         defaultPhasePlan(league, m.teamName),
     ]),
   );
   if (kind === 'pack_select') resolvePackSelect(league, plans);
-  if (kind === 'tryout') resolveTryout(league, plans);
+  if (kind === 'tryout') resolveTryout(league, plans, now);
   if (kind === 'contract') {
-    for (const name of league.season.settings.teamNames)
-      releasePlayers(
-        name,
+    for (const name of league.season.settings.teamNames) {
+      const ids =
         plans[name]?.releaseIds ||
-          getAIReleaseCandidates(
-            TEAMS_DATA[name].players,
-            releaseBiasFor(league, name),
-          ),
-        league.season.year,
+        getAIReleaseCandidates(
+          TEAMS_DATA[name].players,
+          releaseBiasFor(league, name),
+        );
+      // 取引の記録（退団）。⚠ 名簿から消す前に名前を控える
+      const leaving = TEAMS_DATA[name].players.filter((p) => ids.includes(p.id));
+      releasePlayers(name, ids, league.season.year);
+      recordTransaction(
+        league,
+        { kind: 'release', teams: [name], moves: leaving.map((p) => moveOf(p, name, null)) },
+        now,
       );
+    }
   }
   if (kind === 'camp') {
     // ⚠ **自分で回したクールは数えること**。人の球団は画面で1クールずつ
@@ -1703,8 +1840,11 @@ function resolvePhase(league, now) {
       //    回したあとに任せ直した人。画面の文（`coachView.mjs` の `phasePlanBy`「残りのクールは
       //    指導者の方針で回ります」）と、ほかの任せた手続き（提出があっても指導者の案）に揃える。
       //    以前は任せ直しても、最後に自分で実行した指示で残りが回っていた（再監査 A3）
+      // ⚠ おるすばんで任せた扱いになっただけなら、自分で回したときの指示を使う（`plans` と同じ）
       const saved =
-        member && !phaseDelegated(league, member) ? done[member.userId]?.plan : null;
+        member && !phaseDelegated(league, { ...member, away: false })
+          ? done[member.userId]?.plan
+          : null;
       // ⚠ CPU球団（このリーグの）はコーチの方針。世界のほかの球団は従来どおり
       const plan =
         plans[name] ||
@@ -1868,6 +2008,18 @@ function resolvePhase(league, now) {
       league.history.at(-1)?.year,
     );
   }
+  // ⚠ **選手が動いた手続きの後は、成り立たなくなったトレードの提案を取り下げる**（退団・入団・
+  //    引退・初期メンバーの入れ替え）。年度更新では全部取り下げる（能力も年齢も変わった後に
+  //    古い条件で成立させない）。予告先発と申し込み中の練習試合も年度とともに消す
+  //    （日程を作り直すので、試合の番号が新しい年の別の試合を指してしまう）
+  if (kind === 'offseason') {
+    pruneTrades(league, TEAMS_DATA, now, {
+      all: true,
+      reason: '年度が替わったため、取り下げられました',
+    });
+    for (const member of league.members) delete member.starterPicks;
+    clearOpenChallenges(league, now, '年度が替わったため、練習試合の申し込みは取り下げられました');
+  } else pruneTrades(league, TEAMS_DATA, now);
   league.phase = null;
   delete league.season.pendingPhaseEvent;
   if (kind === 'pack_select' || kind === 'offseason')
@@ -2054,6 +2206,10 @@ export function advanceLeagueDay(league, operationId, now) {
   requireOnline(league.status === 'running', '現在は進行を停止しています', 409);
   // 最後に captureWorld() で差し替えるので、写しの複製は要らない
   loadLeagueWorld(league, { take: true });
+  // ⚠ **おるすばん**（しばらく来ていない人の球団）。指導者に任せた扱いにして、編成をその場で
+  //    作り直す（任せたスタメン・投手起用は、手続きか任せ方の変更でしか作り直されないので、
+  //    ここで作らないと放っておかれた球団は新しく取った選手が控えのまま走り続ける）
+  for (const member of markAway(league, now)) refreshTeamPlan(league, member.teamName);
   advanceOneDay(league, `day:${operationId}`, now);
   for (let n = 1; n <= IDLE_DAYS_PER_TICK && idleDay(league); n++)
     advanceOneDay(league, `day:${operationId}:${n}`, now);
@@ -2066,14 +2222,21 @@ export function advanceLeagueDay(league, operationId, now) {
 function advanceOneDay(league, key, now) {
   seeded(league, key, () => {
     const oldDate = league.season.currentDate;
-    const playingTeams = new Set(
-      getScheduleByDate(league.season.schedule, oldDate)
-        .filter((game) => !game.result)
-        .flatMap((game) => [game.home, game.away]),
+    const todays = getScheduleByDate(league.season.schedule, oldDate).filter(
+      (game) => !game.result,
     );
+    const playingTeams = new Set(todays.flatMap((game) => [game.home, game.away]));
+    // 予告先発（人が指名した先発。`starterPicks.mjs`）。疲れていて使えなかった指名は後で知らせる
+    const pickReports = [];
     const restoreRotations = league.season.settings.teamNames
       .filter((name) => playingTeams.has(name))
-      .map((name) => prepareDailyLineup(TEAMS_DATA[name], name));
+      .map((name) => {
+        const game = todays.find((g) => g.home === name || g.away === name);
+        const pick = game ? pickFor(league, name, game.id) : null;
+        const report = {};
+        if (pick != null) pickReports.push({ name, game, pick, report });
+        return prepareDailyLineup(TEAMS_DATA[name], name, { pick, report });
+      });
     // その日の采配（指導者の考え方）。⚠ 保存した設定は書き換えず、試合の後に戻す
     for (const name of league.season.settings.teamNames)
       if (playingTeams.has(name))
@@ -2093,6 +2256,21 @@ function advanceOneDay(league, key, now) {
     }
     // 節目の記録（通算100安打など）。記録（`league.records`）は試合の中で書かれている
     recordMilestones(league, played || [], oldDate);
+    for (const { name, game, pick, report } of pickReports) {
+      if (report.pick !== 'avoided') continue;
+      const member = league.members.find((m) => m.teamName === name);
+      const pitcher = TEAMS_DATA[name]?.players.find((p) => p.id === pick);
+      const foe = teamLabelIn(league, game.home === name ? game.away : game.home);
+      pushInbox(
+        league,
+        member?.userId,
+        {
+          type: 'starterAvoided',
+          text: `予告先発の${pitcher?.name || '投手'}は疲れが残っていたため、${foe}戦の先発を回避しました`,
+        },
+        now,
+      );
+    }
     slimStoredResults(season);
     season = progressDate(season, 1);
     simulateParallelWorldDate(oldDate);
@@ -2119,6 +2297,7 @@ function advanceOneDay(league, key, now) {
     }
     schedulePlayoffReplay(season);
     league.season = season;
+    clearPlayedPicks(league);
     const { month, day, year } = season.currentDate;
     generateBackgroundTournaments(season.currentDate);
     if (month === 8 && day >= 15 && !season._koshienDone) {

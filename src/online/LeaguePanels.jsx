@@ -239,7 +239,14 @@ export function Standings({ view }) {
                         呼び名が球団名と同じときはサーバーが空で返す */}
                     {view.teamOwners &&
                       Object.hasOwn(view.teamOwners, s.team) && (
-                        <small className="online-owner">
+                        <small
+                          className="online-owner"
+                          // オーナーのひとこと（ホームの「オーナーたち」にも出す）
+                          title={
+                            view.members?.find((m) => m.teamName === s.team)?.comment ||
+                            undefined
+                          }
+                        >
                           （{view.teamOwners[s.team] || 'プレイヤー'}）
                         </small>
                       )}

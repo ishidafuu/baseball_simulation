@@ -176,6 +176,8 @@ data class TradeDraft(
     val slot: String? = null,
     /** 型で絞り込んでいるとき（TRADE_FILTERS の鍵） */
     val filter: String? = null,
+    /** 相手へのひとこと（人の球団だけ。CPU球団は読まないので送らない） */
+    val note: String = "",
 )
 
 enum class TradeStep(val label: String) { Search("候補"), Partner("相手"), Players("選手"), Confirm("確認") }
@@ -296,6 +298,9 @@ private fun TradeCard(model: AppViewModel, view: LeagueView, raw: JsonObject, tr
             color = if (myTurn) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelLarge,
         )
+        // 提案・逆提案に添えたひとこと（誰の言葉かを前に書く）
+        trade.at("note").str()?.takeIf { it.isNotEmpty() }?.let { Muted("${if (mine) "あなた" else view.teamShort(partner)}のひとこと「$it」") }
+        trade.at("replyNote").str()?.takeIf { it.isNotEmpty() }?.let { Muted("${if (mine) view.teamShort(partner) else "あなた"}のひとこと（逆提案）「$it」") }
         DealSide("出す（自球団）", giveEntries, myRoster, model)
         DealSide("もらう（${view.teamLabel(partner)}）", getEntries, theirs.orEmpty(), model)
         theirError?.let { LoadFailed(it, retryTheirs, title = "相手の名簿を読めませんでした") }
@@ -638,13 +643,13 @@ private fun ConfirmStep(
         if (counter != null) {
             model.command(
                 "tradeRespond",
-                Commands.tradeRespond(counter, "counter", draft.counterMine, draft.give, draft.get),
+                Commands.tradeRespond(counter, "counter", draft.counterMine, draft.give, draft.get, note = draft.note),
                 label = "逆提案を送信中…",
                 done = "逆提案を送りました",
             ) { model.tradeDraft = null }
         } else {
             val before = tradeIds(model.raw)
-            model.command("tradeOffer", Commands.tradeOffer(partner, draft.give, draft.get), label = "提案を送信中…") {
+            model.command("tradeOffer", Commands.tradeOffer(partner, draft.give, draft.get, note = draft.note.takeIf { partner in humans }), label = "提案を送信中…") {
                 model.tradeDraft = null
                 val name = view.teamLabel(partner)
                 model.message = when (offerOutcome(before, model.raw)) {
@@ -677,6 +682,16 @@ private fun ConfirmStep(
                 AfterCounts(view, partner, myRoster, theirs, draft.give, draft.get)
             }
             problems.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+            // ⚠ ひとことは人の球団だけ（CPU球団は読まない）。逆提案はいつも人どうし
+            if (counter != null || partner in humans) {
+                androidx.compose.material3.OutlinedTextField(
+                    draft.note,
+                    { set(draft.copy(note = it.replace('\n', ' ').take(jp.icenorth.baseball.shared.TRADE_NOTE_MAX))) },
+                    label = { Text("相手へのひとこと（なくても送れます）") },
+                    placeholder = { Text("例: 捕手が足りなくて困っています") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

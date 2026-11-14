@@ -13,6 +13,7 @@
 //    配線（API・サーバー）は別のファイルで行う。
 // ============================================================
 import { requireOnline } from './shared.js';
+import { cleanText, OWNER_COMMENT_MAX } from './social.js';
 import { PACK_STYLE } from './rosterPack.js';
 import { PYRAMID_LEAGUES, PYRAMID_TEAM_COUNT } from './pyramidLeague.js';
 
@@ -150,7 +151,7 @@ export function assertTeamNameFree(league, team, shown) {
  *    球団名が2回出ていた（参加時の呼び名が既定で球団名だったため）。
  * ⚠ 内部名（`name`）は変えない。記録の選手キーまで貫いている。
  */
-export function applyProfile(league, { userId, teamName, playerName }) {
+export function applyProfile(league, { userId, teamName, playerName, comment, now = null }) {
   requireOnline(league, 'リーグがまだありません', 409);
   const member = (league.members || []).find((m) => m.userId === userId);
   requireOnline(member, '参加者ではありません', 403);
@@ -167,7 +168,20 @@ export function applyProfile(league, { userId, teamName, playerName }) {
     requireOnline(who.length <= 24, '名前が長すぎます', 400);
     member.label = who || member.displayName || team.name;
   }
-  return { teamName: team.name, displayName: team.displayName, label: member.label };
+  // オーナーのひとこと（改善案 C1）。順位表・球団の画面・紙面に出す。空なら消す。
+  // ⚠ 書いた日も残す（紙面で「開幕前の宣言」と結果を並べられるように）
+  if (comment !== undefined) {
+    const { text, tooLong } = cleanText(comment, OWNER_COMMENT_MAX);
+    requireOnline(!tooLong, `ひとことは${OWNER_COMMENT_MAX}字までです`, 400);
+    if (text) member.comment = { text, at: now, year: league.season?.year ?? null };
+    else delete member.comment;
+  }
+  return {
+    teamName: team.name,
+    displayName: team.displayName,
+    label: member.label,
+    comment: member.comment?.text || '',
+  };
 }
 
 export function applyJoin(league, { userId, label, teamName, now }) {
@@ -175,7 +189,10 @@ export function applyJoin(league, { userId, label, teamName, now }) {
   const shown = String(teamName || '').trim() || team.name;
   assertTeamNameFree(league, team, shown);
   team.displayName = shown;
-  const index = (league.members || []).length;
+  // ⚠ **種の番号は参加の通し番号**（人数ではない）。球団をCPUに戻すと人数が減るので、
+  //    人数で数えると次に入った人が残っている人と同じ種になり、同じidの選手ができる
+  const index = Math.max(league.memberSeq ?? 0, (league.members || []).length);
+  league.memberSeq = index + 1;
   league.members = [
     ...(league.members || []),
     {

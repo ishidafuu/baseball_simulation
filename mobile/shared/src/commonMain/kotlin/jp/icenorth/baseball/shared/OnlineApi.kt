@@ -129,6 +129,14 @@ class OnlineApi(private val endpoint: String, private val client: HttpClient = d
         }
     }
 
+    /**
+     * 「来た」ことを知らせる（最終ログインとおるすばんの解除。server/leagueService.mjs presence）。
+     * ⚠ 版は上がらない（ほかの人の画面を読み直させない）。サーバーが3時間に1回までしか書かない
+     */
+    suspend fun presence(auth: AuthSession) {
+        text(client.post(endpoint) { parameter("action", "presence"); authorize(auth); jsonBody(JsonObject(emptyMap())) })
+    }
+
     suspend fun logout(auth: AuthSession) {
         text(client.post(endpoint) { parameter("action", "logout"); authorize(auth); jsonBody(JsonObject(emptyMap())) })
     }

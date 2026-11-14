@@ -37,6 +37,7 @@ jobs:
         run: |
           node mobile/tools/gen-tables.mjs --check
           node mobile/tools/expect-logic.mjs --check
+          node mobile/tools/expect-social.mjs --check
 
   # progression-check（多年次の人口保存・年齢ピラミッド・ポジション均衡）
   progression:

@@ -44,6 +44,18 @@ import { createTradeJudge } from './tradeJudge.mjs';
 import { CPU_ACCEPT_MARGIN } from '../src/online/trades.js';
 import { STRENGTH_GAP_LIMIT } from '../src/online/tradeSearch.js';
 import { TRADE_FACTOR_LIMIT, tradeEyeNote } from '../src/online/coaches.js';
+import {
+  tokyoDay,
+  STARTER_LOCK_TURNS,
+  STARTER_PICK_GAMES,
+} from '../src/online/social.js';
+import {
+  activePicks,
+  canPickStarters,
+  ownOpenGames,
+  starterLocked,
+} from './starterPicks.mjs';
+import { exhibitionsView } from './exhibition.mjs';
 
 /**
  * セット（24人）の選手。能力は全部、記録や経歴は載せない（まだ所属していない）。
@@ -293,6 +305,11 @@ export function ownRecentGames(schedule, ownTeam, size = 5, league = null) {
       // ⚠ 本塁打（打った人と何号）。直近の行の高さを今後の行にそろえるために
       //    足した（いしだ要望）。記録の無い試合では null
       homeruns: league ? homerunsOf(league, g, league.season.year) : null,
+      // 回ごとの得点と得点経過（アプリの速報再生・試合の詳細）。記録の無い試合では null
+      lineScore: g.result.lineScore || null,
+      scoring: league
+        ? league.records?.seasons?.[league.season.year]?.games?.[g.id]?.scoring || null
+        : null,
     });
   });
   return played.slice(-size);
@@ -425,6 +442,12 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     return seasonStatsCache.get(player.id);
   };
   const phase = l.phase;
+  // 予告先発の重ね方。自球団の指名は確定前から、ほかの球団の指名は確定してから出す
+  const pickContext = {
+    ownTeam: member.teamName,
+    picksOf: (name) => activePicks(l, name),
+    lockedOf: (game) => !!game.date && starterLocked(l, game),
+  };
   // 球団ごとのレギュラーシーズンの残り試合（ペースとマジックで共用。日程を2回なめない）
   const left = remainingGames(l.season.schedule);
   return {
@@ -466,6 +489,10 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     seasonTurns: l.season.settings.seasonTurns || SEASON_TURNS,
     nextAdvanceAt: l.nextAdvanceAt,
     isAdmin: userId === adminId,
+    // 管理者だけ: 球団 → 参加者の識別子（リーグ管理の「CPUに戻す」に使う）
+    ...(userId === adminId
+      ? { adminMembers: Object.fromEntries(l.members.map((m) => [m.teamName, m.userId])) }
+      : {}),
     writable: isLiveSession(bundle.sessions, userId, sessionId),
     hasBackup: !!bundle.backup,
     // ⚠ 締め切りはビューに載せる。定期進行の判定（`isDue`）がこれを見て、
@@ -506,6 +533,12 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
         : {}),
       // ⚠ 手続きを指導者に任せた球団も待たない（`waitsFor`）。一覧に「指導者に任せています」と出す
       ...(phaseDelegated(l, m) ? { delegated: true } : {}),
+      // オーナーのひとこと（順位表・紙面に出す）
+      ...(m.comment?.text ? { comment: m.comment.text, commentAt: m.comment.at || null } : {}),
+      // しばらく来ていない（指導者に任せた扱い）
+      ...(m.away ? { away: true } : {}),
+      // 最後に来た日（日本時間の日付だけ。⚠ 時刻は出さない。画面が「今日・昨日・N日前」にする）
+      ...(m.lastSeenAt ? { lastSeenDay: tokyoDay(m.lastSeenAt) } : {}),
     })),
     standings: l.season.standings,
     // 球団ごとの今の連勝・連敗（全国紙の「○○、5連勝」）。引き分けは続きを切る
@@ -535,10 +568,12 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     //    別物。試合結果の画面はリーグ全体を使うので、そちらを絞らないこと。
     //    ⚠ ここだけ `seasonStatsOf` を渡して、先発予定に投げる手と今季成績を
     //       重ねる（`upcoming` は名前だけでよい）
+    // ⚠ 予告先発（`starterPicks.mjs`）を重ねる。相手の指名は確定してから見える
     nextGames: withStarters(
       ownUpcomingGames(l.season.schedule, member.teamName, 5),
       l.game.teams,
       seasonStatsOf,
+      pickContext,
     ),
     // ⚠ ホームの左に出す**自球団の直近5試合**。リーグ全体の `results`（14件）では
     //    12球団ぶんが混ざって自球団が2〜3試合しか入らない
@@ -548,7 +583,21 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
     upcoming: withStarters(
       upcomingGames(l.season.schedule, member.teamName),
       l.game.teams,
+      null,
+      pickContext,
     ),
+    // 予告先発を選ぶ画面（ローテのページ）。この先の試合と、確定までのターン数
+    starterPlan: {
+      lockTurns: STARTER_LOCK_TURNS,
+      canPick: canPickStarters(l, member),
+      games: withStarters(
+        ownUpcomingGames(l.season.schedule, member.teamName, STARTER_PICK_GAMES),
+        l.game.teams,
+        seasonStatsOf,
+        pickContext,
+      ),
+      picks: member.starterPicks || {},
+    },
     roster: team.players.map((p) => ({
       ...playerView(p),
       ...currentPlayerStats(l, member.teamName, p, statistics),
@@ -659,9 +708,18 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
         countered: !!t.countered,
         canCounter: t.turn === 'to' && !t.countered && t.to === userId,
         updatedAt: t.updatedAt,
+        // ひとこと（提案した側・逆提案した側）
+        note: t.note || null,
+        replyNote: t.replyNote || null,
       })),
     history: l.history,
     notices: l.notices.slice(0, 4),
+    // あなたへのお知らせ（トレードの返事・取り下げ、練習試合、予告先発の回避、おるすばん）
+    inbox: (member.inbox || []).slice(0, 10),
+    // 取引の記録の最近のもの（全部は `transactions` で読む）
+    recentTransactions: (l.transactions || []).slice(0, 5),
+    // 練習試合（申し込み中と、最近の結果）
+    exhibitions: exhibitionsView(l, userId),
     // 指導者（監督・投手コーチ・野手コーチ）と任せ方・采配の内訳（`coachView.mjs`）
     staff: ownStaffView(l, member, team, labelOf),
     // リーグ全球団の指導者の顔ぶれと、最近の人事
@@ -729,11 +787,16 @@ export function projectTeamInfo(bundle, userId, teamName) {
   //    （人の球団の采配は出さない。`teamStaffView` と同じ線引き）
   // eslint-disable-next-line no-unused-vars
   const { strategy, tactics, ...lineup } = projectLineup(l.game.teams[teamName]);
+  const owner = l.members.find((m) => m.teamName === teamName);
   return {
     teamName,
     readOnly: true,
     lineup,
     year: l.season.year,
+    // 人の球団なら、オーナーの呼び名とひとこと（練習試合の申し込みにも使う）
+    owner: owner
+      ? { label: owner.label || null, comment: owner.comment?.text || null }
+      : null,
     // 指導者（カード・CPU球団なら采配の内訳）。⚠ 人の球団の采配は出さない（`teamStaffView`）
     staff: teamStaffView(l, teamName, l.game.teams[teamName], labelOf),
     // 球団史（年表）・歴代記録・引退・節目。記録からさかのぼって作る
@@ -893,4 +956,30 @@ export function projectGameInfo(bundle, userId, id, year) {
     delete result.replay.appliedPlans;
   }
   return result;
+}
+
+/**
+ * 取引の記録（トレード・退団・入団）。新しい順。`year` で年度、`team` で球団（内部名）を絞る。
+ * ⚠ 記録はリーグの芯（`league.transactions`）にある。世界も記録も読まない（軽い読みで足りる）
+ */
+export function projectTransactions(bundle, userId, { year, team } = {}) {
+  const l = bundle.league;
+  requireOnline(
+    l?.members.some((m) => m.userId === userId),
+    '参加者ではありません',
+    403,
+  );
+  const list = l.transactions || [];
+  const years = [...new Set(list.map((t) => t.year).filter((y) => y != null))].sort(
+    (a, b) => b - a,
+  );
+  const wanted = year === undefined || year === '' ? null : Number(year);
+  requireOnline(wanted === null || Number.isSafeInteger(wanted), '年度の指定が不正です');
+  return {
+    years,
+    items: list.filter(
+      (t) =>
+        (wanted === null || t.year === wanted) && (!team || (t.teams || []).includes(team)),
+    ),
+  };
 }
