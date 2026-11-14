@@ -1,0 +1,35 @@
+--------- beginning of main
+11-14 17:32:58.151  4249  4427 I ScreenTour: shot pack-01-login.png
+11-14 17:33:08.376  4249  4427 I ScreenTour: shot pack-02-home.png
+11-14 17:33:10.015  4249  4427 I ScreenTour: shot pack-03-home-2.png
+11-14 17:33:11.479  4249  4427 I ScreenTour: shot pack-04-home-3.png
+11-14 17:33:13.027  4249  4427 I ScreenTour: shot pack-05-home-4.png
+11-14 17:33:21.740  4249  4427 I ScreenTour: shot pack-06-home-national.png
+11-14 17:33:23.167  4249  4427 I ScreenTour: shot pack-07-home-national-2.png
+11-14 17:33:24.639  4249  4427 I ScreenTour: shot pack-08-home-national-3.png
+11-14 17:33:34.480  4249  4427 I ScreenTour: shot pack-09-home-web.png
+11-14 17:33:35.885  4249  4427 I ScreenTour: shot pack-10-home-web-2.png
+11-14 17:33:37.285  4249  4427 I ScreenTour: shot pack-11-home-web-3.png
+11-14 17:33:42.160  4249  4427 I ScreenTour: shot pack-12-home-plain.png
+11-14 17:33:43.536  4249  4427 I ScreenTour: shot pack-13-home-plain-2.png
+11-14 17:33:44.874  4249  4427 I ScreenTour: shot pack-14-home-plain-3.png
+11-14 17:33:49.661  4249  4427 I ScreenTour: shot pack-15-home-menu.png
+11-14 17:33:59.014  4249  4427 I ScreenTour: shot pack-16-home-back-issues.png
+11-14 17:34:06.704  4249  4427 I ScreenTour: shot pack-17-home-inbox.png
+11-14 17:34:10.105  4249  4427 W ScreenTour: skip quick replay: Failed to inject touch input.
+11-14 17:34:10.105  4249  4427 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '速報で見る' (ignoreCase: false)'
+11-14 17:34:10.105  4249  4427 W ScreenTour: There are no existing nodes for that selector.
+11-14 17:34:13.870  4249  4427 I ScreenTour: shot pack-18-procedures.png
+11-14 17:34:15.287  4249  4427 I ScreenTour: shot pack-19-procedures-2.png
+11-14 17:34:16.611  4249  4427 I ScreenTour: shot pack-20-procedures-3.png
+11-14 17:34:17.928  4249  4427 I ScreenTour: shot pack-21-procedures-4.png
+11-14 17:34:19.256  4249  4427 I ScreenTour: shot pack-22-procedures-5.png
+11-14 17:34:20.601  4249  4427 I ScreenTour: shot pack-23-procedures-6.png
+11-14 17:34:23.101  4249  4427 I ScreenTour: shot pack-24-procedures-pack-detail.png
+11-14 17:34:24.469  4249  4427 I ScreenTour: shot pack-25-procedures-pack-detail-2.png
+11-14 17:34:30.894  4249  4427 I ScreenTour: shot pack-26-games-news.png
+11-14 17:34:32.318  4249  4427 I ScreenTour: shot pack-27-games-news-2.png
+11-14 17:34:35.918  4249  4427 I ScreenTour: shot pack-28-plan-order.png
+11-14 17:34:39.404  4249  4427 I ScreenTour: shot pack-29-players.png
+11-14 17:34:47.976  4249  4427 I ScreenTour: shot pack-30-rename-dialog.png
+11-14 17:34:49.400  4249  4427 I ScreenTour: done pack: 30 shots

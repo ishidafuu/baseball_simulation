@@ -1,0 +1,34 @@
+--------- beginning of main
+11-14 17:35:07.412  6265  6284 I ScreenTour: shot camp-01-home.png
+11-14 17:35:08.798  6265  6284 I ScreenTour: shot camp-02-home-2.png
+11-14 17:35:10.130  6265  6284 I ScreenTour: shot camp-03-home-3.png
+11-14 17:35:11.478  6265  6284 I ScreenTour: shot camp-04-home-4.png
+11-14 17:35:16.469  6265  6284 I ScreenTour: shot camp-05-home-national.png
+11-14 17:35:17.796  6265  6284 I ScreenTour: shot camp-06-home-national-2.png
+11-14 17:35:19.119  6265  6284 I ScreenTour: shot camp-07-home-national-3.png
+11-14 17:35:26.782  6265  6284 I ScreenTour: shot camp-08-home-web.png
+11-14 17:35:28.117  6265  6284 I ScreenTour: shot camp-09-home-web-2.png
+11-14 17:35:29.453  6265  6284 I ScreenTour: shot camp-10-home-web-3.png
+11-14 17:35:33.687  6265  6284 I ScreenTour: shot camp-11-home-plain.png
+11-14 17:35:35.032  6265  6284 I ScreenTour: shot camp-12-home-plain-2.png
+11-14 17:35:36.361  6265  6284 I ScreenTour: shot camp-13-home-plain-3.png
+11-14 17:35:40.736  6265  6284 I ScreenTour: shot camp-14-home-menu.png
+11-14 17:35:48.089  6265  6284 I ScreenTour: shot camp-15-home-back-issues.png
+11-14 17:35:55.507  6265  6284 I ScreenTour: shot camp-16-home-inbox.png
+11-14 17:35:58.870  6265  6284 W ScreenTour: skip quick replay: Failed to inject touch input.
+11-14 17:35:58.870  6265  6284 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '速報で見る' (ignoreCase: false)'
+11-14 17:35:58.870  6265  6284 W ScreenTour: There are no existing nodes for that selector.
+11-14 17:36:02.985  6265  6284 I ScreenTour: shot camp-17-procedures.png
+11-14 17:36:04.450  6265  6284 I ScreenTour: shot camp-18-procedures-2.png
+11-14 17:36:05.833  6265  6284 I ScreenTour: shot camp-19-procedures-3.png
+11-14 17:36:07.170  6265  6284 I ScreenTour: shot camp-20-procedures-4.png
+11-14 17:36:08.504  6265  6284 I ScreenTour: shot camp-21-procedures-5.png
+11-14 17:36:09.834  6265  6284 I ScreenTour: shot camp-22-procedures-6.png
+11-14 17:36:11.853  6265  6284 I ScreenTour: shot camp-23-procedures-camp-fielders.png
+11-14 17:36:13.183  6265  6284 I ScreenTour: shot camp-24-procedures-camp-fielders-2.png
+11-14 17:36:18.070  6265  6284 I ScreenTour: shot camp-25-games-news.png
+11-14 17:36:19.374  6265  6284 I ScreenTour: shot camp-26-games-news-2.png
+11-14 17:36:23.017  6265  6284 I ScreenTour: shot camp-27-plan-order.png
+11-14 17:36:26.709  6265  6284 I ScreenTour: shot camp-28-players.png
+11-14 17:36:35.233  6265  6284 I ScreenTour: shot camp-29-rename-dialog.png
+11-14 17:36:36.650  6265  6284 I ScreenTour: done camp: 29 shots
