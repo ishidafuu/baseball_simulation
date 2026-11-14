@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
                 OnlineApp(model)
             }
             // ⚠ 通知の許可（Android 13 以降）は、ログインしたあとに一度だけ自分から聞く。
-            //    断られたら二度と聞かない（ホームのメニューの「試合結果を通知」から入れ直せる）
+            //    断られたら二度と聞かない（ホームのメニューの「通知（試合結果・手続き）」から入れ直せる）
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (!granted) model.changeResultNotify(false)
             }

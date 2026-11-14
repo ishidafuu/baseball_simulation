@@ -90,6 +90,17 @@ class ResultWorkerTest {
         assertEquals("2試合の結果（2勝0敗）", shadowOf(posted().single()).contentTitle)
     }
 
+    @Test fun tradeOfferIsItsOwnNotification() {
+        run()
+        serverView = view(2, "$G41,$G42", ""","trades":[{"id":"t1","mine":false,"fromTeam":"美瑛","toTeam":"津田沼","myTurn":true,"offer":[{"name":"高橋"}],"want":[{"name":"田中"}]}]""")
+        run()
+        val titles = posted().map { shadowOf(it).contentTitle.toString() }.toSet()
+        assertEquals(setOf("○ 5-3 美瑛（第42戦）", "美瑛からトレードの提案が届きました"), titles)
+        app.getSystemService(NotificationManager::class.java).cancelAll()
+        run()
+        assertTrue("同じ提案で二度鳴らさない", posted().isEmpty())
+    }
+
     @Test fun nothingWhileAppIsVisibleOrSwitchedOff() {
         run()
         serverView = view(2, "$G41,$G42")
@@ -121,8 +132,8 @@ class ResultWorkerTest {
         const val G42 = """{"id":9,"date":{"year":2027,"month":6,"day":2},"number":42,"home":"美瑛","away":"津田沼","homeScore":3,"awayScore":5}"""
         const val G43 = """{"id":11,"date":{"year":2027,"month":6,"day":3},"number":43,"home":"津田沼","away":"美瑛","homeScore":1,"awayScore":0}"""
 
-        fun view(generation: Int, games: String) =
-            """{"viewGeneration":$generation,"revision":$generation,"teamName":"津田沼","teamLabels":{"美瑛":{"short":"美瑛"}},"recentGames":[$games]}"""
+        fun view(generation: Int, games: String, extra: String = "") =
+            """{"viewGeneration":$generation,"revision":$generation,"teamName":"津田沼","teamLabels":{"美瑛":{"short":"美瑛"}},"recentGames":[$games]$extra}"""
 
         fun generationOf(view: String) = Regex("\"viewGeneration\":(\\d+)").find(view)!!.groupValues[1]
     }

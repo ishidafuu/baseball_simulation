@@ -631,7 +631,7 @@ class AppViewModel internal constructor(
         set(value) { store.notifyAsked = value }
 
     /**
-     * 画面で見た試合に印を付ける（裏の確認で同じ試合を知らせない）。出ている通知も消す。
+     * 画面で見た試合・手続き・トレードに印を付ける（裏の確認で同じことを知らせない）。出ている通知も消す。
      * ⚠ 画面に出したビューの試合だけ。ビューが変わっていなくても（世代が同じ）、前に付けた印のままでよい
      */
     fun markResultsSeen() {
@@ -643,6 +643,8 @@ class AppViewModel internal constructor(
         //    裏の確認はいまの直近の試合に置き換えるので、通知を切っている間だけ増えすぎないよう切る
         val notified = store.notifiedResults.orEmpty() + keys
         store.notifiedResults = if (notified.size > 30) keys else notified
+        // 手続き・トレードも、画面で見えているものは知らせない（帯・手続きの数字で見える）
+        store.notifiedEvents = jp.icenorth.baseball.shared.withEventKeys(store.notifiedEvents, ResultNotifier.events(v, raw))
         ResultNotifier.clear(getApplication<Application>())
     }
 

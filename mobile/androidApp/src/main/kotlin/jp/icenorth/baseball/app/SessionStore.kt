@@ -22,7 +22,7 @@ class SessionStore(context: Context) {
         get() = prefs.getString("auth", null)?.let { runCatching { OnlineJson.decodeFromString<AuthSession>(it) }.getOrNull() }
         set(value) = prefs.edit().apply {
             // ⚠ 試合結果の通知の印もログインごと（別の人・別の球団で入り直したら、最初は印を付けるだけ）
-            if (value == null) remove("auth").remove("view").remove("seenResults").remove("notifiedResults") else putString("auth", OnlineJson.encodeToString(AuthSession.serializer(), value))
+            if (value == null) remove("auth").remove("view").remove("seenResults").remove("notifiedResults").remove("notifiedEvents") else putString("auth", OnlineJson.encodeToString(AuthSession.serializer(), value))
         }.apply()
 
     var tryoutWeights: Map<String, Int>?
@@ -87,4 +87,9 @@ class SessionStore(context: Context) {
     var notifiedResults: Set<String>?
         get() = prefs.getStringSet("notifiedResults", null)?.toSet()
         set(value) = prefs.edit().putStringSet("notifiedResults", value).apply()
+
+    /** 知らせ終えた手続き・トレード・手続きの結果（[jp.icenorth.baseball.shared.EventNotice.key]）。null はまだ印が無い */
+    var notifiedEvents: Set<String>?
+        get() = prefs.getStringSet("notifiedEvents", null)?.toSet()
+        set(value) = prefs.edit().putStringSet("notifiedEvents", value).apply()
 }

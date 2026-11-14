@@ -8,7 +8,10 @@ import jp.icenorth.baseball.shared.LeagueView
 import jp.icenorth.baseball.shared.OnlineApi
 import jp.icenorth.baseball.shared.OnlineException
 import jp.icenorth.baseball.shared.OnlineJson
+import jp.icenorth.baseball.shared.eventNotice
 import jp.icenorth.baseball.shared.resultKeys
+import jp.icenorth.baseball.shared.withEventKeys
+import kotlinx.serialization.json.JsonObject
 import jp.icenorth.baseball.shared.resultNotice
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
@@ -53,12 +56,21 @@ class ResultWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             api.viewRaw(fresh(store, api, start, failed = first.accessToken) ?: return, since)
         }
         val head = OnlineJson.parseToJsonElement(text).jsonObject
-        if (head["unchanged"]?.jsonPrimitive?.booleanOrNull == true) return
-        val view = OnlineJson.decodeFromString<LeagueView>(text)
+        // ⚠ 変わっていなくても、締め切りが近いかは時刻で変わるので、手元のビューで確かめる
+        val changed = head["unchanged"]?.jsonPrimitive?.booleanOrNull != true
+        val current = if (changed) text else store.viewJson ?: return
+        val view = OnlineJson.decodeFromString<LeagueView>(current)
+        val raw = if (changed) head else OnlineJson.parseToJsonElement(current).jsonObject
         // ⚠ 読んでいる間にログアウト・別の人でログインし直していたら、残さず知らせない
         if (store.auth?.userId != start.userId || view.teamName == null || ResultNotifier.appVisible) return
-        store.viewJson = text
+        if (changed) {
+            store.viewJson = text
+            notifyResults(store, view)
+        }
+        notifyEvents(store, view, raw)
+    }
 
+    private fun notifyResults(store: SessionStore, view: LeagueView) {
         val now = resultKeys(view)
         val seen = store.seenResults
         val notified = store.notifiedResults
@@ -71,7 +83,17 @@ class ResultWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         store.notifiedResults = now
         if ((now - notified).isEmpty()) return
         // ⚠ 中身は「アプリで見ていない試合」すべて（開かずにいた間の試合を1つの通知に）
-        resultNotice(view, seen)?.let { ResultNotifier.show(applicationContext, it) }
+        resultNotice(view, seen)?.let { ResultNotifier.showResult(applicationContext, it.title, it.body) }
+    }
+
+    /** 手続き・トレード・手続きの結果（[jp.icenorth.baseball.shared.eventNotices]） */
+    private fun notifyEvents(store: SessionStore, view: LeagueView, raw: JsonObject) {
+        val events = ResultNotifier.events(view, raw)
+        val notified = store.notifiedEvents
+        // 印がまだ無いとき（入れた直後）は印だけ付ける
+        val notice = eventNotice(events, notified)
+        store.notifiedEvents = withEventKeys(notified, events)
+        notice?.let { ResultNotifier.showEvent(applicationContext, it.title, it.body) }
     }
 
     /**

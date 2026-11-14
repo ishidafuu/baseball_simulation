@@ -398,7 +398,7 @@ private fun HomeMenu(model: AppViewModel, style: HomeStyle, onRename: () -> Unit
             HorizontalDivider()
             // 試合結果の通知（裏でおよそ15分ごとに確かめる。ResultNotifier）。端末が許していなければ「○」
             DropdownMenuItem(
-                text = { Text((if (notifyOn) "● " else "○ ") + "試合結果を通知") },
+                text = { Text((if (notifyOn) "● " else "○ ") + "通知（試合結果・手続き）") },
                 onClick = {
                     open = false
                     when {

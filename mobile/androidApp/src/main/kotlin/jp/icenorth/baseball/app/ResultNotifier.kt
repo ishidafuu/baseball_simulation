@@ -16,12 +16,17 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import jp.icenorth.baseball.shared.ResultNotice
+import jp.icenorth.baseball.app.ui.formatDeadline
+import jp.icenorth.baseball.shared.EventNotice
+import jp.icenorth.baseball.shared.LeagueView
+import jp.icenorth.baseball.shared.eventNotices
+import kotlinx.serialization.json.JsonObject
+import java.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.TimeUnit
 
 /**
- * 試合結果の通知（端末の中で出す）。
+ * 試合結果と手続き・トレードの通知（端末の中で出す）。
  *
  * サーバーから送る仕組み（Firebase）は使わない。WorkManager でおよそ15分ごとに裏でビューを読み（[ResultWorker]）、
  * 新しい試合があれば通知する。Android の決まりで15分より短くはできず、電池の節約中はもっと遅れることもある
@@ -30,7 +35,9 @@ import java.util.concurrent.TimeUnit
 object ResultNotifier {
     private const val CHANNEL = "results"
     private const val WORK = "result-check"
-    private const val NOTIFICATION_ID = 1001
+    private const val EVENT_CHANNEL = "events"
+    private const val RESULT_ID = 1001
+    private const val EVENT_ID = 1002
 
     /** アプリが前に出ているか（MainActivity の onStart / onStop）。出ている間は裏で確かめない（画面で見えている） */
     @Volatile
@@ -69,17 +76,31 @@ object ResultNotifier {
 
     /** 出ている通知を消す（アプリを開いた・ログアウトした・通知を切った） */
     fun clear(context: Context) {
-        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+        NotificationManagerCompat.from(context).cancel(RESULT_ID)
+        NotificationManagerCompat.from(context).cancel(EVENT_ID)
     }
 
-    fun show(context: Context, notice: ResultNotice) {
+    /** 試合結果（1つだけを書き換える。開かずにいた間の試合は1つにまとめて出す） */
+    fun showResult(context: Context, title: String, body: String) =
+        show(context, RESULT_ID, CHANNEL, "試合結果", "自分の球団の試合が終わったら知らせます", title, body)
+
+    /** 手続き・トレード・手続きの結果（試合結果とは別の通知。チャンネルも分け、端末の設定で片方だけ切れる） */
+    fun showEvent(context: Context, title: String, body: String) =
+        show(context, EVENT_ID, EVENT_CHANNEL, "手続き・トレード", "手続きの開始・締め切り間近・トレードの提案・手続きの結果を知らせます", title, body)
+
+    /** いま知らせる候補（締め切りは日本時間で、画面と同じ書き方） */
+    fun events(view: LeagueView, raw: JsonObject?): List<EventNotice> = eventNotices(
+        view, raw, System.currentTimeMillis(),
+        millisOf = { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+        format = { formatDeadline(it) },
+    )
+
+    private fun show(context: Context, id: Int, channel: String, channelName: String, channelText: String, title: String, body: String) {
         if (!permitted(context)) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL) == null) {
+        if (manager.getNotificationChannel(channel) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL, "試合結果", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "自分の球団の試合が終わったら知らせます"
-                },
+                NotificationChannel(channel, channelName, NotificationManager.IMPORTANCE_DEFAULT).apply { description = channelText },
             )
         }
         val open = PendingIntent.getActivity(
@@ -88,17 +109,16 @@ object ResultNotifier {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle(notice.title)
-            .setContentText(notice.body.lineSequence().firstOrNull().orEmpty())
-            .setStyle(NotificationCompat.BigTextStyle().bigText(notice.body))
+            .setContentTitle(title)
+            .setContentText(body.lineSequence().firstOrNull().orEmpty())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(open)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .build()
-        // ⚠ 通知は1つだけを書き換える（開かずにいた間の試合は1つにまとめて出す。試合ごとに積み上げない）
-        runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
+        runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
     }
 }
 
