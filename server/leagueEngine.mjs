@@ -1482,6 +1482,13 @@ function resolveTryout(league, plans) {
           ? (p) => p.position === 'catcher'
           : (p) => !isPitcher(p);
       const pool = remaining.filter(want);
+      // ⚠ **交渉した選手に足りない位置の人が居れば、その人から**（交渉の上から）。画面は
+      //    「その位置の選手と交渉してください」と勧めているのに、補うときだけCPUの判断で
+      //    別の選手を入れていた（監査 2026-11-14）
+      const wished = (plan?.rankedIds || [])
+        .map((id) => pool.find((p) => p.id === id))
+        .find(Boolean);
+      if (wished) return wished;
       return pool.length
         ? selectPlayerForAI(pool, roster, null, ONLINE_ROSTER_TARGETS) || pool[0]
         : null;

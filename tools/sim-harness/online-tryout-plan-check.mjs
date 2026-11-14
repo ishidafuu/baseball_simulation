@@ -969,6 +969,50 @@ try {
       assert.equal(l.game.teams[name].players.length, ROSTER_LIMIT, `${name} の枠が埋まっていない`);
   }
 
+  // --- 最低限を補うときは、交渉した選手から ---------------------------------
+  // ⚠ 捕手のいない球団が獲得0人で捕手と交渉したら、その捕手を取る（画面は「その位置の選手と
+  //    交渉してください」と勧める）。以前は補うときだけCPUの判断で別の捕手が入った（監査 2026-11-14）
+  {
+    const l = createLeague({
+      members: [{ userId: 'a' }, { userId: 'b' }],
+      now: '2026-10-26T15:00:00.000Z',
+    });
+    for (const m of l.members)
+      submitPhase(
+        l,
+        m.userId,
+        { phaseId: l.phase.id, plan: defaultPhasePlan(l, m.teamName), ready: true },
+        '2026-10-26T15:00:00.000Z',
+      );
+    loadLeagueWorld(l);
+    const [a, b] = l.members;
+    TEAMS_DATA[a.teamName].players = TEAMS_DATA[a.teamName].players.filter(
+      (p) => p.position !== 'catcher',
+    );
+    openPhaseSeeded(l, 'tryout', '2026-10-26T15:00:00.000Z', 20261099);
+    l.game = captureWorld();
+    // CPUが欲しがらない（いちばん低い）捕手と交渉する
+    const catcher = [...l.phase.candidates]
+      .filter((p) => p.position === 'catcher')
+      .sort((x, y) => overallScore(x) - overallScore(y))[0];
+    const plans = {
+      a: { count: 0, rankedIds: [catcher.id], total: 0 },
+      b: { count: 0, rankedIds: [], total: 0 },
+    };
+    for (const m of l.members)
+      submitPhase(
+        l,
+        m.userId,
+        { phaseId: l.phase.id, plan: plans[m.userId], ready: true },
+        '2026-10-26T15:00:00.000Z',
+      );
+    assert.notEqual(l.phase?.kind, 'tryout', 'トライアウトが解決していない');
+    const picks = l.tryoutResults[a.userId].picks;
+    assert.equal(picks.length, 1, `捕手1人だけ補うはずが${picks.length}人取った`);
+    assert.equal(picks[0].playerId, catcher.id, '交渉した捕手ではない捕手で補った');
+    assert.equal(picks[0].wish, 1, '交渉の1位として記録されていない');
+  }
+
   // --- 画面の操作を何度繰り返しても、押したとおりに動くこと ---------------
   // ⚠ **以前は入れ替えるほど画面が壊れて見えた**。候補360人を1本の希望順に
   //    並べ、獲得予定は「目標構成で飛ばしたあとの顔ぶれ」だったので、
