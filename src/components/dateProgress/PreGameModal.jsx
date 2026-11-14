@@ -272,7 +272,8 @@ const PreGameModal = ({ seasonData, userTeamName, formatDate, getStartingPitcher
 
   const renderPitcherRow = (pitcher, { showRole = false, teamRotation = null } = {}) => {
     const role = teamRotation?.pitcherRoles?.[pitcher.id];
-    const roleLabel = { closer: 'クローザー', setup: 'セット', ace_relief: '中エース', long: 'ロング', onepoint: 'ワンポ', behind: 'ビハ', mopup: '敗処' };
+    // ⚠ 欄は w-12（48px）なので略称だけ。「クローザー」（5字）ははみ出した。略称はオンラインの札（ROLE_SHORT）と同じ「抑え」
+    const roleLabel = { closer: '抑え', setup: 'セット', ace_relief: '中エース', long: 'ロング', onepoint: 'ワンポ', behind: 'ビハ', mopup: '敗処' };
     const ps = pitcher.seasonStats?.pitching;
     const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) / (ps.inningsPitched / 3) * 9).toFixed(2) : null;
     return (
