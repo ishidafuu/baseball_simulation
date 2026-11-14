@@ -37,6 +37,7 @@ import {
   tradeCandidates,
   tradeOdds,
   tradeOddsBounds,
+  tradeStrengthGap,
   tradeRatio,
   setTradeValues,
   tradeSlot,
@@ -252,13 +253,14 @@ const ODDS_HELP =
   '値段は素質（ドラフトと同じ見立て。若いほど高い）といまの持ち場での力を半々で見て、今季の成績で上下します。' +
   '相手が出す選手は、抜けると穴が空く主力ほど高くなります（控えが厚い持ち場なら上乗せはありません。何人かまとめてもらうと、まとめて空く穴で見ます）。' +
   'そこに監督の見る目（若手を高く見る・主力を高く見る など）が1人ずつかかるので、' +
-  '境目の近くは「相手の監督しだい」です。足りないときは、同じ持ち場（投手・捕手・内野・外野）の安い選手に替えた逆提案が来るか、断られます。';
+  '境目の近くは「相手の監督しだい」です。足りないときは、同じ持ち場（投手・捕手・内野・外野）の安い選手に替えた逆提案が来るか、断られます。' +
+  'また、値段が釣り合っていても、交換のあとのスタメン・ローテ・中継ぎの力がそちらばかり上がる交換は断ります（弱い2人で強い1人を取る形など）。';
 
 /**
  * CPU球団が受けそうかの目安（3段のメーター）。⚠ 参加者の球団には出さない（人が決める）。
  * メーターの横軸は「出す値段 ÷ もらう値段」。境目はサーバーの決まり（`team.trade`）から引く。
  */
-function OddsMeter({ rule, give, get, valueOf, roster }) {
+function OddsMeter({ rule, give, get, valueOf, roster, myRoster }) {
   if (!rule) return null;
   if (!get.length || !give.length) {
     return (
@@ -284,7 +286,18 @@ function OddsMeter({ rule, give, get, valueOf, roster }) {
       </div>
     );
   }
-  const odds = tradeOdds(giveValues, getValues, rule);
+  // ⚠ 戦力の開きはサーバーと同じ式（`tradeStrengthGap`）。値段より先に見る（釣り合っても断るため）
+  const gap =
+    rule.gapLimit != null && roster && myRoster
+      ? tradeStrengthGap(
+          myRoster,
+          roster,
+          give.map((p) => p.id),
+          get.map((p) => p.id),
+        )
+      : null;
+  const lopsided = gap != null && gap > rule.gapLimit;
+  const odds = lopsided ? 'lopsided' : tradeOdds(giveValues, getValues, rule);
   const ratio = tradeRatio(giveValues, getValues);
   const [low, high] = tradeOddsBounds(rule);
   // 横軸は 0 〜 境目の上の1.5倍。はみ出したら端に止める
@@ -313,6 +326,11 @@ function OddsMeter({ rule, give, get, valueOf, roster }) {
         釣り合い {Math.round(ratio * 100)}%（受けるには {Math.round(low * 100)}
         〜{Math.round(high * 100)}% が境目）
       </p>
+      {lopsided && (
+        <p className="online-trade-odds-note is-lopsided">
+          この交換でそちらの戦力が相手より {gap.toFixed(1)} 点多く上がるので、値段が釣り合っても断ります（{rule.gapLimit} 点まで）。
+        </p>
+      )}
       {rule.eyeNote && <p className="online-trade-odds-note">{rule.eyeNote}</p>}
       <details className="online-trade-odds-help">
         <summary>CPUの判断のしかた</summary>
@@ -893,6 +911,7 @@ function TradeComposer({
               get={getPlayers}
               valueOf={tierOf.valueOf || (() => undefined)}
               roster={theirRoster}
+              myRoster={view.roster}
             />
           )}
           {confirming && !(!partner || empty || problems.length > 0 || !theirRoster) ? (

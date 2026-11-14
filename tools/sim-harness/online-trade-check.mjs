@@ -39,7 +39,14 @@ import { ROSTER_LIMIT } from '../../src/online/shared.js';
 import { PACK_SIZE } from '../../src/online/rosterPack.js';
 import { TEAMS_DATA } from '../../src/teams-data.js';
 import { rosterGroup } from '../../src/utils/constants.js';
-import { bestSlot, rosterTops, setTradeValues } from '../../src/online/tradeSearch.js';
+import {
+  bestSlot,
+  rosterTops,
+  setTradeValues,
+  squadStrength,
+  tradeStrengthGap,
+  STRENGTH_GAP_LIMIT,
+} from '../../src/online/tradeSearch.js';
 
 const NOW = '2026-10-26T15:00:00.000Z';
 
@@ -1081,6 +1088,83 @@ try {
     assert.ok(withSet.loss > without.loss, 'まとめた値段が判断に使われていない');
   }
 
+  // ⑤ 値段が釣り合っても、提案した側ばかり強くなる交換は断る（いしだ 2026-11-14
+  //    「2年目に人の球団が勝ちすぎる」）。値段は1人ずつの合計なので、弱い2人で
+  //    強い1人を取る交換が通り、人が得な交換を選び続けると2年目の勝率が平均 .69 になった
+  //    （`human-trade-probe.mjs`）。線を当てると .54（トレードしないときは .53）。
+  {
+    const mineName = l.members[0].teamName;
+    const mine = teams[mineName];
+    const base = squadStrength(mine);
+    // 抜けても痛くない（落差の小さい）12人から2人の組を作る
+    const cheap = mine
+      .map((p) => ({ p, drop: base - squadStrength(mine.filter((q) => q.id !== p.id)) }))
+      .sort((a, b) => a.drop - b.drop || a.p.id - b.p.id)
+      .slice(0, 12)
+      .map((x) => x.p);
+    const pairs = [];
+    for (let i = 0; i < cheap.length; i += 1)
+      for (let j = i + 1; j < cheap.length; j += 1) pairs.push([cheap[i], cheap[j]]);
+    let blocked = null;
+    let fair = null;
+    for (const to of names) {
+      if (to === mineName || (blocked && fair)) continue;
+      const theirs = teams[to];
+      const factor = tradeFactorFor(l, to);
+      const decide = (offer, want, gap) =>
+        cpuTradeDecision({
+          valueOf: (p) => judge.valueOf(p) * factor(p),
+          valueOfOwn: (p) => judge.valueOf(p, to) * factor(p),
+          lossOf: (ps) => judge.setValuesOf(ps, to).map((v, i) => v * factor(ps[i])),
+          fromPlayers: mine,
+          toPlayers: theirs,
+          offerIds: offer.map((p) => p.id),
+          wantIds: [want.id],
+          strengthGap: gap
+            ? (give, get) => tradeStrengthGap(mine, theirs, give, get)
+            : null,
+        });
+      for (const want of theirs) {
+        for (const offer of [...mine.map((p) => [p]), ...pairs]) {
+          if (blocked && fair) break;
+          if (rosterShortfall(rostersAfterTrade(mine, theirs, offer.map((p) => p.id), [want.id]).to).length)
+            continue;
+          if (decide(offer, want, false).action !== 'accept') continue;
+          const gap = tradeStrengthGap(mine, theirs, offer.map((p) => p.id), [want.id]);
+          if (!blocked && gap > STRENGTH_GAP_LIMIT) blocked = { offer, want, to, gap, decide };
+          if (!fair && gap <= STRENGTH_GAP_LIMIT && gap > -STRENGTH_GAP_LIMIT)
+            fair = { offer, want, to, gap, decide };
+        }
+      }
+    }
+    assert.ok(blocked, '前提: 値段だけなら受ける、戦力の開く交換がある');
+    const no = blocked.decide(blocked.offer, blocked.want, true);
+    assert.equal(no.action, 'reject', `戦力が ${blocked.gap.toFixed(1)} 点開く交換を受けた`);
+    assert.equal(no.reason, 'lopsided', '断った理由が戦力の開きになっていない');
+    // 両方の穴が埋まる交換までは止めない（トレードが死なない）
+    assert.ok(fair, '前提: 戦力の開かない交換もある');
+    assert.equal(
+      fair.decide(fair.offer, fair.want, true).action,
+      'accept',
+      '戦力の開かない交換まで断った',
+    );
+    // 画面の式（`tradeStrengthGap`）は、サーバーの交換後の名簿（`rostersAfterTrade`）で測った差と同じ
+    const after = rostersAfterTrade(
+      mine,
+      teams[blocked.to],
+      blocked.offer.map((p) => p.id),
+      [blocked.want.id],
+    );
+    assert.ok(
+      Math.abs(
+        squadStrength(after.from) - squadStrength(mine) -
+          (squadStrength(after.to) - squadStrength(teams[blocked.to])) -
+          blocked.gap,
+      ) < 1e-9,
+      '画面とサーバーで戦力の差の測り方がずれた',
+    );
+  }
+
   // ④ 同じ名簿なら同じ値段（乱数を使っていない）
   {
     const again = createTradeJudge(teams);
@@ -1094,5 +1178,5 @@ try {
 }
 
 console.log(
-  '■ トレード: OK（提案→受ける／逆提案は1回だけ→受ける／断ると消える・手番を持つ側だけ返事できる・両球団の名簿を守る・打順を組み直す・CPU球団はその場で受ける/逆提案/断る・逆提案は同じ持ち場から・弱い選手で強い選手は取れない・成績と球団の事情が値段に効く）',
+  '■ トレード: OK（提案→受ける／逆提案は1回だけ→受ける／断ると消える・手番を持つ側だけ返事できる・両球団の名簿を守る・打順を組み直す・CPU球団はその場で受ける/逆提案/断る・逆提案は同じ持ち場から・弱い選手で強い選手は取れない・成績と球団の事情が値段に効く・提案した側ばかり強くなる交換は断る）',
 );

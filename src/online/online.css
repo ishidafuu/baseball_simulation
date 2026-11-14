@@ -512,6 +512,10 @@
 .online-trade-odds-head b.is-short {
   color: #f87171;
 }
+.online-trade-odds-head b.is-lopsided,
+.online-trade-odds-note.is-lopsided {
+  color: #f87171;
+}
 .online-trade-odds-head b.is-depends {
   color: #fbbf24;
 }

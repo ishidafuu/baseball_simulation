@@ -14,6 +14,7 @@
 // ============================================================
 import { requireOnline, ROSTER_LIMIT } from './shared.js';
 import { rosterGroup } from '../utils/constants.js';
+import { STRENGTH_GAP_LIMIT } from './tradeSearch.js';
 
 /** 1球団が同時に抱えられる提案の数。⚠ 無制限だと相手の画面を埋められる */
 export const MAX_OPEN_TRADES = 5;
@@ -141,6 +142,11 @@ const tradeKind = (p) => (p?.position ? rosterGroup(p.position) : undefined);
  *    まとめて抜けると1人ずつの穴の合計より大きな穴が空くので、まとめて測る
  *    （`tradeSearch.js` の `needFactors`）。無ければ `valueOfOwn` を1人ずつ足す。
  *    逆提案も、組んだ顔ぶれをまとめた値段で予算に収まるかを確かめる。
+ * ⚠ `strengthGap(offerIds, wantIds)` は**交換で開く戦力の差**（提案した側の伸び − CPUの伸び。
+ *    `tradeSearch.js` の `tradeStrengthGap`）。`STRENGTH_GAP_LIMIT` を超える交換は値段が
+ *    釣り合っても断る（`reason: 'lopsided'`）。逆提案の顔ぶれにも同じ線を当てる。
+ *    値段は1人ずつの合計なので、これが無いと弱い2人で強い1人が取れる（いしだ 2026-11-14）。
+ *    無ければ値段だけで決める（検査の古い呼び出し）。
  */
 export function cpuTradeDecision({
   valueOf,
@@ -150,7 +156,10 @@ export function cpuTradeDecision({
   toPlayers,
   offerIds,
   wantIds,
+  strengthGap = null,
 }) {
+  const lopsided = (ids) =>
+    !!strengthGap && strengthGap(offerIds, ids) > STRENGTH_GAP_LIMIT;
   const value = (p) => Math.max(1, valueOf(p) || 0);
   const ownValue = (p) => Math.max(1, valueOfOwn(p) || 0);
   const pick = (players, ids) =>
@@ -164,8 +173,10 @@ export function cpuTradeDecision({
       ? lossOf(players).reduce((a, v) => a + Math.max(1, v || 0), 0)
       : total(players, ownValue);
   const loss = setLoss(outgoing);
-  if (gain >= loss * CPU_ACCEPT_MARGIN)
+  if (gain >= loss * CPU_ACCEPT_MARGIN) {
+    if (lopsided(wantIds)) return { action: 'reject', gain, loss, reason: 'lopsided' };
     return { action: 'accept', gain, loss };
+  }
   // 逆提案を組む。⚠ 並べ方を決定的にすること（同値はidで分ける）
   const budget = gain / CPU_ACCEPT_MARGIN;
   const pool = [...toPlayers]
@@ -187,6 +198,9 @@ export function cpuTradeDecision({
   }
   // まとめて抜けた穴の上乗せで予算を超えるなら、どう組んでも釣り合わない
   if (lossOf && setLoss(picked) > budget) return { action: 'reject', gain, loss };
+  // ⚠ 差し替えた顔ぶれでも戦力の差が開きすぎるなら、逆提案にしない（受けない案を返さない）
+  if (lopsided(picked.map((p) => p.id)))
+    return { action: 'reject', gain, loss, reason: 'lopsided' };
   // ⚠ 中身が同じなら逆提案にならない（受けないのだから断る）
   if (picked.length === outgoing.length &&
       picked.every((p, i) => p.id === outgoing[i].id))

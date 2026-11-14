@@ -68,6 +68,22 @@ class TradeSearchTest {
     }
 
     @Test
+    fun strengthGapCatchesTwoForOne() {
+        // 相手の遊撃のスター1人を、自分の控え2人で取る。値段が釣り合っても戦力は自分だけ上がる
+        val star = fielder("short", 80, 80)
+        val theirs = team(50, listOf(star))
+        val benchA = fielder("left", 40, 40)
+        val benchB = pitcher(40)
+        val mine = team(50, listOf(benchA, benchB))
+        val gap = tradeStrengthGap(mine, theirs, setOf(benchA.id, benchB.id), setOf(star.id))
+        assertTrue(gap > STRENGTH_GAP_LIMIT, "スターを控え2人で取ると戦力が開く: $gap")
+        // 同じ力どうしの交換は開かない
+        val a = mine.first { it.position == "left" }
+        val b = theirs.first { it.position == "left" }
+        assertEquals(0.0, tradeStrengthGap(mine, theirs, setOf(a.id), setOf(b.id)), 1e-9)
+    }
+
+    @Test
     fun oddsUseServerBounds() {
         val rule = CpuTradeRule(1.05, 0.1, null)
         val (low, high) = tradeOddsBounds(rule)

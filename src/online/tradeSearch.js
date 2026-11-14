@@ -411,6 +411,51 @@ export function squadStrength(players) {
   return total;
 }
 
+/**
+ * CPU球団が受ける「戦力の開き」の上限（`squadStrength` の点）。
+ *
+ * ⚠ **値段の釣り合いだけでは足りない**（いしだ 2026-11-14「2年目に人の球団が勝ちすぎる」）。
+ *    値段は1人ずつの合計なので、弱い2人で強い1人を取る交換が通り、取った1人がそのまま
+ *    スタメンに入る。人が「CPUが受ける中でいちばん得な交換」を選び続けると、開幕前の
+ *    十数件でスタメン・ローテの力が約13%上がり、2年目の勝率が平均 .69（最高 .81）になった
+ *    （`tools/sim-harness/human-trade-probe.mjs`、4つの世界）。
+ * ⚠ CPUは**両方の球団の力の伸び**を比べ、提案した側の伸びが自分の伸びをこれより上回る
+ *    交換を断る。両方の穴が埋まる交換は通る。3点（球団の力の約0.3%）で、上と同じ測り方で
+ *    2年目の勝率は平均 .54（トレードしないときは .53）。
+ * ⚠ アプリの `STRENGTH_GAP_LIMIT`（TradeSearch.kt）と同じ値。サーバーは決まり（`team.trade.gapLimit`）
+ *    でも渡すので、画面はそれを使う。
+ */
+export const STRENGTH_GAP_LIMIT = 3;
+
+/**
+ * 交換で開く戦力の差（点）＝提案した側の `squadStrength` の伸び − 受ける側の伸び。
+ * 正なら提案した側のほうが強くなる。⚠ 交換後の名簿の並びはサーバーの
+ * `rostersAfterTrade`（残った選手のあとに来た選手）と同じにする。
+ * ⚠ アプリの `tradeStrengthGap`（TradeSearch.kt）と同じ式。
+ * @param fromPlayers 提案した側の名簿
+ * @param toPlayers 受ける側（CPU球団）の名簿
+ * @param giveIds 提案した側が出す選手のid
+ * @param getIds 受ける側が出す選手のid
+ */
+export function tradeStrengthGap(fromPlayers, toPlayers, giveIds, getIds) {
+  const from = fromPlayers || [];
+  const to = toPlayers || [];
+  const give = new Set(giveIds || []);
+  const get = new Set(getIds || []);
+  const fromAfter = [
+    ...from.filter((p) => !give.has(p.id)),
+    ...to.filter((p) => get.has(p.id)),
+  ];
+  const toAfter = [
+    ...to.filter((p) => !get.has(p.id)),
+    ...from.filter((p) => give.has(p.id)),
+  ];
+  return (
+    squadStrength(fromAfter) - squadStrength(from) -
+    (squadStrength(toAfter) - squadStrength(to))
+  );
+}
+
 /** 落差から倍率（1 〜 1+`NEED_LIMIT`） */
 export const needOfDrop = (drop) =>
   1 + NEED_LIMIT * Math.min(1, Math.max(0, drop) / DROP_SCALE);
@@ -514,6 +559,7 @@ export function surplusPlayers(mine, usage, others) {
 // ------------------------------------------------------------------ CPUの判断の目安
 
 export const TRADE_ODDS = {
+  lopsided: "戦力差が開きすぎる（断る）",
   short: "足りない（逆提案か断る）",
   depends: "相手の監督しだい",
   likely: "受けるはず",
@@ -527,6 +573,8 @@ export function cpuTradeRule(team) {
     margin: t.margin,
     eyeLimit: n(t.eyeLimit),
     eyeNote: t.eyeNote || null,
+    // ⚠ 古いサーバーは渡さない（そのときは戦力の開きを見ない）
+    gapLimit: Number.isFinite(t.gapLimit) ? t.gapLimit : null,
   };
 }
 

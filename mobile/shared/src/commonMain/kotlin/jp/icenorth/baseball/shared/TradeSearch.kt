@@ -319,6 +319,23 @@ fun squadStrength(roster: List<Player>): Double {
     return total
 }
 
+/**
+ * CPU球団が受ける「戦力の開き」の上限（[squadStrength] の点。Web 版 `STRENGTH_GAP_LIMIT` と同じ）。
+ * 提案した側の伸びがCPUの伸びをこれより上回る交換は、値段が釣り合っても断る。
+ * 画面はサーバーが渡す決まり（[CpuTradeRule.gapLimit]）を使う。
+ */
+const val STRENGTH_GAP_LIMIT = 3.0
+
+/**
+ * 交換で開く戦力の差＝提案した側の [squadStrength] の伸び − 受ける側の伸び（Web 版 `tradeStrengthGap` と同じ）。
+ * ⚠ 交換後の名簿の並びはサーバーと同じ（残った選手のあとに来た選手）。
+ */
+fun tradeStrengthGap(from: List<Player>, to: List<Player>, giveIds: Set<Long>, getIds: Set<Long>): Double {
+    val fromAfter = from.filter { it.id !in giveIds } + to.filter { it.id in getIds }
+    val toAfter = to.filter { it.id !in getIds } + from.filter { it.id in giveIds }
+    return squadStrength(fromAfter) - squadStrength(from) - (squadStrength(toAfter) - squadStrength(to))
+}
+
 private fun needOfDrop(drop: Double): Double = 1 + NEED_LIMIT * minOf(1.0, maxOf(0.0, drop) / DROP_SCALE)
 
 /**
@@ -357,17 +374,19 @@ fun gettingTradeValues(roster: List<Player>?, getting: List<Player>): List<Doubl
 // ------------------------------------------------------------------ CPUの判断の目安
 
 /** サーバーが渡すCPU球団の決まり（`trade` の項目）。参加者の球団なら null */
-data class CpuTradeRule(val margin: Double, val eyeLimit: Double, val eyeNote: String?) {
+data class CpuTradeRule(val margin: Double, val eyeLimit: Double, val eyeNote: String?, val gapLimit: Double? = null) {
     companion object {
         fun from(team: kotlinx.serialization.json.JsonObject?): CpuTradeRule? {
             val t = team?.get("trade").obj() ?: return null
             val margin = t["margin"].num() ?: return null
-            return CpuTradeRule(margin, t["eyeLimit"].num() ?: 0.0, t["eyeNote"].str())
+            // ⚠ 古いサーバーは gapLimit を渡さない（そのときは戦力の開きを見ない）
+            return CpuTradeRule(margin, t["eyeLimit"].num() ?: 0.0, t["eyeNote"].str(), t["gapLimit"].num())
         }
     }
 }
 
 enum class TradeOdds(val label: String) {
+    Lopsided("戦力差が開きすぎる（断る）"),
     Short("足りない（逆提案か断る）"),
     Depends("相手の監督しだい"),
     Likely("受けるはず"),

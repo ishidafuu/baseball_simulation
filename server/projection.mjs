@@ -42,6 +42,7 @@ import { ownStaffView, leagueStaffView, teamStaffView, phasePlanBy } from './coa
 import { releaseBiasFor, campPlanFor, phaseDelegated, staffOf } from './coachEngine.mjs';
 import { createTradeJudge } from './tradeJudge.mjs';
 import { CPU_ACCEPT_MARGIN } from '../src/online/trades.js';
+import { STRENGTH_GAP_LIMIT } from '../src/online/tradeSearch.js';
 import { TRADE_FACTOR_LIMIT, tradeEyeNote } from '../src/online/coaches.js';
 
 /**
@@ -734,6 +735,8 @@ export function projectTeamInfo(bundle, userId, teamName) {
       ? null
       : {
           margin: CPU_ACCEPT_MARGIN,
+          // 交換で開いてよい戦力の差（これを超える交換は値段が釣り合っても断る）
+          gapLimit: STRENGTH_GAP_LIMIT,
           // ⚠ 監督がいない（指導者の仕組みが無い・監督の席が空き）と見る目は1倍で決まっているので、幅は0。
           //    いつも幅を渡すと、決まっている判断に「監督しだい」の帯が出た
           eyeLimit: staffOf(l, teamName).manager ? TRADE_FACTOR_LIMIT : 0,

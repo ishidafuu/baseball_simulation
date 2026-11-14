@@ -72,6 +72,7 @@ import jp.icenorth.baseball.shared.surplusPlayers
 import jp.icenorth.baseball.shared.tradeCandidates
 import jp.icenorth.baseball.shared.gettingTradeValues
 import jp.icenorth.baseball.shared.tradeOdds
+import jp.icenorth.baseball.shared.tradeStrengthGap
 import jp.icenorth.baseball.shared.tradeOddsBounds
 import jp.icenorth.baseball.shared.tradeRatio
 import jp.icenorth.baseball.shared.tradeSlot
@@ -578,7 +579,7 @@ private fun PlayersStep(
                 PickedLine("出す", namesOf(draft.give, myRoster))
                 PickedLine("もらう", namesOf(draft.get, theirs))
                 if (rule != null && draft.get.isNotEmpty()) {
-                    OddsMeter(myPlayers.filter { it.id in draft.give }.map { it.tradeValue }, gettingTradeValues(theirPlayers, theirPlayers.filter { it.id in draft.get }), rule, compact = true)
+                    OddsMeter(myPlayers.filter { it.id in draft.give }.map { it.tradeValue }, gettingTradeValues(theirPlayers, theirPlayers.filter { it.id in draft.get }), rule, compact = true, gap = strengthGapOf(rule, myPlayers, theirs?.let { theirPlayers }, draft.give, draft.get))
                 }
                 problems.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -669,7 +670,7 @@ private fun ConfirmStep(
             ConfirmSide("もらう（${view.teamLabel(partner)}）", draft.get, if (theirs == null) null else getting, model, partner, league.tier)
             theirError?.let { LoadFailed(it, retryTheirs, title = "相手の名簿を読めませんでした") }
             if (rule != null && counter == null) Section("${view.teamLabel(partner)}の見込み") {
-                OddsMeter(giving.map { it.tradeValue }, gettingTradeValues(if (theirs == null) null else theirPlayers, getting), rule)
+                OddsMeter(giving.map { it.tradeValue }, gettingTradeValues(if (theirs == null) null else theirPlayers, getting), rule, gap = strengthGapOf(rule, myPlayers, theirs?.let { theirPlayers }, draft.give, draft.get))
             }
             if (theirs != null) Section("交換後") {
                 holesAfter(giving, usage).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -843,11 +844,16 @@ private fun CompareTable(give: Player, get: Player, tier: (Double?) -> String?) 
 
 // ------------------------------------------------------------------ CPUの見込み
 
+/** 交換で開く戦力の差（相手の名簿が読めていて、サーバーが線を渡したときだけ。shared の [tradeStrengthGap]） */
+private fun strengthGapOf(rule: CpuTradeRule, mine: List<Player>, theirs: List<Player>?, give: Set<Long>, get: Set<Long>): Double? =
+    if (rule.gapLimit == null || theirs == null || get.isEmpty()) null else tradeStrengthGap(mine, theirs, give, get)
+
 /** CPUの判断の決まり（ⓘ に出す。数字はサーバーが渡す決まりから） */
 private fun oddsHelp(rule: CpuTradeRule): List<String> = listOf(
     "CPU球団は、素質（ドラフトと同じ物差し。若いほど高い）といまの持ち場での力を半々で見て値段を付け、今季の成績で上下させます。相手が出す選手は、抜けると穴が空く主力ほど高くなります（何人かまとめてもらうと、まとめて空く穴で見ます）。「値 高・中・低」は、リーグの全選手をこの値段で3つに分けたものです。",
     "受け取る選手の値段の合計が、出す選手の値段の合計の${"%.2f".format(rule.margin)}倍以上なら受けます。",
     "監督によって見る目が違い、1人ずつ最大±${(rule.eyeLimit * 100).roundToInt()}%高く・低く見ます（若手好み・主力好み・監督の型に合う選手）。",
+    "値段が釣り合っていても、交換のあとのスタメン・ローテ・中継ぎの力がそちらばかり上がる交換は断ります（弱い2人で強い1人を取る形など）。",
     "足りないときは、もらう選手を同じ持ち場（投手・捕手・内野・外野）の値段の釣り合う選手に差し替えた逆提案を返します。差し替えられる選手がいなければ断ります。",
     "「釣り合い」は、出す選手の値段の合計がもらう選手の値段の合計の何%かです。「受けるには約○%」は見る目を抜いたときの線です。",
     "メーターの「受けるはず」は、見る目がいちばん不利でも届く線です。「足りない」は、いちばん有利でも届かない線です。その間は監督しだいです。",
@@ -858,7 +864,7 @@ private fun oddsHelp(rule: CpuTradeRule): List<String> = listOf(
  * ⚠ 境目はサーバーが渡す決まり（[CpuTradeRule]）から引く（shared の [tradeOdds]）。
  */
 @Composable
-private fun OddsMeter(giveValues: List<Double?>, getValues: List<Double?>, rule: CpuTradeRule, compact: Boolean = false) {
+private fun OddsMeter(giveValues: List<Double?>, getValues: List<Double?>, rule: CpuTradeRule, compact: Boolean = false, gap: Double? = null) {
     // ⚠ 値段が届くまでは見込みを出さない（0として数えると「足りない」と出て、出す選手を足しすぎる）
     if (giveValues.any { it == null } || getValues.any { it == null }) {
         Muted("CPUの見込み: 値段を読み込み中…")
@@ -866,13 +872,16 @@ private fun OddsMeter(giveValues: List<Double?>, getValues: List<Double?>, rule:
     }
     val give = giveValues.filterNotNull()
     val get = getValues.filterNotNull()
-    val odds = tradeOdds(give, get, rule)
+    // ⚠ 戦力の開きが線を超えたら、値段が釣り合っても断る（サーバーと同じ。値段より先に見る）
+    val gapLimit = rule.gapLimit
+    val lopsided = gap != null && gapLimit != null && gap > gapLimit
+    val odds = if (lopsided) TradeOdds.Lopsided else tradeOdds(give, get, rule)
     val ratio = tradeRatio(give, get)
     val (low, high) = tradeOddsBounds(rule)
     val color = when (odds) {
         TradeOdds.Likely -> Color(0xFF4ADE80)
         TradeOdds.Depends -> Color(0xFFFACC15)
-        TradeOdds.Short -> MaterialTheme.colorScheme.error
+        TradeOdds.Short, TradeOdds.Lopsided -> MaterialTheme.colorScheme.error
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -882,6 +891,11 @@ private fun OddsMeter(giveValues: List<Double?>, getValues: List<Double?>, rule:
         }
         // ⚠ 「出す側 73%」だけでは何の割合か分からなかった（いしだ 2026-11-13）。受ける線と並べて、見出しと別の行に（狭い画面で折り返していた）
         ratio?.let { Muted("釣り合い ${(it * 100).roundToInt()}%（受けるには約${(rule.margin * 100).roundToInt()}%）") }
+        if (lopsided) Text(
+            "この交換でそちらの戦力が相手より${"%.1f".format(gap ?: 0.0)}点多く上がるので、値段が釣り合っても断ります（${"%.0f".format(gapLimit ?: 0.0)}点まで）。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
         if (ratio != null) {
             val top = max(2.0, high * 1.25)
             BoxWithConstraints(Modifier.fillMaxWidth().height(10.dp)) {

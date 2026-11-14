@@ -107,6 +107,7 @@ import {
 } from '../src/online/trades.js';
 import { tradeValueOf } from './tradeValue.mjs';
 import { tradeJudgeForLeague } from './tradeJudge.mjs';
+import { tradeStrengthGap } from '../src/online/tradeSearch.js';
 import { setPlayerIdCounter } from '../src/state/playerIds.js';
 import { captureWorld, restoreWorld } from './worldSnapshot.mjs';
 import { createRecorder, freezeComparison } from './recordedStats.mjs';
@@ -574,6 +575,9 @@ export function openTrade(league, userId, { to, offer, want }, now) {
     toPlayers: theirs.players,
     offerIds,
     wantIds,
+    // ⚠ 交換で開く戦力の差（画面の見込みメーターも同じ式で出す。`tradeSearch.js`）
+    strengthGap: (give, get) =>
+      tradeStrengthGap(mine.team.players, theirs.players, give, get),
   });
   if (decision.action === 'accept') {
     applyTrade(league, trade);
@@ -590,6 +594,12 @@ export function openTrade(league, userId, { to, offer, want }, now) {
     return { id, status: 'countered' };
   }
   // ⚠ 断られたら**何も残さない**。`requireOnline` で画面に理由を出す
+  requireOnline(
+    decision.reason !== 'lopsided',
+    `${to} は、この交換ではそちらの戦力ばかり上がるので応じませんでした。もらう選手を見直してください`,
+    409,
+    'trade',
+  );
   requireOnline(
     false,
     `${to} はこの内容では応じませんでした。出す選手を足すか、もらう選手を見直してください`,
