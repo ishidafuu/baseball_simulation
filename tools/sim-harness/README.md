@@ -200,6 +200,17 @@ node tools/sim-harness/human-trade-probe.mjs none 11    # トレードしない�
 戦力の開き（`STRENGTH_GAP_LIMIT`）を見る今 .54、トレードしない .53。
 ⚠ 種1つでは揺れが大きい（同じ手で .29〜.64）。4つ以上を並べて比べる。
 
+### tactic-strength-probe.mjs — 方針・采配を選んだだけで勝率が動かないか（プローブ / 合否なし）
+
+```bash
+node tools/sim-harness/tactic-strength-probe.mjs 6 200          # 全部の設定（長い）
+node tools/sim-harness/tactic-strength-probe.mjs 10 400 打撃慎重  # 名前の一部で1つに絞る
+```
+
+同じ名簿の双子の球団を作り、片方だけ設定を変えて対戦させる。方針の数字
+（`src/online/tactics.js` の `STRATEGY_MODS`）を変えたら回し、「何も変えない（対照）」と
+比べて ± の幅に収まるかを見る（いしだの方針「型で強さを変えない」）。
+
 ## 構成
 
 ファイル名で役目が分かるようにしている。

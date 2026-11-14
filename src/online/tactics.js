@@ -88,7 +88,7 @@ export const TACTIC_FIELDS = {
 /**
  * 方針が能力の数字に足す分（自動試合 `autoSimulation.js` が読む。画面の説明 `strategyEffectText` も同じ表から作る）。
  * ⚠ 足すなら必ず引く分も置く（得だけの方針は作らない。いしだ 2026-11-13）。
- *    数字を変えたら tactic-strength の測り（双子の球団の対戦）で、選んだだけで勝率が動かないことを確かめる。
+ *    数字を変えたら `tools/sim-harness/tactic-strength-probe.mjs`（双子の球団の対戦）で、選んだだけで勝率が動かないことを確かめる。
  * - batting … 打者のミート・パワー・選球眼
  * - defense … 守る野手の守備（内野=一二三遊・捕手・投手 / 外野）
  * 投球方針と走塁方針は数字を変えない（配球・盗塁の回数だけ）。
