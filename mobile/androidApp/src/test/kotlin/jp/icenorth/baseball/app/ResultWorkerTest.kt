@@ -74,7 +74,7 @@ class ResultWorkerTest {
         assertEquals("○ 5-3 美瑛（第42戦）", shadowOf(posted().single()).contentTitle)
         assertTrue("新しいビューを端末に残す（開いたらすぐ最新）", store.viewJson!!.contains("\"viewGeneration\":2"))
 
-        shadowOf(app.getSystemService(NotificationManager::class.java)).cancelAll()
+        app.getSystemService(NotificationManager::class.java).cancelAll()
         run()
         assertTrue("同じ試合で二度鳴らさない（世代も同じなので中身も読まない）", posted().isEmpty())
         assertEquals("view?since=2", requests.last())
