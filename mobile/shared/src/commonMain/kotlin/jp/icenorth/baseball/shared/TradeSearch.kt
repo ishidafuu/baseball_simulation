@@ -386,7 +386,8 @@ data class CpuTradeRule(val margin: Double, val eyeLimit: Double, val eyeNote: S
 }
 
 enum class TradeOdds(val label: String) {
-    Lopsided("戦力差が開きすぎる（断る）"),
+    // ⚠ 「断る」と言い切らない（値段が足りないときは別の顔ぶれの逆提案が返ることがある）。Web 版 TRADE_ODDS
+    Lopsided("戦力差が開きすぎる（この形では受けない）"),
     Short("足りない（逆提案か断る）"),
     Depends("相手の監督しだい"),
     Likely("受けるはず"),

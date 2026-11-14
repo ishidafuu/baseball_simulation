@@ -17,7 +17,7 @@ import { normalizedVelocity, normalizedStamina } from "./tryoutPlan.js";
 //    PCとアプリで補強ポイントや見込みが食い違う。変えるときは両方を変える。
 // ⚠ 「その持ち場での力」は試合の強さではない（試合はサーバーの演算で決まる）。
 //    ただし**CPU球団のトレードの値段もこの式を使う**（`server/tradeJudge.mjs` が
-//    `slotStrength`・`rosterTops`・`pitchingStaff`・`bestSlot` を読む）。ここを変えると
+//    `bestSlot`・`squadStrength`・`needFactors`・`needOfDrop` を読む）。ここを変えると
 //    CPUの判断も変わるので、`online-trade-check` も回すこと。
 // ⚠ 釣り合いの境目は**サーバーが渡す数字**（`team.trade.margin`・`eyeLimit`）で引く。
 //    ここに写しを持つと、CPUの判断を変えたときに「受けるはず」と出て断られる。
@@ -559,7 +559,9 @@ export function surplusPlayers(mine, usage, others) {
 // ------------------------------------------------------------------ CPUの判断の目安
 
 export const TRADE_ODDS = {
-  lopsided: "戦力差が開きすぎる（断る）",
+  // ⚠ 「断る」と言い切らない。値段が足りないときは、サーバーは別の顔ぶれで逆提案を組み、
+  //    その顔ぶれの開きだけを見る（`cpuTradeDecision`）。言い切ると約1割で逆提案が返っていた（監査 2026-11-14）
+  lopsided: "戦力差が開きすぎる（この形では受けない）",
   short: "足りない（逆提案か断る）",
   depends: "相手の監督しだい",
   likely: "受けるはず",

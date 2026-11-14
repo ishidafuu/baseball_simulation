@@ -328,7 +328,7 @@ function OddsMeter({ rule, give, get, valueOf, roster, myRoster }) {
       </p>
       {lopsided && (
         <p className="online-trade-odds-note is-lopsided">
-          この交換でそちらの戦力が相手より {gap.toFixed(1)} 点多く上がるので、値段が釣り合っても断ります（{rule.gapLimit} 点まで）。
+          この交換でそちらの戦力が相手より {gap.toFixed(1)} 点多く上がるので、値段が釣り合ってもこの形では受けません（{rule.gapLimit} 点まで）。値段が足りないときは、別の選手での逆提案が来ることがあります。
         </p>
       )}
       {rule.eyeNote && <p className="online-trade-odds-note">{rule.eyeNote}</p>}

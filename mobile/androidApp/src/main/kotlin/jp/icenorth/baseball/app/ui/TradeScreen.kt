@@ -892,7 +892,7 @@ private fun OddsMeter(giveValues: List<Double?>, getValues: List<Double?>, rule:
         // ⚠ 「出す側 73%」だけでは何の割合か分からなかった（いしだ 2026-11-13）。受ける線と並べて、見出しと別の行に（狭い画面で折り返していた）
         ratio?.let { Muted("釣り合い ${(it * 100).roundToInt()}%（受けるには約${(rule.margin * 100).roundToInt()}%）") }
         if (lopsided) Text(
-            "この交換でそちらの戦力が相手より${"%.1f".format(gap ?: 0.0)}点多く上がるので、値段が釣り合っても断ります（${"%.0f".format(gapLimit ?: 0.0)}点まで）。",
+            "この交換でそちらの戦力が相手より${"%.1f".format(gap ?: 0.0)}点多く上がるので、値段が釣り合ってもこの形では受けません（${"%.0f".format(gapLimit ?: 0.0)}点まで）。値段が足りないときは、別の選手での逆提案が来ることがあります。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
