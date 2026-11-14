@@ -894,18 +894,36 @@ try {
       .sort((x, y) => overallScore(x) - overallScore(y))
       .slice(0, 4)
       .map((p) => p.id);
-    // 範囲の外の人数は弾く（正本はサーバー）
+    // 負の人数は弾く（正本はサーバー）
     assert.throws(
       () =>
         submitPhase(
           l,
           a.userId,
-          { phaseId: l.phase.id, plan: { count: 0, rankedIds: [], total: room + 1 }, ready: false },
+          { phaseId: l.phase.id, plan: { count: 0, rankedIds: [], total: -1 }, ready: false },
           '2026-10-26T15:00:00.000Z',
         ),
       /獲得する人数が不正です/,
-      '空き枠より多い人数が通った',
+      '負の人数が通った',
     );
+    // ⚠ 空き枠より多い人数は**弾かず空き枠に切る**。下書きを保存した後にトレードで名簿が
+    //    増えると保存済みの人数が空き枠を超える。弾くと締め切りで下書きが捨てられ、
+    //    交渉した選手が誰も取られなかった（監査 2026-11-14）
+    submitPhase(
+      l,
+      a.userId,
+      {
+        phaseId: l.phase.id,
+        plan: { count: 2, rankedIds: wish.slice(0, 2), total: room + 1 },
+        ready: false,
+      },
+      '2026-10-26T15:00:00.000Z',
+    );
+    {
+      const saved = l.phase.submissions[a.userId].plan;
+      assert.equal(saved.total, room, `空き枠を超えた人数が切られていない（${saved.total}）`);
+      assert.deepEqual(saved.rankedIds, wish.slice(0, 2), '交渉が消えた');
+    }
     const plans = {
       a: { count: 2, rankedIds: wish, total: 2 },
       b: { count: 0, rankedIds: [], total: 0 },

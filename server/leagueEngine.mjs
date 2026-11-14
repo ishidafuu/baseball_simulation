@@ -1149,10 +1149,12 @@ function validatePhasePlan(league, teamName, plan) {
     }
     case 'tryout': {
       const candidates = new Set(league.phase.candidates.map((p) => p.id));
+      // ⚠ 人数が空き枠を超えていても**拒まず空き枠に切る**。下書きを保存したあとトレードで
+      //    名簿が増えると、保存済みの人数が空き枠を超える。拒むと締め切りで下書きが捨てられ、
+      //    交渉した選手が誰も取られないまま標準案で決まっていた（監査 2026-11-14）
+      const room = Math.max(0, ROSTER_LIMIT - team.players.length);
       requireOnline(
-        Number.isInteger(plan.count) &&
-          plan.count >= 0 &&
-          plan.count <= Math.max(0, ROSTER_LIMIT - team.players.length),
+        Number.isInteger(plan.count) && plan.count >= 0,
         '獲得人数が不正です',
       );
       requireOnline(
@@ -1176,15 +1178,13 @@ function validatePhasePlan(league, teamName, plan) {
       //    空き枠いっぱいまで取る、前と同じ動き）
       requireOnline(
         plan.total === undefined ||
-          (Number.isInteger(plan.total) &&
-            plan.total >= 0 &&
-            plan.total <= Math.max(0, ROSTER_LIMIT - team.players.length)),
+          (Number.isInteger(plan.total) && plan.total >= 0),
         '獲得する人数が不正です',
       );
       return {
-        count: plan.count,
+        count: Math.min(plan.count, room),
         rankedIds: [...plan.rankedIds],
-        ...(plan.total === undefined ? {} : { total: plan.total }),
+        ...(plan.total === undefined ? {} : { total: Math.min(plan.total, room) }),
       };
     }
     case 'offseason':
