@@ -123,6 +123,7 @@ try {
         data = projectPlayerInfo({ league }, 'a', url.searchParams.get('id'));
       else if (action === 'team')
         data = projectTeamInfo({ league }, 'a', url.searchParams.get('team'));
+      else if (action === 'presence') data = { ok: true };
       else if (action === 'command') {
         attempts++;
         if (failOnce) {

@@ -143,6 +143,9 @@ async function scene({
             ? { releaseIds: [] }
             : { menu: 'standard' }),
       };
+    } else if (action === 'presence') {
+      // 来たことの知らせ（画面を開くと送る。版は上がらない）
+      value = { ok: true };
     } else if (action === 'command') {
       const payload = route.request().postDataJSON().payload;
       // 本物のサーバーと同じく版を照合する（`checkRevision` のときだけ）
@@ -830,7 +833,7 @@ try {
     // あとから変える入口も下の「☰」にある（PCの左メニューの「名前を変える」と同じ小窓）
     await pack.page.getByRole('button', { name: 'メニュー', exact: true }).click();
     await pack.page.getByRole('button', { name: '名前を変える', exact: true }).click();
-    const renameDialog = pack.page.getByRole('dialog', { name: '球団名・名前を変える' });
+    const renameDialog = pack.page.getByRole('dialog', { name: '球団名・名前・ひとこと' });
     await renameDialog.waitFor();
     await fitsPhone(pack.page, '名前を変える小窓');
     await renameDialog.getByRole('button', { name: '閉じる', exact: true }).click();

@@ -411,8 +411,9 @@ function GameRecord({ id, year, ownTeam, close }) {
             )
           ) : game.teams ? (
             <>
-              {/* 得点経過（記録を取り始めた後の試合だけ。古い試合には無い） */}
-              <ScoringPlays game={game} />
+              {/* 得点経過（記録を取り始めた後の試合だけ。古い試合には無い）。
+                  スマホは小窓を縦に収めるため出さず、得点の場面は「試合経過」で追う */}
+              {!compact && <ScoringPlays game={game} />}
               <BoxScore game={game} ownTeam={ownTeam} />
             </>
           ) : (

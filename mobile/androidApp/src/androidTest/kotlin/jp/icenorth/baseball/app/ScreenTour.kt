@@ -160,6 +160,18 @@ class ScreenTour {
         // ⚠ 下まで撮ったままだと題字のメニューが画面の外で押せず、続く「戻る」でアプリが閉じて以降が撮れなかった
         step("menu") { toTop(); rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick(); shot("home-menu"); back() }
         step("back-issues") { toTop(); rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick(); pause(); click("過去の見出し"); shot("home-back-issues"); back() }
+        // あなたへのお知らせ（トレードの返事・挑戦状・おるすばんなど）
+        step("inbox") { toTop(); rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("メニュー")).onFirst().performClick(); pause(); click("あなたへのお知らせ", substring = true); shot("home-inbox"); back() }
+        // 速報再生（結果を伏せたカード → 回ごとに点を出す → 最後まで）。カードが無い段（試合前）は飛ばす
+        step("quick replay") {
+            toTop()
+            click("速報で見る")
+            pause(2500)
+            shot("home-quick-replay")
+            click("最後まで")
+            shot("home-quick-replay-end")
+            back()
+        }
 
         when (stage) {
             "running" -> {
@@ -284,6 +296,21 @@ class ScreenTour {
                     rule.runOnUiThread { model.tradeDraft = null; model.procTrade = false }
                     pause()
                 }
+                // 練習試合（挑戦状）と予告先発
+                step("exhibition") {
+                    rule.runOnUiThread { model.procFace = "Exhibition" }
+                    pause(2000)
+                    toTop()
+                    page("procedures-exhibition", scrolls = 1)
+                }
+                step("starters") {
+                    rule.runOnUiThread { model.procFace = "Starters" }
+                    pause(2000)
+                    toTop()
+                    page("procedures-starters", scrolls = 1)
+                }
+                rule.runOnUiThread { model.procFace = "Current" }
+                pause()
             }
             else -> {
                 tab("Procedures")

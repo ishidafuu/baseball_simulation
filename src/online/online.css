@@ -3494,16 +3494,17 @@ small.online-gain:not(:where(.online-sp *)) {
 }
 /* ⚠ **背の低い画面では左メニューを詰める**。1280×800 の画面だと中身が 863px あり、
    一番下の「リーグ管理」が画面の外に出ていた（メニューをスクロールしないと見えず、
-   スクロールできることにも気づけない）。行の高さと区切りの余白だけを詰め、文字は変えない */
+   スクロールできることにも気づけない）。行の高さと区切りの余白だけを詰め、文字は変えない。
+   ⚠ 2026-11-14 に「取引の記録」「予告先発」「練習試合」を足したので、行をもう 2px 詰めた（28→26px） */
 @media (max-height: 900px) {
   .online-desktop .online-page-nav {
     padding-top: 14px;
     padding-bottom: 14px;
   }
   .online-desktop .online-page-nav button {
-    min-height: 28px;
-    padding-top: 3px;
-    padding-bottom: 3px;
+    min-height: 26px;
+    padding-top: 2px;
+    padding-bottom: 2px;
   }
   .online-desktop .online-nav-group,
   .online-desktop .online-nav-home {

@@ -88,6 +88,8 @@ try {
       data = projectPlayerInfo({ league }, 'a', url.searchParams.get('id'));
     else if (action === 'team')
       data = projectTeamInfo({ league }, 'a', url.searchParams.get('team'));
+    // 来たことの知らせ（画面を開くと送る。版は上がらない）
+    else if (action === 'presence') data = { ok: true };
     else if (action === 'command') {
       const command = route.request().postDataJSON();
       assert.equal(command.type, 'lineup');

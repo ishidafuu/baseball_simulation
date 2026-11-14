@@ -346,6 +346,9 @@ async function scene(width, height = 844, scale = 1, holdDetail = false) {
         releaseDetail = resolve;
       });
     }
+    // 来たことの知らせ（`presence`）は画面を開くと送る。最終ログインを書くだけで版は上がらない
+    if (action === 'presence')
+      return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
     assert.ok(
       ['config', 'view', 'player', 'game', 'games', 'team'].includes(action),
       '閲覧だけで更新APIを呼ばない',
@@ -402,7 +405,7 @@ try {
   // ⚠ 名前を変える小窓は 440px（選手の詳細の 760px に押し込まない）。説明は
   //    濃い面の上で読める明るい色（地色用の濃い文字だと読めなかった）
   await p.getByRole('button', { name: '名前を変える', exact: true }).click();
-  const rename = p.getByRole('dialog', { name: '球団名・名前を変える' });
+  const rename = p.getByRole('dialog', { name: '球団名・名前・ひとこと' });
   await rename.waitFor();
   // ⚠ 色は rgb の値そのものではなく、下の面とのコントラスト比で見る。値で縛ると、読める色へ
   //    少し変えただけで落ち、逆に面のほうが明るくなって読めなくなっても気づけない

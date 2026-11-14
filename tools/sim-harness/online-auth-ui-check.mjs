@@ -94,6 +94,9 @@ async function fixture({
     else if (action === 'view') {
       views.push(route.request().headers().authorization);
       value = commands ? gameView : { setupRequired: true, isAdmin: false };
+    } else if (action === 'presence') {
+      // 来たことの知らせ（画面を開くと送る。版は上がらない）
+      value = { ok: true };
     } else if (action === 'logout') {
       logouts++;
       value = { ok: true };
@@ -410,6 +413,8 @@ try {
           body: JSON.stringify({ local: false }),
         });
       if (action === 'view') return route.fulfill(respond());
+      if (action === 'presence')
+        return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
       throw new Error(`unexpected action ${action}`);
     });
     const page = await context.newPage();
