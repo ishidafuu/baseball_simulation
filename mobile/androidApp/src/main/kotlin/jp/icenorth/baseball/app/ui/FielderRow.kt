@@ -187,7 +187,7 @@ fun FielderRow(
             }
             if (player != null) FatigueBadge(player.fatigue)
             if (onInfo != null) IconButton(onClick = onInfo, modifier = Modifier.size(32.dp)) { Text("ⓘ", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (draggable) Icon(Icons.Filled.Menu, contentDescription = "長押しで並べ替え", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+            if (draggable) Icon(Icons.Filled.Menu, contentDescription = "長押しで入れ替え", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
         }
         // 選んでいる行と入れ替えたらどうなるか。⚠ 名前の行に押し込むと名前が「…」で切れ、誰の数字か分からなかった
         //    （いしだ 2026-11-13）。選んでいる間だけ、名前の下に1行使って名前つきで出す

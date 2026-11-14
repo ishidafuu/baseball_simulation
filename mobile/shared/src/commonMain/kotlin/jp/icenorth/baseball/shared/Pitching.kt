@@ -11,12 +11,6 @@ package jp.icenorth.baseball.shared
 data class PitchingState(val starters: List<Long>, val roles: Map<Long, String>) {
     fun isStarterRole(role: String?) = role != null && STARTER_ROLES.containsKey(role)
 
-    fun moveStarter(from: Int, to: Int): PitchingState {
-        if (from == to || from !in starters.indices || to !in starters.indices) return this
-        val next = starters.toMutableList(); next.add(to, next.removeAt(from))
-        return copy(starters = next)
-    }
-
     /** 2人の登板順を入れ替える（間の投手は動かさない。Web の swapStarters と同じ） */
     fun swapStarters(a: Int, b: Int): PitchingState {
         if (a == b || a !in starters.indices || b !in starters.indices) return this

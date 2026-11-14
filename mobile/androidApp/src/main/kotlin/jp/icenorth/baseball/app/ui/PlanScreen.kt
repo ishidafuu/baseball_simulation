@@ -644,13 +644,13 @@ private fun dropPitcher(state: jp.icenorth.baseball.shared.PitchingState, id: Lo
                 val other = target.removePrefix("p:").toLongOrNull() ?: return state
                 val at = state.starters.indexOf(other)
                 when {
-                    at >= 0 && inRotation -> state.moveStarter(state.starters.indexOf(id), at)
+                    at >= 0 && inRotation -> state.swapStarters(state.starters.indexOf(id), at)
                     at >= 0 -> if (state.starters.size < MAX_STARTERS) state.setRole(id, "auto_s", at) else state
                     else -> state.roles[other]?.let { role -> if (state.roles[id] != role) state.setRole(id, role) else state } ?: state
                 }
             }
             target.startsWith("role:") -> state.setRole(id, target.removePrefix("role:"))
-            target == "head:rot" -> if (inRotation) state.moveStarter(state.starters.indexOf(id), 0) else if (state.starters.size < MAX_STARTERS) state.setRole(id, "auto_s", 0) else state
+            target == "head:rot" -> if (inRotation) state.swapStarters(state.starters.indexOf(id), 0) else if (state.starters.size < MAX_STARTERS) state.setRole(id, "auto_s", 0) else state
             else -> state
         }
 }
@@ -788,7 +788,7 @@ private fun PitcherRow(order: String, player: Player?, role: String?, starter: B
         // 疲労は野手の行と同じく、名前の右端の決まった場所に（先発は飛ばす線、救援は休養の線で赤）
         FatigueBadge(player?.fatigue, restAt = if (starter) STARTER_SKIP_FATIGUE else RELIEF_REST_FATIGUE)
         IconButton(onClick = onInfo, modifier = Modifier.size(32.dp)) { Text("ⓘ", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        if (draggable) Icon(Icons.Filled.Menu, contentDescription = "長押しで並べ替え", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+        if (draggable) Icon(Icons.Filled.Menu, contentDescription = "長押しで入れ替え", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
     }
 }
 
