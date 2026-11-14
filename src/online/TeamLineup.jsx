@@ -180,10 +180,12 @@ export function TeamLineupBody({ team, own }) {
 function TeamLineupDialog({ view, team, close }) {
   const dialog = useRef(null);
   const own = team === view.teamName;
-  const result = useRead(own ? null : "team", {
-    team,
-    revision: view.revision,
-  });
+  // ⚠ 版が上がって読み直す間も前の起用を残す（中の選手の小窓が閉じないように）
+  const result = useRead(
+    own ? null : "team",
+    { team, revision: view.revision },
+    { keep: true },
+  );
   const shown = own
     ? view
     : result.data?.teamName === team

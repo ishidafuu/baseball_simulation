@@ -593,10 +593,13 @@ export function TeamPlayerButton({
 }) {
   const [open, setOpen] = useState(false);
   const own = team === view.teamName;
-  const result = useRead(open && !own ? 'team' : null, {
-    team,
-    revision: view.revision,
-  });
+  // ⚠ 版が上がって読み直す間も前の名簿を残す（`keep`）。残さないと開いている小窓が閉じて開き直り、
+  //    スタメンの小窓から開いた選手の小窓は閉じたままになっていた
+  const result = useRead(
+    open && !own ? 'team' : null,
+    { team, revision: view.revision },
+    { keep: true },
+  );
   const roster = own
     ? view.roster
     : result.data?.teamName === team
