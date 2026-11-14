@@ -278,12 +278,16 @@ private fun OrderEditor(
     // 入れ替えた形」を見せる（間の選手は動かない）。
     // ⚠ 1行ずつ「動かす」にしないこと。入れ替えたつもりが下の選手が全員1つずれる、と言われて直した（2026-11）
     var dragBase by remember { mutableStateOf<List<BatterSlot>?>(null) }
+    // ⚠ つかんだときのサーバーの編成（`draft.base`）。ドラッグ中に新しい編成が届いて案が作り直されたら、
+    //    つかんだときの打順を戻さない（戻すと、PCで入れ替えた選手が消えて前の選手が戻っていた。監査 2026-11-14）
+    var dragFrom by remember { mutableStateOf<kotlinx.serialization.json.JsonObject?>(null) }
     val currentSlots by rememberUpdatedState(draft.slots)
+    val currentBase by rememberUpdatedState(draft.base)
     val reorder = rememberReorderableLazyListState(listState) { from, to ->
         val a = (from.key as? String)?.removePrefix("bat:")?.toLongOrNull() ?: return@rememberReorderableLazyListState
         val b = (to.key as? String)?.removePrefix("bat:")?.toLongOrNull() ?: return@rememberReorderableLazyListState
         edit { d ->
-            val base = dragBase?.takeIf { it.size == d.slots.size } ?: d.slots
+            val base = dragBase?.takeIf { it.size == d.slots.size && dragFrom == d.base } ?: d.slots
             val i = base.indexOfFirst { it.playerId == a }
             val j = d.slots.indexOfFirst { it.playerId == b }
             if (i < 0 || j < 0) d else d.copy(slots = base).swapBatters(i, j)
@@ -396,8 +400,8 @@ private fun OrderEditor(
                         },
                         shadowElevation = elevation,
                         modifier = Modifier.fillMaxWidth().longPressDraggableHandle(
-                            onDragStarted = { dragBase = currentSlots; onDragStart(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
-                            onDragStopped = { dragBase = null },
+                            onDragStarted = { dragBase = currentSlots; dragFrom = currentBase; onDragStart(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                            onDragStopped = { dragBase = null; dragFrom = null },
                         ),
                     ) {
                         FielderRow(
@@ -593,14 +597,17 @@ private fun PitchingEditor(
     // つかんだときの起用。ローテの中で動かす間は「つかんだときの順で、つかんだ人と指の下の人を
     // 入れ替えた形」を見せる（間の投手は動かない。打順のドラッグと同じ）
     var dragBase by remember { mutableStateOf<jp.icenorth.baseball.shared.PitchingState?>(null) }
+    // ⚠ つかんだときのサーバーの編成。途中で新しい編成が届いたら、つかんだときの順を戻さない（打順と同じ）
+    var dragFrom by remember { mutableStateOf<kotlinx.serialization.json.JsonObject?>(null) }
     val currentPitching by rememberUpdatedState(draft.pitching)
+    val currentBase by rememberUpdatedState(draft.base)
     val reorder = rememberReorderableLazyListState(listState) { from, to ->
         val id = (from.key as? String)?.removePrefix("p:")?.toLongOrNull() ?: return@rememberReorderableLazyListState
         val target = to.key as? String ?: return@rememberReorderableLazyListState
-        edit { d -> d.withPitching(swapInRotation(dragBase, d.pitching, id, target) ?: dropPitcher(d.pitching, id, target)) }
+        edit { d -> d.withPitching(swapInRotation(dragBase?.takeIf { dragFrom == d.base }, d.pitching, id, target) ?: dropPitcher(d.pitching, id, target)) }
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
-    PitchingList(view, draft, players, nextId, reorder, listState, { dragBase = currentPitching; onDragStart() }, open, onSheet) { p ->
+    PitchingList(view, draft, players, nextId, reorder, listState, { dragBase = currentPitching; dragFrom = currentBase; onDragStart() }, open, onSheet) { p ->
         clickEdit { it.withPitching(it.pitching.addToStaff(p)) }
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
     }
