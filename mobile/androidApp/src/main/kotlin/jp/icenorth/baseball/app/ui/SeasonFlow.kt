@@ -149,7 +149,8 @@ fun TryoutResultCard(model: AppViewModel, raw: JsonObject?) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(p.at("name").str().orEmpty(), fontWeight = FontWeight.SemiBold)
-                Muted("${positionLabel(p.at("position").str().orEmpty())} · ${p.at("age").int() ?: ""}歳 · ${p.at("round").int() ?: ""}巡目")
+                // ⚠ 年齢は名簿の今の値（結果の年齢はトライアウト時点で、年度更新で1つ上がる）。Web 版 TryoutResult.jsx
+                Muted("${positionLabel(p.at("position").str().orEmpty())} · ${player?.age ?: p.at("age").int() ?: ""}歳 · ${p.at("round").int() ?: ""}巡目")
                 val wish = p.at("wish").int()
                 Text(
                     if (wish != null) "交渉${wish}位" else "自動",

@@ -6,7 +6,7 @@ import { resolveTraining, playerWish, describeMood, recommendedPolicy } from '..
 import { clampMenu, clampSub } from '../../src/online/campMenus.js';
 import {
   plannedPicks, weightedRanked, DEFAULT_WEIGHTS, addToPlan, removeFromPlan, shiftInPlan, moveInPlan, planSummary,
-  signTotal, wishedCount,
+  signTotal, wishedCount, minimumShort,
 } from '../../src/online/tryoutPlan.js';
 
 const view = JSON.parse(fs.readFileSync(new URL('../shared/src/jvmTest/resources/view-running.json', import.meta.url)));
@@ -33,6 +33,10 @@ const shifted = shiftInPlan(ranked, 2, -1);
 const moved = moveInPlan(ranked, ranked.at(-1), 0);
 // 獲得する人数（無ければ空き枠いっぱい・範囲に収める）と、交渉から取りにいく人数
 const totals = [signTotal({}, 7), signTotal({ total: 3 }, 7), signTotal({ total: 20 }, 7), signTotal({ total: -1 }, 7), wishedCount(ranked, 4)];
+// 最低限に足りない人数（画面の「獲得後の名簿」）: 投手だけ3人／捕手のいない野手だけ／そろった名簿
+const pitchersOnly = roster.filter((p) => p.position === 'pitcher').slice(0, 3);
+const noCatcher = roster.filter((p) => p.position !== 'pitcher' && p.position !== 'catcher').slice(0, 9);
+const shorts = [minimumShort(pitchersOnly, []), minimumShort(noCatcher, []), minimumShort(roster, [])];
 const summary = planSummary(ranked, candidates, count, have);
 // 注意（warnings）は獲得したあとの名簿で数える。上の例は野手が足りず注意が出ないので、
 // 名簿に投手がそろっている場合（注意なし）と、投手が3人しかいない場合（注意あり）も比べる
@@ -42,7 +46,7 @@ const fewPitchers = (() => {
   const pool = roster.slice(11);
   return planSummary(weightedRanked(pool, DEFAULT_WEIGHTS, own), pool, pool.length, own);
 })();
-const text = JSON.stringify({ camp, wish, recommended, tryout: { ranked, picks, added, removed, shifted, moved, totals, blocking: summary.blocking, warnings: summary.warnings, warningCases: [fullStaff.warnings, fewPitchers.warnings] } });
+const text = JSON.stringify({ camp, wish, recommended, tryout: { ranked, picks, added, removed, shifted, moved, totals, shorts, blocking: summary.blocking, warnings: summary.warnings, warningCases: [fullStaff.warnings, fewPitchers.warnings] } });
 // --check: 書き出し済みの期待値が今の Web 版の答えと同じか（CI で、Web 版だけ直したときに気づく）
 if (process.argv.includes('--check')) {
   const file = new URL('../shared/src/jvmTest/resources/logic-expected.json', import.meta.url);

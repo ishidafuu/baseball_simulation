@@ -15,6 +15,7 @@ import {
   wishLimit,
   signTotal,
   wishedCount,
+  minimumShort,
   TRYOUT_WISH_MAX,
   WEIGHT_FIELDS,
   WEIGHT_MAX,
@@ -119,15 +120,6 @@ function Line({ player, score, fit }) {
       </small>
     </>
   );
-}
-
-/** 名簿＋交渉で取る人で、最低限（投手1・捕手1・野手8）に足りない人数（サーバーの `shortfall` と同じ数え方） */
-function minimumShort(roster, picked) {
-  const list = [...(roster || []), ...picked];
-  const pitcher = list.some((p) => p.position === 'pitcher') ? 0 : 1;
-  const catcher = list.some((p) => p.position === 'catcher');
-  const fielders = list.filter((p) => p.position !== 'pitcher').length;
-  return pitcher + Math.max(8 - fielders, catcher ? 0 : 1);
 }
 
 export default function TryoutPlanner({

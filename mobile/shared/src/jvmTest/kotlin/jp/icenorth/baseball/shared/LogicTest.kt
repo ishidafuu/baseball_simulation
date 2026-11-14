@@ -57,6 +57,11 @@ class LogicTest {
             wishedCount(ranked, 4),
         )
         assertEquals(expected.at("tryout", "totals").list().map { it.int() }, totals)
+        // 最低限に足りない人数（画面の「獲得後の名簿」）。Web 版 tryoutPlan.js の minimumShort
+        val pitchersOnly = roster.filter { it.at("position").str() == "pitcher" }.take(3)
+        val noCatcher = roster.filter { it.at("position").str() != "pitcher" && it.at("position").str() != "catcher" }.take(9)
+        val shorts = listOf(minimumShort(pitchersOnly, emptyList()), minimumShort(noCatcher, emptyList()), minimumShort(roster, emptyList()))
+        assertEquals(expected.at("tryout", "shorts").list().map { it.int() }, shorts)
         val summary = planSummary(ranked, candidates, 6, have)
         assertEquals(expected.at("tryout", "warnings").list().map { it.str() }, summary.warnings)
         // 注意は獲得したあとの名簿で数える（投手がそろっている／投手が3人だけ）

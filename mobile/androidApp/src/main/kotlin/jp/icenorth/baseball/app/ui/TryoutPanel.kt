@@ -43,6 +43,7 @@ import jp.icenorth.baseball.shared.addToPlan
 import jp.icenorth.baseball.shared.at
 import jp.icenorth.baseball.shared.inTryoutGroup
 import jp.icenorth.baseball.shared.list
+import jp.icenorth.baseball.shared.minimumShort
 import jp.icenorth.baseball.shared.long
 import jp.icenorth.baseball.shared.obj
 import jp.icenorth.baseball.shared.overallScore
@@ -58,6 +59,7 @@ import jp.icenorth.baseball.shared.weightedScore
 import jp.icenorth.baseball.shared.wishLimit
 import jp.icenorth.baseball.shared.wishedCount
 import kotlinx.serialization.json.JsonObject
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 private const val PAGE = 12
@@ -133,7 +135,8 @@ fun TryoutPanel(
                 ranked.size > total -> "交渉した${ranked.size}人のうち、上位から${total}人を取ります。取られたら下位が繰り上がります。"
                 autoFill > 0 -> "交渉した${count}人に、自動で${autoFill}人を足して${total}人獲得します。"
                 else -> "交渉した${count}人を獲得します。"
-            } + "獲得後の名簿は${roster.size + total}人です。",
+            // ⚠ 最低限（投1・捕1・野8）に届かないぶんはサーバーが人数を超えて補うので、その分も足す（Web 版と同じ）
+            } + "獲得後の名簿は${roster.size + max(total, summary.picked.size + minimumShort(roster, summary.picked))}人です。",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
         )

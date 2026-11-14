@@ -45,7 +45,9 @@ export default function TryoutResult({ view }) {
                   <small>{POS[p.position]}</small>
                 </span>
                 <span className="online-camp-gain-items">
-                  <span>{p.age}歳</span>
+                  {/* ⚠ 年齢は名簿の今の値を出す。結果の年齢はトライアウト時点（11/10）で、
+                      11/30 の年度更新で1つ上がるので、キャンプや翌シーズンには1つ若く出ていた */}
+                  <span>{player?.age ?? p.age}歳</span>
                   <span>{p.round}巡目</span>
                   <strong className={p.wish ? 'is-wish' : undefined}>
                     {p.wish ? `交渉${p.wish}位` : '自動'}

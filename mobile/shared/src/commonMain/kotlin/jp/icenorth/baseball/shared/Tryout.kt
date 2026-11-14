@@ -183,7 +183,19 @@ fun moveInPlan(rankedIds: List<Long>, id: Long, to: Int): List<Long> {
 
 data class PlanSummary(val counts: Map<String, Int>, val picked: List<JsonObject>, val blocking: List<String>, val warnings: List<String>)
 
-/** 獲得予定の内訳と、成り立たない点（サーバーが拒む条件）・物足りない点 */
+/**
+ * 名簿＋交渉で取る人で、最低限（投手1・捕手1・野手8）に足りない人数。サーバーはこの分だけ
+ * 獲得する人数を超えて補う。Web 版 TryoutPlanner.jsx の `minimumShort`（サーバーの `shortfall` と同じ数え方）
+ */
+fun minimumShort(roster: List<JsonObject>, picked: List<JsonObject>): Int {
+    val list = roster + picked
+    val pitcher = if (list.any { it.at("position").str() == "pitcher" }) 0 else 1
+    val catcher = list.any { it.at("position").str() == "catcher" }
+    val fielders = list.count { it.at("position").str() != "pitcher" }
+    return pitcher + max(8 - fielders, if (catcher) 0 else 1)
+}
+
+/** 獲得予定の内訳と、成り立たない点（足りない守備位置はサーバーが自動で補う）・物足りない点 */
 fun planSummary(rankedIds: List<Long>, candidates: List<JsonObject>, count: Int, roster: List<JsonObject>): PlanSummary {
     val picked = plannedPicks(rankedIds, candidates, count, roster)
     val counts = rosterCounts(picked)

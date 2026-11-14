@@ -1,11 +1,10 @@
 // 初期編成・トライアウトの希望リストを組み立てる計算の検査。
 //
 // ⚠ 主目的は「**画面の操作が、サーバーの受け取れる提出を壊さないこと**」。
-//    提出は `{ count, rankedIds }` で、サーバーは
-//    「重複なし・全員が候補・rankedIds は count 以上」を求める。
+//    提出は `{ count, rankedIds, total }` で、サーバーは
+//    「重複なし・全員が候補・交渉は10人まで・rankedIds は count 以上」を求める
+//    （`total`・`count` が空き枠を超えるのは弾かず空き枠に切る）。
 //    画面側で1人でも落とすと、その場では気づかず**提出の瞬間だけ弾かれる**。
-// ⚠ 「控えへ」は**消さずに末尾へ回すこと**。消すと、他球団と競合したときに
-//    繰り上がる相手がいなくなり、人数を取りこぼす。
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

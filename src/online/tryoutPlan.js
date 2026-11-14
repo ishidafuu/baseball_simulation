@@ -75,6 +75,19 @@ export function signTotal(plan, maxCount) {
   return Number.isInteger(total) ? Math.max(0, Math.min(room, total)) : room;
 }
 
+/**
+ * 名簿＋交渉で取る人で、最低限（投手1・捕手1・野手8）に足りない人数（サーバーの `shortfall` と同じ数え方）。
+ * サーバーはこの分だけ獲得する人数を超えて補うので、画面の「獲得後の名簿」に足す。
+ * ⚠ アプリの `Tryout.kt` の `minimumShort` と同じ式（`expect-logic` で突き合わせる）
+ */
+export function minimumShort(roster, picked) {
+  const list = [...(roster || []), ...picked];
+  const pitcher = list.some((p) => p.position === 'pitcher') ? 0 : 1;
+  const catcher = list.some((p) => p.position === 'catcher');
+  const fielders = list.filter((p) => p.position !== 'pitcher').length;
+  return pitcher + Math.max(8 - fielders, catcher ? 0 : 1);
+}
+
 /** 交渉した選手のうち、取りにいく人数（獲得する人数と交渉した人数の小さい方） */
 export function wishedCount(rankedIds, total) {
   return Math.max(0, Math.min(rankedIds.length, total));
