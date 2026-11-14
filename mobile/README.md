@@ -28,9 +28,12 @@
 - 接続先の既定は本番（`https://baseball-simulation-neon.vercel.app/api/online`）。ログイン画面の「接続先を変える（開発用）」でローカルの開発サーバーにも繋げる（エミュレーターから PC へは `http://10.0.2.2:3002/`）。
 - ログインは Web 版と同じアカウント。1アカウントで同時に操作できるのは**ブラウザ1台とアプリ1台**まで（`server/sessions.mjs`）。アプリはログインのときに `client: "app"` を送る。同じ種類の別の端末でログインすると、前の端末だけが閲覧のみになる。
 
+- 試合結果の通知は端末の中で出す（サーバーからは送らない）。WorkManager がおよそ15分ごとに裏で `view` を `since` 付きで読み（`ResultWorker`）、ビューの `recentGames`（自球団の直近5試合）にアプリで見ていない試合があれば1つの通知にまとめて出す（`shared/.../ResultNotice.kt`）。アプリが前に出ている間は読まない。ホームのメニューの「試合結果を通知」で切り替え、Android 13 以降はログインのあとに一度だけ許可を聞く。トークンの更新は画面と裏で同じ鍵（`AuthLock`）を使う（更新トークンを2か所で使うとログインごと無効になるため）。
+
 ## サーバーとの約束（壊さないために）
 
 - アプリは `?action=login / refresh / view / defaults / team / player / games / game / command` を使う。ビューの項目名を変えるとアプリが壊れる。
+- ビューの `recentGames`（`server/projection.mjs` の `ownRecentGames`）は試合結果の通知が読む。`id`・`date`・`number`・`home`・`away`・スコアの名前を変えないこと。
 - `view` には手元のビューの世代 `since`（ビューの `viewGeneration`）を添える。世代が同じ（かつ保存の版が今のサーバーと同じ）なら、サーバーはビューを送らず `{ unchanged: true, viewGeneration, writable }` だけ返す（`server/leagueService.mjs` の `view`）。アプリはこのとき `writable`（書き込めるか）だけを合わせる。世代を持たない保存先（開発サーバーの `FileStore`）は `since` を無視して毎回全部返す。
 - `command` の返事の `view` は最新のビューで、`view.viewGeneration` に公開した世代が入る（`server/storage/supabaseStore.mjs`）。アプリは読み直さずにこれを使い、次の `since` にする。返事に `view` が無ければ読み直す。
 - `games` は `year`・`page`・`scope`（`own` / `league`）・`size`（1〜200。既定は6）を受ける。紙面は `size=200` で自球団の1シーズンを1回で読む（`OWN_HISTORY_PAGE`）。

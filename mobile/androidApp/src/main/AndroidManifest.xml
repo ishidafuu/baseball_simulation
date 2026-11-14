@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 試合結果の通知（Android 13 以降は使う人の許可が要る。ResultNotifier） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- ⚠ usesCleartextTraffic はローカルの開発サーバー（http://10.0.2.2:3002 など）に繋ぐため。
          本番は https なので影響しない。ストアに出すときは debug ビルドだけに絞る -->

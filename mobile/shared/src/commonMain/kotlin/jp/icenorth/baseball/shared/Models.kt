@@ -34,6 +34,8 @@ data class LeagueView(
     /** 球団ごとの今の連勝・連敗（server/projection.mjs teamStreaks）。古いサーバーには無い */
     val teamStreaks: Map<String, TeamStreak> = emptyMap(),
     val results: List<GameResult> = emptyList(),
+    /** 自球団の直近5試合（古い順。server/projection.mjs の ownRecentGames）。試合結果の通知に使う */
+    val recentGames: List<OwnGame> = emptyList(),
     val nextGames: List<ScheduledGame> = emptyList(),
     val roster: List<Player> = emptyList(),
     val lineup: JsonObject? = null,
@@ -98,6 +100,24 @@ data class GameResult(
     val awayScore: Int? = null,
     val decisions: Decisions? = null,
 )
+
+/** 自球団の直近の試合（ビューの `recentGames`） */
+@Serializable
+data class OwnGame(
+    val id: Long? = null,
+    val date: GameDate? = null,
+    val number: Int? = null,
+    val home: String,
+    val away: String,
+    val homeScore: Int? = null,
+    val awayScore: Int? = null,
+    val decisions: Decisions? = null,
+    /** 本塁打（打った人と何号）。記録の無い試合では null */
+    val homeruns: List<OwnHomerun>? = null,
+)
+
+@Serializable
+data class OwnHomerun(val name: String? = null, val team: String? = null, val number: Int? = null)
 
 @Serializable
 data class StarterInfo(

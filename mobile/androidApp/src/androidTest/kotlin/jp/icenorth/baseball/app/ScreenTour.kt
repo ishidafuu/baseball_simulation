@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
+import android.Manifest
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.rule.GrantPermissionRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -39,7 +41,11 @@ import org.junit.runner.RunWith
 @OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class ScreenTour {
-    @get:Rule
+    // ⚠ 通知の許可を先に与えておく（ログインのあとに許可の窓が出て、スクショを隠すため）
+    @get:Rule(order = 0)
+    val notify: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    @get:Rule(order = 1)
     val rule = createAndroidComposeRule<MainActivity>()
 
     private val stage = InstrumentationRegistry.getArguments().getString("stage") ?: "running"

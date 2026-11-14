@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知の小さいアイコン（白一色。端末が色を付ける）。野球ボール -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M12,2a10,10 0,1 0,0 20a10,10 0,1 0,0 -20zM7.2,5.4c1.9,2.9 1.9,10.3 0,13.2a8,8 0,0 1,0 -13.2zM16.8,5.4a8,8 0,0 1,0 13.2c-1.9,-2.9 -1.9,-10.3 0,-13.2z" />
+</vector>

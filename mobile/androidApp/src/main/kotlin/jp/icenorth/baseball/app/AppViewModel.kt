@@ -12,6 +12,7 @@ import jp.icenorth.baseball.shared.AppBuild
 import jp.icenorth.baseball.shared.EditHistory
 import jp.icenorth.baseball.shared.LatestApp
 import jp.icenorth.baseball.shared.fetchLatestApp
+import jp.icenorth.baseball.shared.resultKeys
 import jp.icenorth.baseball.shared.findRosterPlayer
 import jp.icenorth.baseball.shared.PlanDraft
 import jp.icenorth.baseball.shared.Wish
@@ -28,7 +29,6 @@ import jp.icenorth.baseball.shared.at
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -289,7 +289,8 @@ class AppViewModel internal constructor(
     private var viewRequestEpoch = 0L
 
     /** トークンの更新を1本にまとめる（同時に読み込むと同じ更新トークンで2回更新しにいくため） */
-    private val refreshLock = Mutex()
+    // ⚠ 裏の試合結果の確認（ResultWorker）と同じ鍵。更新トークンを2か所で別々に使うとログインごと無効になる
+    private val refreshLock = AuthLock.mutex
 
     // ⚠ init（起動時の読み込み）より前に置く。後ろに置くと、読み込みが走ったあとで初期値に戻される
     /**
@@ -376,6 +377,7 @@ class AppViewModel internal constructor(
                 store.auth = next
                 auth = next
                 load(next, epoch, readEpoch)
+                ResultNotifier.sync(getApplication<Application>(), store)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -420,6 +422,7 @@ class AppViewModel internal constructor(
         message = null
         error = null
         clearCaches()
+        ResultNotifier.sync(getApplication<Application>(), store)
         if (current != null) viewModelScope.launch { runCatching { client.logout(current) } }
     }
 
@@ -609,6 +612,38 @@ class AppViewModel internal constructor(
         // 古いサーバーの返事には無いので、そのときは null にして次は全部読む
         viewGeneration = raw?.get("viewGeneration")?.jsonPrimitive?.longOrNull
         store.viewJson = text
+        markResultsSeen()
+    }
+
+    /** 試合結果を通知するか（ホームのメニュー）。端末の許可が無いときは画面が許可をお願いする */
+    var resultNotify by mutableStateOf(store.resultNotify)
+        private set
+
+    fun changeResultNotify(on: Boolean) {
+        resultNotify = on
+        store.resultNotify = on
+        ResultNotifier.sync(getApplication<Application>(), store)
+    }
+
+    /** 通知の許可を一度お願いしたか（ログインのあとに一度だけ自分から聞く） */
+    var notifyAsked: Boolean
+        get() = store.notifyAsked
+        set(value) { store.notifyAsked = value }
+
+    /**
+     * 画面で見た試合に印を付ける（裏の確認で同じ試合を知らせない）。出ている通知も消す。
+     * ⚠ 画面に出したビューの試合だけ。ビューが変わっていなくても（世代が同じ）、前に付けた印のままでよい
+     */
+    fun markResultsSeen() {
+        val v = view ?: return
+        if (v.teamName == null) return
+        val keys = resultKeys(v)
+        store.seenResults = keys
+        // ⚠ 知らせ済みは足すだけ（手元のビューが裏で読んだものより古いことがある。置き換えると同じ試合をもう一度鳴らす）。
+        //    裏の確認はいまの直近の試合に置き換えるので、通知を切っている間だけ増えすぎないよう切る
+        val notified = store.notifiedResults.orEmpty() + keys
+        store.notifiedResults = if (notified.size > 30) keys else notified
+        ResultNotifier.clear(getApplication<Application>())
     }
 
     private fun clearCaches() {
@@ -624,6 +659,12 @@ class AppViewModel internal constructor(
         // ほかの呼び出しが待っている間に更新を済ませていたら、それを使う
         val latest = auth
         if (latest != null && latest.accessToken != current.accessToken) return@withLock latest
+        // 裏の確認（ResultWorker）が更新を済ませて端末に残していたら、それを使う（古い更新トークンで更新しない）
+        val stored = store.auth
+        if (stored != null && stored.userId == current.userId && stored.sessionId == current.sessionId && stored.accessToken != current.accessToken) {
+            auth = stored
+            return@withLock stored
+        }
         refreshOnce(current, epoch, force)
     }
 

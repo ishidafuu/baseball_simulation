@@ -97,6 +97,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 試合結果の通知（裏で15分ごとに確かめる。ResultWorker）
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    testImplementation("androidx.work:work-testing:2.10.1")
 
     // 画面の見回り（スクショ）用
     androidTestImplementation(composeBom)
@@ -104,6 +107,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 
     // 長押しドラッグでの並べ替え（LazyColumn 用）

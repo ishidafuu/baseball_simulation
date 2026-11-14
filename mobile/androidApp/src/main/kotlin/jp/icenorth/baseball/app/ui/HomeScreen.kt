@@ -29,9 +29,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import jp.icenorth.baseball.app.AppViewModel
+import jp.icenorth.baseball.app.ResultNotifier
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import android.Manifest
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -352,6 +359,13 @@ private fun ChronicleHeading(text: String) {
 @Composable
 private fun HomeMenu(model: AppViewModel, style: HomeStyle, onRename: () -> Unit, onOpenTips: () -> Unit, tipsNow: Int, onOpenBack: () -> Unit, onOpenChronicle: () -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    // メニューを開くたびに端末の許可を見直す（設定の画面で切り替えて戻ってきたとき）
+    val notifyOn = remember(open, model.resultNotify) { model.resultNotify && ResultNotifier.permitted(context) }
+    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        model.changeResultNotify(granted)
+        if (!granted) model.message = "通知が許可されませんでした。端末の設定で許可すると届きます"
+    }
     // ⚠ ログアウトは確かめてから（メニューの一番下で押し間違えやすく、戻るにはメールとパスワードを入れ直す）
     var askLogout by remember { mutableStateOf(false) }
     if (askLogout) {
@@ -381,6 +395,28 @@ private fun HomeMenu(model: AppViewModel, style: HomeStyle, onRename: () -> Unit
                     onClick = { open = false; model.changeHomeStyle(s.name) },
                 )
             }
+            HorizontalDivider()
+            // 試合結果の通知（裏でおよそ15分ごとに確かめる。ResultNotifier）。端末が許していなければ「○」
+            DropdownMenuItem(
+                text = { Text((if (notifyOn) "● " else "○ ") + "試合結果を通知") },
+                onClick = {
+                    open = false
+                    when {
+                        notifyOn -> model.changeResultNotify(false)
+                        ResultNotifier.needsPermission(context) -> askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        !ResultNotifier.permitted(context) -> {
+                            // 端末の設定で通知を切っている（許可の窓では入れられない）→ アプリの通知の設定を開く
+                            model.changeResultNotify(true)
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            }
+                        }
+                        else -> model.changeResultNotify(true)
+                    }
+                },
+            )
             HorizontalDivider()
             DropdownMenuItem(text = { Text("ログアウト") }, onClick = { open = false; askLogout = true })
         }
