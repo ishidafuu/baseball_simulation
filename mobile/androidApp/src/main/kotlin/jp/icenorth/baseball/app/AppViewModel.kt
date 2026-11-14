@@ -688,8 +688,13 @@ class AppViewModel internal constructor(
             if (head?.get("unchanged")?.jsonPrimitive?.booleanOrNull == true) {
                 // 書き込めるかどうか（保守中など）だけは世代と関係なく変わるので合わせる
                 head["writable"]?.jsonPrimitive?.booleanOrNull?.let { w -> if (view?.writable != w) view = view?.copy(writable = w) }
-                // 何も変わっていない（留守中のまとめも無い）
-                visit = null
+                // ⚠ サーバーでは変わっていなくても、留守中のまとめは作る。裏の試合結果の確認（ResultWorker）が
+                //    端末のビューを新しくしていると、起動した時点で手元のビューがもう最新になっている
+                //    （そのときは前に画面に出したビューの要点 shownDigest と比べる）。同じなら何も出ない
+                if (visit != null) {
+                    finishVisit()
+                    raw?.let { store.shownDigest = awayDigest(it).toString() }
+                }
                 return
             }
         }

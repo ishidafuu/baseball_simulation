@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -380,6 +381,33 @@ class AppViewModelTest {
         assertNull(model.view)
         assertNull(SessionStore(app).auth)
         assertNull(SessionStore(app).viewJson)
+    }
+
+    /**
+     * 裏の試合結果の確認が端末のビューを新しくしていて、起動したらサーバーは「変わっていない」と返す。
+     * それでも、前に画面に出したビューと比べて留守中のまとめを出す（以前は何も出なかった）
+     */
+    @Test fun awaySummaryAfterTheWorkerRefreshedTheStoredView() {
+        val shown = """{"revision":1,"viewGeneration":1,"teamName":"team","writable":true,"standings":[{"team":"team","wins":10,"losses":5,"gamesPlayed":15}]}"""
+        val stored = """{"revision":4,"viewGeneration":4,"teamName":"team","writable":true,"standings":[{"team":"team","wins":12,"losses":6,"gamesPlayed":18}]}"""
+        app.getSharedPreferences("online", 0).edit()
+            .putString("auth", AUTH)
+            .putString("view", stored)
+            .putString("shownDigest", jp.icenorth.baseball.shared.awayDigest(jp.icenorth.baseball.shared.OnlineJson.parseToJsonElement(shown).jsonObject).toString())
+            .putLong("shownAt", System.currentTimeMillis() - 60 * 60_000L)
+            .commit()
+        var sinceSent: String? = null
+        model = AppViewModel(app) { endpoint ->
+            val client = HttpClient(MockEngine { request ->
+                if (request.url.parameters["action"] == "view") sinceSent = request.url.parameters["since"]
+                respond("""{"unchanged":true,"viewGeneration":4,"writable":true}""", HttpStatusCode.OK, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            })
+            clients.add(client)
+            OnlineApi(endpoint, client)
+        }
+        until { model.away != null }
+        assertEquals("4", sinceSent)
+        assertEquals(listOf("3試合 2勝1敗"), model.away!!.lines.take(1))
     }
 
     private fun idle() {
