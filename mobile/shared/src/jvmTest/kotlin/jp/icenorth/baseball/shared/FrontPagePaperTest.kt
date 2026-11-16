@@ -80,8 +80,9 @@ class FrontPagePaperTest {
         assertTrue(p.frontArticles!!.none { it.link == LINK_TIPS })
         assertNotNull(p.column)
         // 写真の影絵（負けた日はうなだれる選手）
-        assertEquals(if (p.tone == FrontPage.Tone.Lose) SCENE_DOWN else p.scene, p.scene)
-        assertNotNull(p.scene)
+        // 試合のデータは負けた日（静岡 7―6 宮崎）
+        assertEquals(FrontPage.Tone.Lose, p.tone)
+        assertEquals(SCENE_DOWN, p.scene)
         assertTrue(p.shots.isNotEmpty() && p.shots.all { g -> g.all { it.matches(Regex("s(0[1-9]|1[0-9]|2[0-2])")) } })
     }
 
@@ -95,7 +96,8 @@ class FrontPagePaperTest {
 
     @Test
     fun sealedClearsResults() {
-        val p = local().sealedForQuick()
+        val open = local()
+        val p = open.sealedForQuick()
         assertTrue(p.sealed)
         assertNull(p.teamPage)
         assertNull(p.recordPage)
@@ -104,6 +106,136 @@ class FrontPagePaperTest {
         assertTrue(p.results.isEmpty())
         assertNull(p.scene)
         assertTrue(p.shots.isEmpty())
+        // 伏せた紙面のどの文にも、結果の分かること（得点・相手・主役・見出し）が残っていない。
+        // ⚠ 項目を1つずつ並べず、紙面の文を全部集めて調べる（項目を足したときに伏せ忘れても落ちる）
+        val score = assertNotNull(open.score)
+        val hero = assertNotNull(open.hero)
+        val texts = allStrings(p)
+        assertTrue(texts.isNotEmpty())
+        val scoreLine = Regex("(^|\\D)(${score.awayScore}\\s*[―\\-－–]\\s*${score.homeScore}|${score.homeScore}\\s*[―\\-－–]\\s*${score.awayScore})(\\D|$)")
+        val opp = if (score.home == view.teamShort(view.teamName!!)) score.away else score.home
+        val leaks = listOf(opp, familyName(hero.name), open.headline) + listOfNotNull(open.bigHead, open.caption, open.subhead)
+        texts.forEach { t ->
+            assertFalse(scoreLine.containsMatchIn(t), "得点が残っている: $t")
+            leaks.forEach { w -> assertFalse(w in t, "「$w」が残っている: $t") }
+        }
+    }
+
+    /** 紙面の中の文を全部（入れ子の項目・一覧・組も辿る） */
+    private fun allStrings(root: Any?): List<String> {
+        val out = mutableListOf<String>()
+        fun walk(o: Any?) {
+            when (o) {
+                null, is Number, is Boolean, is Enum<*> -> {}
+                is String -> out += o
+                is Collection<*> -> o.forEach(::walk)
+                is Map<*, *> -> o.forEach { (k, v) -> walk(k); walk(v) }
+                is Pair<*, *> -> { walk(o.first); walk(o.second) }
+                is Triple<*, *, *> -> { walk(o.first); walk(o.second); walk(o.third) }
+                else -> {
+                    val c = o.javaClass
+                    check(c.name.startsWith("jp.icenorth.baseball.shared.")) { "辿れない型: ${c.name}" }
+                    c.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.forEach { f ->
+                        f.isAccessible = true
+                        walk(f.get(o))
+                    }
+                }
+            }
+        }
+        walk(root)
+        return out
+    }
+
+    @Test
+    fun interviewIsNotDuplicated() {
+        // 監督がいなくても、持ち主の呼び名を監督として一問一答を作る。そのときも1面の「ひと言」を2面に重ねない
+        val noCoach = view.copy(staff = null, members = listOf(Member(label = "いしだ", teamName = view.teamName)))
+        val p = buildFrontPage(noCoach, raw, game, history = history.first, historyComplete = history.second)
+        val t = assertNotNull(p.teamPage)
+        val iv = assertNotNull(t.interview)
+        assertEquals("いしだ監督", iv.speaker)
+        assertTrue(t.articles.none { it.kicker == "ひと言" }, t.articles.joinToString { it.title })
+        assertTrue(t.articles.none { it.title == iv.title })
+        // 監督がいる日も同じ
+        val q = local().teamPage!!
+        assertNotNull(q.interview)
+        assertTrue(q.articles.none { it.kicker == "ひと言" })
+        // 話し手がいない（一問一答を作れない）日は、「ひと言」を2面に残す
+        val nobody = view.copy(staff = null, members = emptyList())
+        val r = buildFrontPage(nobody, raw, game, history = history.first, historyComplete = history.second).teamPage!!
+        assertNull(r.interview)
+        assertTrue(r.articles.any { it.kicker == "ひと言" })
+    }
+
+    @Test
+    fun inningsWording() {
+        val p = local()
+        // 文の中は「6回2/3」（⅔ は成績表の回の欄だけ）
+        val prose = allStrings(p.teamPage) + allStrings(p.hero) + listOfNotNull(p.subhead, p.lead)
+        assertTrue(prose.none { '⅓' in it || '⅔' in it }, prose.filter { '⅓' in it || '⅔' in it }.joinToString())
+        assertTrue(p.recordPage!!.boxes[0].pitchers.any { '⅔' in it.ip || '⅓' in it.ip })
+        // 先発の早川は8アウト（2回2/3）で降板
+        assertTrue(p.teamPage!!.interview!!.qa.any { it.first == "――先発の早川は2回2/3で降板。" }, p.teamPage!!.interview!!.qa.toString())
+        // 1死も取れずに降りた日
+        val zero = buildFrontPage(view, raw, withStarterOuts(game, view.teamName!!, "早川 喜一", 0), history = history.first, historyComplete = history.second)
+        assertTrue(zero.teamPage!!.interview!!.qa.any { it.first == "――先発の早川は1死も取れずに降板。" }, zero.teamPage!!.interview!!.qa.toString())
+    }
+
+    /** 試合の詳細の投手のアウトの数を書き換える */
+    private fun withStarterOuts(g: JsonObject, team: String, name: String, outs: Int): JsonObject {
+        fun JsonObject.with(k: String, v: kotlinx.serialization.json.JsonElement) = JsonObject(this + (k to v))
+        val teams = g["teams"]!!.obj()!!
+        val players = teams[team].list().map { e ->
+            val o = e.obj()!!
+            if (o.at("name").str() == name) o.with("pitching", o["pitching"]!!.obj()!!.with("inningsPitched", kotlinx.serialization.json.JsonPrimitive(outs))) else o
+        }
+        return g.with("teams", teams.with(team, kotlinx.serialization.json.JsonArray(players)))
+    }
+
+    @Test
+    fun inningsProse() {
+        assertEquals("7回", inningsText(21, InningsStyle.Prose))
+        assertEquals("6回2/3", inningsText(20, InningsStyle.Prose))
+        assertEquals("1/3回", inningsText(1, InningsStyle.Prose))
+        assertEquals("6回2/3を1失点", inningsText(20, InningsStyle.Prose) + allowed(1))
+    }
+
+    @Test
+    fun drawDayHeroTalk() {
+        val loseWords = listOf("粘り切れず悔しい", "勝ちにつながる投球ができなかった", "「次は必ず」", "勝ちにつながらず悔しい", "打てても負けたら意味がない", "唇をかんだ")
+        val pitcher = PaperHero("きょうの主役", "早川 喜一", "投手", listOf("先発" to false), null, "先発で7回を1失点")
+        val batter = PaperHero("きょうの主役", "及川 邦敏", "三塁手", listOf("4打数" to false), null, "4打数3安打")
+        for (seed in 1..30) for (h in listOf(pitcher, batter)) {
+            val a = heroTalk(h, FrontPage.Tone.Draw, Pen(seed))!!
+            loseWords.forEach { w -> assertFalse(w in a.title + a.body, "引き分けの日に負けの談話: ${a.body}") }
+        }
+        assertTrue("先発で7回を1失点" in heroTalk(pitcher, FrontPage.Tone.Draw, Pen(1))!!.body)
+    }
+
+    @Test
+    fun captionWithoutLineScore() {
+        val facts = GameFacts(5, 8, 0, 0, 0, emptyList(), emptyList(), walkOff = true)
+        val s = Situation("宮崎", "那覇", false, 3, 4, 1, 0, 4, facts)
+        val c = photoCaption(FrontPage.Tone.Lose, s, null)!!
+        assertFalse("0回" in c, c)
+        assertFalse("裏に点" in c, c)
+        assertTrue("サヨナラ負け" in c, c)
+        // 回ごとの得点があれば回と点を書く
+        val f2 = GameFacts(5, 8, 0, 0, 0, emptyList(), emptyList(), ourInnings = listOf(0, 0, 0, 0, 0, 0, 3, 0, 0), theirInnings = listOf(0, 0, 0, 2, 0, 0, 0, 0, 2), walkOff = true)
+        val ls = FrontPage.LineScore("宮崎", "那覇", listOf(0, 0, 0, 0, 0, 0, 3, 0, 0), listOf(0, 0, 0, 2, 0, 0, 0, 0, 2), true)
+        assertEquals("▲9回裏に2点を奪われた那覇の球場の得点板", photoCaption(FrontPage.Tone.Lose, s.copyFacts(f2), ls))
+    }
+
+    private fun Situation.copyFacts(f: GameFacts) = Situation(me, opp, home, ours, theirs, streak, brokenStreak, rank, f)
+
+    @Test
+    fun teamMarkAvoidsClash() {
+        val v = LeagueView(
+            teamLabels = mapOf("a" to TeamLabel("宮崎アトラス", "宮崎"), "b" to TeamLabel("宮城ベアーズ", "宮城"), "c" to TeamLabel("那覇シーサーズ", "那覇")),
+        )
+        assertEquals("宮崎", teamMark(v, "a"))
+        assertEquals("宮城", teamMark(v, "b"))
+        assertEquals("那", teamMark(v, "c"))
     }
 
     @Test
@@ -149,5 +281,29 @@ class ReviewTest {
         val ls = FrontPage.LineScore("久留米", "相模原", listOf(1, 0, 0, 0, 3, 1, 1, 0, 0), listOf(3, 0, 0, 0, 0, 1, 0, 0, 0), false)
         val r = reviewOf(s, ls, null, Pen(1))!!
         assertTrue("5回" in r.second, r.second)
+    }
+
+    @Test
+    fun namesTurnsAndTies() {
+        // 宮崎は先攻。1回に先制、2回に逆転され、3回に同点、5回に勝ち越し
+        val s = Situation("宮崎", "那覇", false, 4, 3, 1, 0, 4, null)
+        val ls = FrontPage.LineScore("宮崎", "那覇", listOf(2, 0, 1, 0, 1, 0, 0, 0, 0), listOf(0, 3, 0, 0, 0, 0, 0, 0, 0), false)
+        val body = reviewOf(s, ls, null, Pen(1))!!.second
+        assertTrue("1回に宮崎が2点を挙げて先制" in body, body)
+        assertTrue("2回に那覇が3点を挙げて逆転" in body, body)
+        assertTrue("3回に宮崎が1点を挙げて同点に追いつく" in body, body)
+        assertTrue("5回に宮崎が1点を挙げて勝ち越し" in body, body)
+    }
+
+    @Test
+    fun longGameKeepsTurningPoints() {
+        // 6回の得点のうち、加点・反撃を落としても逆転・同点・勝ち越しは残す
+        val s = Situation("宮崎", "那覇", false, 6, 4, 1, 0, 4, null)
+        val ls = FrontPage.LineScore("宮崎", "那覇", listOf(2, 0, 1, 0, 1, 1, 0, 1, 0), listOf(0, 3, 0, 0, 0, 0, 1, 0, 0), false)
+        val body = reviewOf(s, ls, null, Pen(1))!!.second
+        assertTrue("逆転" in body && "同点に追いつく" in body && "勝ち越し" in body, body)
+        assertFalse("6回に宮崎" in body, body)
+        assertFalse("7回に那覇" in body, body)
+        assertTrue("8回に宮崎" in body, body)
     }
 }

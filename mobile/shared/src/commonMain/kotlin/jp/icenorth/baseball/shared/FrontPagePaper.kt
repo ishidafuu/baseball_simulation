@@ -19,6 +19,8 @@ data class PaperHero(
     val position: String,
     val lines: List<Pair<String, Boolean>>,
     val season: String?,
+    /** 談話の記事の文に入れる成績（「先発で6回2/3を1失点、5奪三振」） */
+    val summary: String,
 )
 
 /** 2面の監督の一問一答 */
@@ -274,10 +276,13 @@ internal fun photoCaption(tone: FrontPage.Tone, s: Situation?, ls: FrontPage.Lin
     s ?: return null
     val f = s.facts
     val park = if (s.home) "本拠地" else "${s.opp}の球場"
-    val innings = ls?.let { maxOf(it.awayRuns.size, it.homeRuns.size) } ?: 0
+    // ⚠ 回ごとの得点が無い（古い試合・読めなかった）ときは、回も点も書かない（「0回裏に点を」にしない）
+    val innings = ls?.let { maxOf(it.awayRuns.size, it.homeRuns.size) }?.takeIf { it > 0 }
+    val lastRuns = f?.theirInnings?.lastOrNull()?.takeIf { it > 0 }
     return "▲" + when {
         f?.walkOff == true && tone == FrontPage.Tone.Win -> "サヨナラ勝ちが決まった${park}の得点板"
-        f?.walkOff == true -> "${innings}回裏に${f.theirInnings?.lastOrNull() ?: ""}点を奪われた${park}の得点板"
+        f?.walkOff == true && innings != null && lastRuns != null -> "${innings}回裏に${lastRuns}点を奪われた${park}の得点板"
+        f?.walkOff == true -> "サヨナラ負けを喫した${park}の得点板"
         tone == FrontPage.Tone.Win && s.theirs == 0 -> "相手の欄に0が並んだ${park}の得点板"
         tone == FrontPage.Tone.Win && f?.winningHit != null -> "${f.winningHit.inning}回に勝ち越した${park}の得点板"
         tone == FrontPage.Tone.Lose && s.ours == 0 -> "0が並んだ${park}の得点板"
@@ -311,7 +316,7 @@ internal fun heroOf(view: LeagueView, game: JsonObject?, team: String, tone: Fro
     val isPitcherLine = pick == ace && (pick.outs >= 15 || !pick.batted) && !(pick == bat && batGood)
     val lines: List<Pair<String, Boolean>> = if (isPitcherLine) listOfNotNull(
         (if (pick.p("gamesStarted") > 0 || pitchingOrder(game, team, players).firstOrNull() == pick) "先発" else "救援") to false,
-        "${inningsText(pick.outs, InningsStyle.Box)}回" to true,
+        inningsText(pick.outs, InningsStyle.Prose) to true,
         "${pick.p("runsAllowed")}失点" to true,
         pick.p("strikeouts").takeIf { it > 0 }?.let { "${it}奪三振" to false },
     ) else listOfNotNull(
@@ -320,6 +325,12 @@ internal fun heroOf(view: LeagueView, game: JsonObject?, team: String, tone: Fro
         pick.b("homeruns").takeIf { it > 0 }?.let { "${it}本塁打" to true },
         pick.b("rbis").takeIf { it > 0 }?.let { "${it}打点" to (it >= 2) },
     )
+    // 談話の記事の文（「先発で6回2/3を1失点、5奪三振」「4打数2安打1本塁打3打点」）
+    val summary = if (isPitcherLine) {
+        val role = if (lines.first().first == "先発") "先発で" else "救援で"
+        role + inningsText(pick.outs, InningsStyle.Prose) + allowed(pick.p("runsAllowed")) +
+            (pick.p("strikeouts").takeIf { it > 0 }?.let { "、${it}奪三振" } ?: "")
+    } else lines.joinToString("") { it.first }
     val season = if (isPitcherLine) roster?.seasonStats?.pitching?.let { "今季 ${it.wins}勝${it.losses}敗" + if (it.saves > 0) "${it.saves}S" else "" }
     else roster?.seasonStats?.batting?.takeIf { it.atBats > 0 }?.let { "今季 ${rate3(it.hits.toDouble() / it.atBats)} ${it.homeruns}本" }
     return PaperHero(
@@ -328,6 +339,7 @@ internal fun heroOf(view: LeagueView, game: JsonObject?, team: String, tone: Fro
         position = POSITION_NOUNS[pick.pos ?: roster?.position] ?: "",
         lines = lines,
         season = season,
+        summary = summary,
     )
 }
 
@@ -378,7 +390,7 @@ internal fun interviewOf(
             61,
         )
     } else if (ace != null && ace.outs >= 18) {
-        qa += "――${familyName(ace.name)}が${inningsText(ace.outs, InningsStyle.Box)}回${ace.runs}失点。" to pen.pick(
+        qa += "――${familyName(ace.name)}が${inningsText(ace.outs, InningsStyle.Prose)}${allowed(ace.runs)}。" to pen.pick(
             when (tone) {
                 FrontPage.Tone.Win -> listOf("試合をつくってくれた。言うことはない", "球に力があった", "捕手とよく話し合えていた")
                 FrontPage.Tone.Lose -> listOf("よく投げた。打線が援護できなかった", "投手を責める試合ではない", "勝たせてあげたかった")
@@ -391,7 +403,8 @@ internal fun interviewOf(
     val order = game?.let { g -> pitchingOrder(g, team, g.at("teams", team).list().mapNotNull { it.obj() }.map { DetailPlayer(it) }) }
     val starter = order?.firstOrNull()
     if (starter != null && starter.outs < 15 && starter.p("runsAllowed") >= 3) {
-        qa += "――先発の${familyName(starter.name)}は${inningsText(starter.outs, InningsStyle.Box)}回で降板。" to when {
+        val early = if (starter.outs == 0) "1死も取れずに降板" else "${inningsText(starter.outs, InningsStyle.Prose)}で降板"
+        qa += "――先発の${familyName(starter.name)}は$early。" to when {
             temper >= 1 -> pen.pick(listOf("あれでは任せられない。次は考える", "試合を壊した。反省してもらう"), 63)
             else -> pen.pick(listOf("本人がいちばん悔しいはず。次も任せる", "調子が悪い日もある。切り替えてほしい"), 63)
         }
@@ -426,14 +439,17 @@ internal fun heroTalk(hero: PaperHero?, tone: FrontPage.Tone, pen: Pen): FrontPa
             pen.pick(listOf("「次の登板も同じように投げたい」と話した。", "「まだまだ良くなる」と気を引き締めた。"), 71)
         tone == FrontPage.Tone.Win -> pen.pick(listOf("打てる球を待てている", "甘い球をしっかり振れた", "チームの勝ちに貢献できてうれしい", "とにかく必死でした"), 70) to
             pen.pick(listOf("「チームが勝つ打点を挙げたい」と次戦を見据えた。", "「明日も打てるよう準備します」と笑顔を見せた。", "「調子はいい」と手応えを口にした。"), 71)
+        tone == FrontPage.Tone.Draw && pitcher -> pen.pick(listOf("最低限の仕事はできた", "勝ちを付けられず悔しい", "粘り強く投げられた"), 70) to
+            pen.pick(listOf("「次は勝ちにつながる投球を」と話した。", "「負けなかったことを次に生かしたい」と前を向いた。"), 71)
+        tone == FrontPage.Tone.Draw -> pen.pick(listOf("勝ち切りたかった", "あと1本が出ていれば", "打てたのは良かったが、勝ちたかった"), 70) to
+            pen.pick(listOf("「次こそ勝ちにつなげる」と前を向いた。", "「この感覚を次に生かしたい」と話した。"), 71)
         pitcher -> pen.pick(listOf("粘り切れず悔しい", "勝ちにつながる投球ができなかった"), 70) to "「次は必ず」と前を向いた。"
         else -> pen.pick(listOf("勝ちにつながらず悔しい", "打てても負けたら意味がない"), 70) to "「明日こそ勝てるように」と唇をかんだ。"
     }
-    val line = hero.lines.joinToString("") { it.first }
     return FrontPage.Article(
         "ヒーロー",
         "${n}「${quote}」",
-        "この日${line}の${hero.name}は「${quote}」と振り返った。" + (hero.season?.let { "${it.removePrefix("今季 ")}と、今季も数字を残している。" } ?: "") + more,
+        "この日${hero.summary}の${hero.name}は「${quote}」と振り返った。" + (hero.season?.let { "${it.removePrefix("今季 ")}と、今季も数字を残している。" } ?: "") + more,
         LINK_LINEUP,
     )
 }
@@ -521,13 +537,14 @@ internal fun buildTeamPage(
         (0 until minOf(3, starters.size)).mapNotNull { k -> byId[starters[(i + k) % starters.size]]?.name?.let(::familyName) }.joinToString("→").ifEmpty { null }
     }
 
+    val interview = s?.let { interviewOf(view, tone, it, game, team, pen) }
     val articles = mutableListOf<FrontPage.Article>()
     heroTalk(hero, tone, pen)?.let { articles += it }
     opponentReport(view, raw, team, own)?.let { articles += it }
     prospectArticle(view, pen)?.let { articles += it }
-    articles += leftover
-
-    val interview = s?.let { interviewOf(view, tone, it, game, team, pen) }
+    // ⚠ 一問一答を載せた日は1面の「ひと言」を落とす（同じ談話・同じ見出しが2つ並ぶ）。
+    //    監督がいない球団でも、持ち主の呼び名を監督として一問一答を作るので、載せたかどうかで決める
+    articles += if (interview != null) leftover.filter { it.kicker != "ひと言" } else leftover
     return TeamPage(
         section = "${teamNick(view.teamLabel(team), me)}番",
         interview = interview,
@@ -722,7 +739,12 @@ internal fun buildRecordPage(
         val aw = g.at("awayStarter").str()?.let(::familyName) ?: "未定"
         "${view.teamShort(away)}―${view.teamShort(home)}　$aw―$hs" to (home == team || away == team)
     }
-    val probablesTitle = firstDay?.let { d -> d.at("month").int()?.let { m -> "予告先発　${m}月${d.at("day").int()}日" } }
+    // 日付が欠けていれば null（画面は「予告先発」だけ出す）
+    val probablesTitle = firstDay?.let { d ->
+        val m = d.at("month").int()
+        val dd = d.at("day").int()
+        if (m != null && dd != null) "予告先発　${m}月${dd}日" else null
+    }
 
     // 個人成績ベスト5（打率・本塁打・防御率）
     val boards = raw?.at("leaders").list().mapNotNull { it.obj() }

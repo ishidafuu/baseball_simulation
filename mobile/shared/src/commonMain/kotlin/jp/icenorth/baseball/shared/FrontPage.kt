@@ -494,7 +494,7 @@ fun buildFrontPage(
     val hero = heroOf(view, detailGame, team, tone, facts)
     val teamPage = if (!offPhase && last != null) buildTeamPage(
         view, raw, team, me, own, tone, sit, detailGame, hero,
-        leftover = rest.filter { !(it.kicker == "ひと言" && view.staff?.manager != null) },
+        leftover = rest,
         pen = pen,
     ) else null
     val recordPage = if (!offPhase && last != null) buildRecordPage(view, raw, team, sit, detailGame, lineScore, facts, pen) else null
