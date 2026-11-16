@@ -60,6 +60,7 @@ import jp.icenorth.baseball.shared.LINK_GAMES
 import jp.icenorth.baseball.shared.LINK_TIPS
 import jp.icenorth.baseball.shared.RecordPage
 import jp.icenorth.baseball.shared.TeamPage
+import jp.icenorth.baseball.shared.verticalCells
 
 /*
  * ホームの「スポーツ新聞」（新聞風）。アプリのほかの画面は暗い色だが、ここだけ新聞紙の色（生成り）にする。
@@ -308,7 +309,8 @@ private fun PhotoStage(page: FrontPage, accent: Color, modifier: Modifier) {
             // 黄色の袋文字（縦）
             page.bigSub?.takeIf { page.bigHead != null }?.replace("　", "")?.let { sub ->
                 val em = with(density) { 25.sp.toPx() }
-                val per = (avail / em).toInt().coerceAtLeast(4)
+                // 「、。」が列の終わりにぶら下がる分（1マス）を残す
+                val per = ((avail / em).toInt() - 1).coerceAtLeast(4)
                 VerticalText(sub, 25.sp, subFill, Modifier.padding(top = 8.dp, end = 2.dp), per = per, gap = 0.15f, stroke = subStroke to with(density) { 3.dp.toPx() })
             }
             // 縦の大見出し
@@ -335,14 +337,15 @@ private fun LeadBlock(page: FrontPage) {
         val fs = 13.sp
         val em = with(density) { fs.toPx() }
         val per = verticalFit("　$lead", with(density) { leadW.toPx() }, em, 0.6f, minPer = 12)
-        val h = with(density) { (em * per + em * 0.1f).toDp() }
+        // 「、。」が列の終わりにぶら下がる分（1マス）も高さに取る
+        val h = with(density) { (em * (per + 1) + em * 0.1f).toDp() }
         Row(Modifier.fillMaxWidth().height(h), horizontalArrangement = Arrangement.End) {
             page.hero?.let { HeroBox(it, Modifier.width(heroW).fillMaxHeight()) }
             Spacer(Modifier.weight(1f))
             VerticalText("　$lead", fs, Ink, per = per, gap = 0.6f, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Normal)
             page.leadHead?.let {
                 Box(Modifier.padding(start = 6.dp).fillMaxHeight().drawBehind { drawLine(Ink, Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx()) }.padding(start = 5.dp)) {
-                    VerticalText(it, 18.sp, Ink, per = per * 13 / 18, gap = 0.2f, fontFamily = FontFamily.Serif)
+                    VerticalText(it, 18.sp, Ink, per = ((per + 1) * 13 / 18 - 1).coerceAtLeast(1), gap = 0.2f, fontFamily = FontFamily.Serif)
                 }
             }
         }

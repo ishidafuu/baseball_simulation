@@ -307,3 +307,45 @@ class ReviewTest {
         assertTrue("8回に宮崎" in body, body)
     }
 }
+
+class VerticalColumnsTest {
+    private fun cols(text: String, per: Int) = verticalColumns(verticalCells(text), per).map { c -> c.joinToString("") { it.text } }
+
+    @Test
+    fun hangsOnlyCommaAndPeriod() {
+        // 「、。」だけは前の列にぶら下げる（per＋1 マス）
+        assertEquals(listOf("あいう。", "えお"), cols("あいう。えお", 3))
+        assertEquals(listOf("あいう、", "えお"), cols("あいう、えお", 3))
+    }
+
+    @Test
+    fun pushesOtherNoStartCharsForward() {
+        // 「」ー っ ）」はぶら下げず、前の字と一緒に次の列へ送る（列は per マスを超えない）
+        assertEquals(listOf("あい", "う」え"), cols("あいう」え", 3))
+        assertEquals(listOf("あい", "うー"), cols("あいうー", 3))
+        assertEquals(listOf("あい", "かっ"), cols("あいかっ", 3))
+        assertEquals(listOf("あい", "う）"), cols("あいう）", 3))
+    }
+
+    @Test
+    fun handlesTwoNoStartCharsInARow() {
+        // 「。」をぶら下げた後に「」」が続くときは、ぶら下げをやめて前の字ごと送る
+        assertEquals(listOf("あい", "う。」", "え"), cols("あいう。」え", 3))
+        // 「」。」も同じ
+        assertEquals(listOf("あい", "う」。"), cols("あいう」。", 3))
+    }
+
+    @Test
+    fun columnsNeverExceedPerPlusOne() {
+        val text = "宮崎、逆転負け「あと一歩だった」。ーっ）！？。、」』テストの文章です。".repeat(3)
+        for (per in 4..12) {
+            val cs = verticalColumns(verticalCells(text), per)
+            assertEquals(verticalCells(text), cs.flatten())
+            cs.forEach { c ->
+                assertTrue(c.size <= per + 1, "$per: ${c.joinToString("") { it.text }}")
+                // per＋1 マスになるのは「、。」をぶら下げたときだけ
+                if (c.size == per + 1) assertTrue(c.last().text in listOf("、", "。"), c.joinToString("") { it.text })
+            }
+        }
+    }
+}

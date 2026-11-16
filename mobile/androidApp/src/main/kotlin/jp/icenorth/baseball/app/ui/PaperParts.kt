@@ -39,6 +39,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import jp.icenorth.baseball.app.R
+import jp.icenorth.baseball.shared.verticalCells
+import jp.icenorth.baseball.shared.verticalColumns
 import kotlin.math.ceil
 import kotlin.random.Random
 
@@ -61,64 +63,10 @@ internal const val SILHOUETTES_ON = false
 /** 見出しの極太ゴシック */
 val PaperGothic = FontFamily(Font(R.font.noto_sans_jp_black, FontWeight.Black))
 
-/** 縦書きの1マス（kind: 0 ふつう・1 回す・2 句読点・3 小書き・4 縦中横） */
-internal data class VCell(val text: String, val kind: Int)
-
-private const val ROTATE = "ー－―‐…‥～〜（）「」『』【】〔〕［］〈〉《》＜＞-—~()[]=＝→←"
-private const val PUNCT = "、。，．"
-private const val SMALL = "ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ"
-/** 列の頭に来てはいけない字（前の列の終わりにぶら下げる） */
-private const val NO_START = "、。，．」』）】〕］〉》ーっゃゅょッャュョ！？!?"
-
-private fun Char.isTcy() = this in '0'..'9' || this in 'A'..'Z' || this in 'a'..'z' || this == '.' || this == '%' || this == '+'
-
-/** 縦書きのマスに分ける */
-internal fun verticalCells(text: String): List<VCell> {
-    val out = mutableListOf<VCell>()
-    var i = 0
-    while (i < text.length) {
-        val c = text[i]
-        if (c.isTcy()) {
-            var j = i
-            while (j < text.length && text[j].isTcy()) j++
-            val run = text.substring(i, j)
-            // 3字までは1マスに。長いものは2字ずつ
-            if (run.length <= 3) out += VCell(run, 4) else run.chunked(2).forEach { out += VCell(it, 4) }
-            i = j
-            continue
-        }
-        // 半角の空白（「秋山 正」の姓と名の間）は縦書きでは詰める。全角の空白（字下げ）は1マス
-        if (c == ' ') { i++; continue }
-        out += when {
-            c == '　' -> VCell("　", 0)
-            c in ROTATE -> VCell(c.toString(), 1)
-            c in PUNCT -> VCell(c.toString(), 2)
-            c in SMALL -> VCell(c.toString(), 3)
-            else -> VCell(c.toString(), 0)
-        }
-        i++
-    }
-    return out
-}
-
-/** マスを列に分ける（[per] マスずつ。列の頭に来てはいけない字は前の列にぶら下げる） */
-internal fun verticalColumns(cells: List<VCell>, per: Int): List<List<VCell>> {
-    val cols = mutableListOf<MutableList<VCell>>()
-    var cur = mutableListOf<VCell>()
-    for (c in cells) {
-        if (cur.size >= per) {
-            if (c.text.length == 1 && c.text[0] in NO_START && cur.size == per) { cur += c; continue }
-            cols += cur
-            cur = mutableListOf()
-        }
-        cur += c
-    }
-    if (cur.isNotEmpty()) cols += cur
-    return cols
-}
-
 /**
  * 縦書きの文字。[per] は1列のマスの数（null なら1列に全部）。大きさは列の数とマスの数から決まる。
+ * ⚠ 「、。」は列の終わりにぶら下げるので、[per] を決めて高さを取る側は [per]＋1 マスの高さを見込む
+ *   （割り付けは shared の verticalColumns）
  * @param gap 列の間（字の大きさに対する割合）
  * @param stroke 袋文字のふち（色と太さ）
  */
