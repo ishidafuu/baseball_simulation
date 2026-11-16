@@ -11,8 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.graphics.Color
 import jp.icenorth.baseball.shared.AGE_OUTLOOK_NOTE
 import jp.icenorth.baseball.shared.AgeOutlook
-import jp.icenorth.baseball.shared.OnlineJson
 import jp.icenorth.baseball.shared.ageOutlookLabel
+import jp.icenorth.baseball.shared.ageOutlookOf
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,18 +108,20 @@ fun PlayersScreen(model: AppViewModel) {
 
 @Composable
 private fun AgeOutlookPane(raw: JsonObject) {
-    val outlook = remember(raw) {
-        raw.at("ageOutlook").obj()?.let { runCatching { OnlineJson.decodeFromJsonElement(AgeOutlook.serializer(), it) }.getOrNull() }
-    }
+    val outlook = remember(raw) { ageOutlookOf(raw) }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
         item { AgeOutlookCard(outlook) }
     }
 }
 
-/** 年齢構成と3年後の見込み（自球団。手続きのトライアウト・契約更改でも使う） */
+/**
+ * 年齢構成と3年後の見込み（自球団）。選手の「年齢」と、手続きのトライアウト・契約更改
+ * （`ProceduresScreen.kt`。`compact` で主力の一覧を省く。Web 版 LeaguePanels.jsx と同じ置き場所）
+ */
 @Composable
 fun AgeOutlookCard(outlook: AgeOutlook?, compact: Boolean = false) {
-    if (outlook == null) { Text("まだ見込みを出せません。", style = MaterialTheme.typography.bodySmall); return }
+    // 手続きの中（compact）は、見込みが無ければ何も出さない（Web 版と同じ）
+    if (outlook == null) { if (!compact) Text("まだ見込みを出せません。", style = MaterialTheme.typography.bodySmall); return }
     val most = (outlook.bands.maxOfOrNull { it.pitchers + it.fielders } ?: 1).coerceAtLeast(1)
     Section("年齢構成と${outlook.years}年後の見込み") {
         outlook.bands.forEach { b ->

@@ -1,6 +1,7 @@
 package jp.icenorth.baseball.shared
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 // ============================================================
 // 年齢構成と3年後の見込み（自球団だけ）。数字と文はサーバーが作る（src/online/ageOutlook.js）。
@@ -32,6 +33,13 @@ data class AgeOutlook(
     val lines: List<String> = emptyList(),
     val advice: String = "",
 )
+
+/**
+ * ビューの `ageOutlook` を読む。無い（名簿が空・途中参加で初期メンバー待ち）・読めないときは null
+ * （画面は「まだ見込みを出せません」）
+ */
+fun ageOutlookOf(raw: JsonObject?): AgeOutlook? =
+    raw?.at("ageOutlook").obj()?.let { runCatching { OnlineJson.decodeFromJsonElement(AgeOutlook.serializer(), it) }.getOrNull() }
 
 /** 見込みの言葉（Web 版 AgeOutlook.jsx の KIND_LABEL と同じ） */
 fun ageOutlookLabel(r: AgeOutlookRow): String =

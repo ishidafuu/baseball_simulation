@@ -45,6 +45,7 @@ import jp.icenorth.baseball.app.AppViewModel
 import jp.icenorth.baseball.app.PhaseDraft
 import jp.icenorth.baseball.app.savedPhaseDraft
 import jp.icenorth.baseball.shared.Commands
+import jp.icenorth.baseball.shared.ageOutlookOf
 import jp.icenorth.baseball.shared.PHASE_LABELS
 import jp.icenorth.baseball.shared.ROSTER_LIMIT
 import jp.icenorth.baseball.shared.ROSTER_STANDARD
@@ -435,6 +436,7 @@ private fun PhasePanel(model: AppViewModel, raw: JsonObject, phase: JsonObject, 
     val ready = submission?.at("ready").bool() == true
     val packs = phase.at("packs").list().mapNotNull { it.obj() }
     val isPack = plan["packId"] != null || phase["packs"] != null
+    val ageOutlook = remember(raw) { ageOutlookOf(raw) }
 
     Column(Modifier.fillMaxSize()) {
         ProcScroll(Modifier.weight(1f), scroll) {
@@ -459,21 +461,29 @@ private fun PhasePanel(model: AppViewModel, raw: JsonObject, phase: JsonObject, 
                         )
                     }
                 }
-                plan["rankedIds"] != null -> TryoutPanel(model, raw, phase, plan, setPlan, editable = editing != null) {
-                    // 標準案に戻す（⚠ 保存済みの下書きではなく、いつも標準案を取り直す）
-                    if (editing != null) scope.launch {
-                        try {
-                            val defaults = model.read("defaults")
-                            if (defaults.at("phaseId").str() != phaseId) failure = "手続きが更新されました。最新状態を確認してください"
-                            else model.phaseDraft = editing.copy(plan = defaults["plan"].obj() ?: plan, dirty = submission != null)
-                        } catch (e: Exception) {
-                            // ⚠ 前の読み込みが取り消されたとき（ページを連打した・画面を離れた）は失敗として出さない
-                            if (e is kotlinx.coroutines.CancellationException) throw e
-                            failure = model.describe(e)
+                plan["rankedIds"] != null -> {
+                    TryoutPanel(model, raw, phase, plan, setPlan, editable = editing != null) {
+                        // 標準案に戻す（⚠ 保存済みの下書きではなく、いつも標準案を取り直す）
+                        if (editing != null) scope.launch {
+                            try {
+                                val defaults = model.read("defaults")
+                                if (defaults.at("phaseId").str() != phaseId) failure = "手続きが更新されました。最新状態を確認してください"
+                                else model.phaseDraft = editing.copy(plan = defaults["plan"].obj() ?: plan, dirty = submission != null)
+                            } catch (e: Exception) {
+                                // ⚠ 前の読み込みが取り消されたとき（ページを連打した・画面を離れた）は失敗として出さない
+                                if (e is kotlinx.coroutines.CancellationException) throw e
+                                failure = model.describe(e)
+                            }
                         }
                     }
+                    // 年齢構成と3年後の見込み（若手を取るか即戦力か。Web 版 LeaguePanels.jsx と同じく交渉の下）
+                    AgeOutlookCard(ageOutlook, compact = true)
                 }
-                plan["releaseIds"] != null -> ReleasePanel(model, raw, plan, setPlan, editable = editing != null)
+                plan["releaseIds"] != null -> {
+                    // 年齢構成と3年後の見込み（誰を残すかの材料。Web 版と同じく退団の選択の上）
+                    AgeOutlookCard(ageOutlook, compact = true)
+                    ReleasePanel(model, raw, plan, setPlan, editable = editing != null)
+                }
                 kind == "offseason" -> Section { Text("最終順位を保存し、次年度のキャンプへ進みます。決めることはありません（「この内容で決定」を押すと早く進みます）。") }
             }
         }
