@@ -169,6 +169,12 @@ export const FORM_SHORT = {
   submarine: 'アンダー',
 };
 
+/**
+ * 打席の短縮名（キャンプの打席変更の選択肢と結果の文）。
+ * ⚠ 表はここだけ。アプリの写し（`Tables.kt` の `BATS_SHORT`）は `mobile/tools/gen-tables.mjs` が書き出す
+ */
+export const BATS_SHORT = { right: '右打', left: '左打', switch: '両打' };
+
 /** 2文字コード。選手検索のような極端に狭い列で使う */
 export const FORM_CODE = {
   overhand: 'OV', threeQuarter: '3Q', sidearm: 'SD', submarine: 'UN',

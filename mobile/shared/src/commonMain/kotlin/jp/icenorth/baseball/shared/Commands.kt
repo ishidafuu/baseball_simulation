@@ -168,8 +168,6 @@ fun campSubTargetChoices(subKey: String?, player: JsonObject): List<Choice> {
     }
 }
 
-val BATS_SHORT = mapOf("right" to "右打", "left" to "左打", "switch" to "両打")
-
 /** いまの打席（Web 版 shared.js の currentBats と同じ読み方） */
 fun currentBats(player: JsonObject): String =
     player.at("batting", "bats").str() ?: player.at("physical", "bats").str() ?: "right"

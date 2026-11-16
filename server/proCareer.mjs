@@ -138,13 +138,40 @@ export function proCareerOf(row, seed, now) {
   return out;
 }
 
+const nowOf = (league) => ({ year: league.season?.year ?? 0, month: league.season?.currentDate?.month ?? 0 });
+
+/**
+ * プロ入りした選手の行ごとに、その後を1回だけ作る（`{ row, career }`）。
+ * 一覧（`withProCareer`）と便り（`proNewsOf`）の両方に使うときは、これを1回呼んで渡す
+ * （同じ行の `proCareerOf` を2回回さない）。
+ */
+export function proCareersOf(rows, league) {
+  const now = nowOf(league);
+  return (rows || []).map((row) => ({ row, career: proCareerOf(row, league.seed ?? 0, now) }));
+}
+
+/** `proCareersOf` の結果から、行にその後（いちばん新しい年と、全部）を足す */
+export function rowsWithCareer(careers) {
+  return careers.map(({ row, career }) =>
+    career.length ? { ...row, after: career.at(-1).text, career: career.map((c) => c.text) } : row,
+  );
+}
+
+/** `proCareersOf` の結果から、今年の便り（`proNewsOf` と同じ） */
+export function newsOfCareers(careers, league) {
+  const { year } = nowOf(league);
+  const news = [];
+  for (const { row: r, career } of careers) {
+    const last = career.at(-1);
+    if (last && last.year === year)
+      news.push({ name: r.name, team: r.team, npbTeam: r.npbTeam, text: last.text, highlight: last.highlight || (last.ended ? 'ended' : null) });
+  }
+  return news.sort((a, b) => (b.highlight ? 1 : 0) - (a.highlight ? 1 : 0)).slice(0, 3);
+}
+
 /** プロ入りした選手の行に、その後（いちばん新しい年と、全部）を足す */
 export function withProCareer(rows, league) {
-  const now = { year: league.season?.year ?? 0, month: league.season?.currentDate?.month ?? 0 };
-  return rows.map((r) => {
-    const career = proCareerOf(r, league.seed ?? 0, now);
-    return career.length ? { ...r, after: career.at(-1).text, career: career.map((c) => c.text) } : r;
-  });
+  return rowsWithCareer(proCareersOf(rows, league));
 }
 
 /**
@@ -152,12 +179,5 @@ export function withProCareer(rows, league) {
  * @returns {{ name, team, npbTeam, text, highlight }[]}
  */
 export function proNewsOf(league, rows) {
-  const now = { year: league.season?.year ?? 0, month: league.season?.currentDate?.month ?? 0 };
-  const news = [];
-  for (const r of rows || []) {
-    const last = proCareerOf(r, league.seed ?? 0, now).at(-1);
-    if (last && last.year === now.year)
-      news.push({ name: r.name, team: r.team, npbTeam: r.npbTeam, text: last.text, highlight: last.highlight || (last.ended ? 'ended' : null) });
-  }
-  return news.sort((a, b) => (b.highlight ? 1 : 0) - (a.highlight ? 1 : 0)).slice(0, 3);
+  return newsOfCareers(proCareersOf(rows, league), league);
 }

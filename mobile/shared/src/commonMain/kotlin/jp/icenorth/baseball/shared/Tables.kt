@@ -68,6 +68,7 @@ val RELIEF_ROLES: Map<String, String> = mapOf("auto_r" to "おまかせ", "long"
 val ROLE_HINT: Map<String, String> = mapOf("ace" to "7〜8回を任せる", "complete" to "スタミナの限界まで", "quality" to "5〜6回で交代", "short" to "3〜4回で継投", "opener" to "初回〜2回で継投", "auto_s" to "AIが判断", "closer" to "9回のリード", "setup" to "8回の僅差", "ace_relief" to "接戦の中盤から", "long" to "複数イニング", "onepoint" to "左打者の対策", "behind" to "負けている展開", "mopup" to "大差の敗戦処理", "auto_r" to "AIが判断")
 val PHASE_LABELS: Map<String, String> = mapOf("pack_select" to "初期メンバー選択", "initial_tryout" to "初期編成", "camp" to "キャンプ", "contract" to "契約更改", "tryout" to "トライアウト", "offseason" to "年度更新")
 val FORM_SHORT: Map<String, String> = mapOf("overhand" to "オーバー", "threeQuarter" to "スリクォ", "sidearm" to "サイド", "submarine" to "アンダー")
+val BATS_SHORT: Map<String, String> = mapOf("right" to "右打", "left" to "左打", "switch" to "両打")
 val PITCH_TYPE_NAMES: Map<String, String> = mapOf("straight" to "ストレート", "twoSeam" to "ツーシーム", "slider" to "スライダー", "curve" to "カーブ", "fork" to "フォーク", "changeup" to "チェンジアップ", "sinker" to "シンカー", "shoot" to "シュート", "cutter" to "カッター", "splitter" to "スプリッター", "palm" to "パーム", "knuckle" to "ナックル")
 val RELIEF_ORDER: List<String> = listOf("closer", "setup", "ace_relief", "long", "onepoint", "behind", "mopup", "auto_r")
 val STARTER_ORDER: List<String> = listOf("ace", "complete", "quality", "short", "opener", "auto_s")

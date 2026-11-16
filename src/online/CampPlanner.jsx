@@ -10,7 +10,7 @@ import {
   playerPolicy,
 } from '../season/trainingPolicy.js';
 import { POS, POS_FULL } from './api.js';
-import { getPitchTypeName, FORM_SHORT } from '../utils/constants.js';
+import { getPitchTypeName, FORM_SHORT, BATS_SHORT } from '../utils/constants.js';
 import {
   CAMP_DIRECTIONS,
   CAMP_PHASES,
@@ -70,7 +70,6 @@ import { formatDeadline } from './LeaguePanels.jsx';
  * ⚠ フォーム改造・打席変更は**いまの形を除く**。変わったあとは選択肢から消え、
  *    「未選択」に戻る（サーバーは基礎体力で回す。`campSubKey`）。文はアプリ（Camp.kt）と同じ
  */
-export const BATS_SHORT = { right: '右打', left: '左打', switch: '両打' };
 export function subTargetChoices(key, player) {
   const kind = CAMP_SUB_TARGETS[key];
   const owned = (player.pitching?.arsenal || [])

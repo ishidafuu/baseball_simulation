@@ -20,7 +20,7 @@ import { SEASON_PHASES } from '../src/season/seasonManager.js';
 import { KOSHIEN_STAGE_LABEL } from '../src/season/koshien.js';
 import { SEASON_START_MONTH } from '../src/online/shared.js';
 import { honorTitlesOf, honorsView } from './seasonAwards.mjs';
-import { withProCareer, proNewsOf } from './proCareer.mjs';
+import { withProCareer, proCareersOf, rowsWithCareer, newsOfCareers } from './proCareer.mjs';
 
 // ⚠ 節目は**球団ごとに**最新20件（12球団で最大240件・数十KB）。以前はリーグ全体で最新40件で、
 //    1年目だけで129件できるため約1か月で消え、「球団史・記録」の節目が各球団に数件しか残らなかった
@@ -651,6 +651,8 @@ export function teamMoves(league, teamName, limit = 80) {
 export function chronicleView(league) {
   const c = league.chronicle || {};
   const year = league.season.year;
+  // プロでのその後は行ごとに1回だけ作り、一覧（先頭30人）と便り（全員）で使い回す
+  const careers = proCareersOf(c.proDrafted || [], league);
   return {
     milestones: (c.milestones || []).slice(0, 12).map(({ key, ...m }) => m),
     // ⚠ 引退は**年度更新の直後（キャンプ〜開幕前）だけ**。年度の印だけで決めると、
@@ -661,9 +663,9 @@ export function chronicleView(league) {
     world: (c.world || []).slice(0, 4).map(({ notable, ...w }) => ({ ...w, star: notable?.[0] || null })),
     // リーグからプロ入りした選手（新しい順。球団史・記録の「リーグからプロへ」）
     // ⚠ リーグ全体の一覧はいちばん新しい年の一行（`after`）だけ。全部の年（`career`）は球団史の方に載せる
-    proDrafted: withProCareer((c.proDrafted || []).slice(0, 30), league).map(({ key, career, ...r }) => r),
+    proDrafted: rowsWithCareer(careers.slice(0, 30)).map(({ key, career, ...r }) => r),
     // 今年のプロの便り（10月から年度更新まで。紙面と話題に出す）
-    proNews: proNewsOf(league, c.proDrafted || []),
+    proNews: newsOfCareers(careers, league),
     // いちばん新しい年の表彰（タイトルと、部ごとの MVP・新人王・ベストナイン・最優秀バッテリー）
     honors: honorsView(league, Object.fromEntries(PYRAMID_LEAGUES.map((l) => [l.id, l.name]))),
   };

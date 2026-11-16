@@ -84,6 +84,7 @@ map('RELIEF_ROLES', tactics.RELIEF_ROLES);
 map('ROLE_HINT', pitching.ROLE_HINT);
 map('PHASE_LABELS', shared.PHASE_LABELS);
 map('FORM_SHORT', constants.FORM_SHORT);
+map('BATS_SHORT', constants.BATS_SHORT);
 const pitchTypes = {};
 for (const key of Object.keys(constants.BALL_EFFECTS || {})) pitchTypes[key] = constants.getPitchTypeName(key);
 map('PITCH_TYPE_NAMES', pitchTypes);

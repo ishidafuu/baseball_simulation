@@ -36,8 +36,8 @@ export const BEST_NINE_SLOTS = [
 const OUTFIELD = new Set(['left', 'center', 'right']);
 /** 守る位置の難しさ（打者の値打ちに足す点。規定打席ぶん出たときの点） */
 const POSITION_BONUS = { catcher: 5, short: 4, second: 3, center: 3, third: 2, right: 1, left: 0, first: -1, pitcher: 0 };
-/** ベストナインに数える出場の下限（規定打席の何割か） */
-const BEST_NINE_PA_SHARE = 0.5;
+/** ベストナイン・新人王に数える出場の下限（規定打席・規定投球回の何割か） */
+const HALF_QUALIFY_SHARE = 0.5;
 /** 最優秀バッテリーに数える組の下限（規定投球回の何割か） */
 const BATTERY_OUTS_SHARE = 0.5;
 /** 部の1位の球団の選手に、MVPで足す点 */
@@ -204,6 +204,12 @@ export function selectHonors(league, teams) {
         if (v != null) rated.push({ ...x, kind: 'batter', value: v, line: batterSummary(b), pa: plateAppearances(b) });
       }
     }
+    // 規定の半分は出たか（ベストナインの野手・新人王）。投手は10セーブでも数える
+    const halfQualified = (x) =>
+      x.kind === 'batter'
+        ? x.pa >= minPA * HALF_QUALIFY_SHARE
+        : n(x.player.seasonStats?.pitching?.inningsPitched) >= minOuts * HALF_QUALIFY_SHARE ||
+          n(x.player.seasonStats?.pitching?.saves) >= 10;
     const best = (list) =>
       list.reduce((a, c) => (a == null || c.value > a.value || (c.value === a.value && String(c.player.name).localeCompare(String(a.player.name), 'ja') < 0) ? c : a), null);
 
@@ -214,11 +220,7 @@ export function selectHonors(league, teams) {
     const mvp = best(mvpPool);
     // 新人王: 新人の中で値打ちが一番（規定の半分は出た人）
     const rookie = best(
-      rated.filter(
-        (x) =>
-          isRookie(league, x.player, year) &&
-          (x.kind === 'batter' ? x.pa >= minPA * BEST_NINE_PA_SHARE : n(x.player.seasonStats?.pitching?.inningsPitched) >= minOuts * BEST_NINE_PA_SHARE || n(x.player.seasonStats?.pitching?.saves) >= 10),
-      ),
+      rated.filter((x) => isRookie(league, x.player, year) && halfQualified(x)),
     );
     // ベストナイン: 登録の守備位置ごと（外野は3人）
     const bestNine = [];
@@ -228,7 +230,7 @@ export function selectHonors(league, teams) {
           slot.pos === 'pitcher'
             ? x.kind === 'pitcher' && x.enough
             : x.kind === 'batter' &&
-              x.pa >= minPA * BEST_NINE_PA_SHARE &&
+              halfQualified(x) &&
               (slot.pos === 'outfield' ? OUTFIELD.has(x.player.position) : x.player.position === slot.pos),
         )
         .sort((a, b) => b.value - a.value || String(a.player.name).localeCompare(String(b.player.name), 'ja'))
