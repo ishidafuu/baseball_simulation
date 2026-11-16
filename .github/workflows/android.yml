@@ -3,12 +3,7 @@ name: android
 # スマホアプリ（mobile/）の検査と APK のビルド。mobile/ を触ったときだけ動く。
 # できた APK は実行結果の「Artifacts」から落として端末に入れる。
 # ⚠ アプリの共通部は Web 版の表と計算を写している（mobile/tools/）。写し元を直したときも動かす
-#
-# 続けて screens ジョブで画面の見回り（エミュレーターで全画面を開いてスクショを撮る。約20分）。
-# build が通ったときだけ、push（mobile/ に触れたとき）と手動で動かす。PR では動かさない（PR の待ち時間を延ばさない）。
-# 場面（初期メンバー選択・キャンプ・シーズン中・契約更改・トライアウト）は
-# mobile/tools/seed-league.mjs が開発サーバーの保存として作る。
-# スクショは実行結果の「Artifacts」（android-screens）から見られる。
+# 画面の見回りは android-screens.yml（別の実行。APK のリンクを待たせないため）
 on:
   push:
     # pr/** は PR を頼むためだけのブランチ（upstream-pr.yml）
@@ -56,8 +51,6 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    outputs:
-      mobile_changed: ${{ steps.changed.outputs.mobile }}
     defaults:
       run:
         working-directory: mobile
@@ -67,20 +60,6 @@ jobs:
           # ⚠ 履歴を全部取る。アプリに「最後に mobile/ を変えたコミット」を入れ、ホームの紙面で最新かを確かめるため
           #    （androidApp/build.gradle.kts の APP_COMMIT・shared の AppUpdate.kt）。浅いと HEAD のコミットになる
           fetch-depth: 0
-      - name: mobile/ が変わったか（画面の見回りを回すか）
-        id: changed
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          # 新しいブランチ・手動・前のコミットが無いときは回す。push で mobile/ に触れていなければ回さない
-          if [ "$GITHUB_EVENT_NAME" != push ] || [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo mobile=true >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$BEFORE" "$GITHUB_SHA" -- . ../.github/workflows/android.yml; then
-            echo mobile=false >> "$GITHUB_OUTPUT"
-          else
-            echo mobile=true >> "$GITHUB_OUTPUT"
-          fi
-          cat "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -112,62 +91,3 @@ jobs:
           name: baseball-online-apk
           path: mobile/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-
-  screens:
-    needs: build
-    if: github.event_name != 'pull_request' && needs.build.outputs.mobile_changed == 'true'
-    runs-on: ubuntu-24.04
-    # ふだんは約20分。エミュレーターが固まると60分まで待ってしまっていたので、30分で打ち切る
-    timeout-minutes: 30
-    permissions:
-      contents: write
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: 場面の保存を作る
-        run: node mobile/tools/seed-league.mjs seed
-      - name: アプリと見回りをビルド
-        working-directory: mobile
-        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
-      - name: KVM を使えるようにする
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: エミュレーターで見回る
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash mobile/tools/screen-tour.sh seed screens
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-screens
-          path: screens/
-      # 作業用のフォーク（ice-north 以外）では、ブランチにも置いて git で取り出せるようにする
-      - name: スクショをブランチに置く（フォークのみ）
-        if: always() && github.repository_owner != 'ice-north'
-        run: |
-          [ -d screens ] || exit 0
-          cd screens
-          git init -q -b android-screens
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add -A
-          git commit -qm "screens ${{ github.sha }}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" android-screens

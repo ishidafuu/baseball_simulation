@@ -1,0 +1,76 @@
+name: android-screens
+
+# スマホアプリの画面の見回り。エミュレーターで全画面を開いてスクショを撮る（約20分）。
+# 場面（初期メンバー選択・キャンプ・シーズン中・契約更改・トライアウト）は
+# mobile/tools/seed-league.mjs が開発サーバーの保存として作る。
+# スクショは実行結果の「Artifacts」（android-screens）から見られる。
+# ⚠ android.yml とは別の実行にしておく。同じ実行に入れると、見回りが終わるまで APK のリンクが出ず、
+#    APK の横に50MBのスクショが並ぶ（2026-11-16 に一度まとめて戻した）
+on:
+  push:
+    # pr/** は PR を頼むためだけのブランチ（upstream-pr.yml）
+    branches-ignore: ['pr/**']
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-screens.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-screens-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  screens:
+    runs-on: ubuntu-24.04
+    # ふだんは約20分。エミュレーターが固まると60分まで待ってしまっていたので、30分で打ち切る
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 場面の保存を作る
+        run: node mobile/tools/seed-league.mjs seed
+      - name: アプリと見回りをビルド
+        working-directory: mobile
+        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --console=plain
+      - name: KVM を使えるようにする
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: エミュレーターで見回る
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash mobile/tools/screen-tour.sh seed screens
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-screens
+          path: screens/
+      # 作業用のフォーク（ice-north 以外）では、ブランチにも置いて git で取り出せるようにする
+      - name: スクショをブランチに置く（フォークのみ）
+        if: always() && github.repository_owner != 'ice-north'
+        run: |
+          [ -d screens ] || exit 0
+          cd screens
+          git init -q -b android-screens
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "screens ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" android-screens
