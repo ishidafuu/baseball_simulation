@@ -3,7 +3,7 @@ name: android-screens
 # スマホアプリの画面の見回り。エミュレーターで全画面を開いてスクショを撮る（約20分）。
 # 場面（初期メンバー選択・キャンプ・シーズン中・契約更改・トライアウト）は
 # mobile/tools/seed-league.mjs が開発サーバーの保存として作る。
-# スクショは実行結果の「Artifacts」（android-screens）から見られる。
+# スクショはフォークでは android-screens ブランチに置く。成果物（Artifacts）には落ちたときだけ出す。
 # ⚠ android.yml とは別の実行にしておく。同じ実行に入れると、見回りが終わるまで APK のリンクが出ず、
 #    APK の横に50MBのスクショが並ぶ（2026-11-16 に一度まとめて戻した）
 on:
@@ -57,11 +57,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash mobile/tools/screen-tour.sh seed screens
+      # ⚠ スクショは全部で約50MBあり、成果物に出すと重い。落ちたときだけ、調べる用に3日だけ残す
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
-          name: android-screens
+          name: android-screens-failed
           path: screens/
+          retention-days: 3
       # 作業用のフォーク（ice-north 以外）では、ブランチにも置いて git で取り出せるようにする
       - name: スクショをブランチに置く（フォークのみ）
         if: always() && github.repository_owner != 'ice-north'
