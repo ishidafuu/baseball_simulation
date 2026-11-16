@@ -18,7 +18,7 @@ import {
   captureLeagueWorld,
 } from '../../server/leagueEngine.mjs';
 import { TEAMS_DATA } from '../../src/teams-data.js';
-import { CAMP_PITCH_TYPES } from '../../src/online/shared.js';
+import { CAMP_PITCH_TYPES, currentBats } from '../../src/online/shared.js';
 import { campSubKey } from '../../server/leagueEngine.mjs';
 import { subMenusFor } from '../../src/online/campMenus.js';
 
@@ -113,9 +113,13 @@ const roster = () => league.game.teams[name].players;
     validateCampRound(league, name, { round: 1, sub: { [batter.id]: 'form_change' }, subTarget: { [batter.id]: 'sidearm' } }),
   );
   // 4クール同じ指示で回しても、フォームは選んだ形から動かない（1回目で変わり、後は基礎体力）
-  const bats = batter.batting?.bats || 'right';
+  const bats = currentBats(batter);
   const toBats = bats === 'switch' ? 'right' : 'switch';
   const formsSeen = new Set();
+  // 打席は成功するかが運なので、「元のまま」か「選んだ打席」のどちらか。
+  // ⚠ **一度変わったら戻らない**こと（変わったあとは基礎体力で回る。`campSubKey`）。
+  //    元か選んだ打席かだけを見ると、両打ちに変わったあと元の打席へ戻っても通ってしまう
+  const batsSeen = [];
   for (let round = 1; round <= 4; round += 1) {
     const plan = validateCampRound(league, name, {
       round,
@@ -130,7 +134,10 @@ const roster = () => league.game.teams[name].players;
     formsSeen.add(p.pitching.form);
     if (round === 1) assert.ok(result.events[pitcher.id]?.some((t) => /フォーム改造/.test(t)), 'フォーム改造の結果が出来事に出ない');
     const b = roster().find((x) => x.id === batter.id);
-    assert.ok([bats, toBats].includes(b.batting?.bats || 'right'), '選んでいない打席に変わった');
+    const nowBats = currentBats(b);
+    assert.ok([bats, toBats].includes(nowBats), '選んでいない打席に変わった');
+    if (batsSeen.includes(toBats)) assert.equal(nowBats, toBats, `打席が一度変わったあと元に戻った: ${[...batsSeen, nowBats]}`);
+    batsSeen.push(nowBats);
   }
   assert.deepEqual([...formsSeen], [to], `フォームが選んだ形以外に動いた: ${[...formsSeen]}`);
 }
