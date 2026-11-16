@@ -121,17 +121,32 @@ class AppViewModel internal constructor(
      * はじめての1週間（参加してから7日。FirstWeek.kt）。端末に覚えるのは1人分だけ
      * （鍵＝球団と参加の時刻が変われば、済みの印を捨てて始め直す）
      */
-    private fun firstWeekState(): Pair<Set<String>, Boolean> {
-        val key = view?.let { v -> v.joinedAt?.let { firstWeekKey(v.teamName.orEmpty(), it) } } ?: return emptySet<String>() to false
+    private fun currentFirstWeekKey(): String? = view?.let { v -> v.joinedAt?.let { firstWeekKey(v.teamName.orEmpty(), it) } }
+
+    /**
+     * 鍵が変わったら済みの印を捨てる。**ビューを受け取ったところ**（`applyView`・起動時）で呼ぶ。
+     * ⚠ 画面の組み立て（`remember` の中）で端末の設定を書かないこと
+     */
+    private fun syncFirstWeekKey() {
+        val key = currentFirstWeekKey() ?: return
         if (store.firstWeekKey != key) {
             store.firstWeekKey = key
             store.firstWeekDone = emptySet()
             store.firstWeekClosed = false
+            firstWeekSerial++
         }
+    }
+
+    /** 読むだけ（鍵が合わなければ、まだ何も済んでいない扱い） */
+    private fun firstWeekState(): Pair<Set<String>, Boolean> {
+        val key = currentFirstWeekKey() ?: return emptySet<String>() to false
+        if (store.firstWeekKey != key) return emptySet<String>() to false
         return store.firstWeekDone to store.firstWeekClosed
     }
     var firstWeekSerial by mutableStateOf(0)
         private set
+
+    init { syncFirstWeekKey() }
 
     fun firstWeekGuideNow(): FirstWeekGuide? {
         val (done, closed) = firstWeekState()
@@ -143,12 +158,14 @@ class AppViewModel internal constructor(
         val id = firstWeekStepOfFace(face) ?: return
         val (done, _) = firstWeekState()
         if (view?.joinedAt == null || id in done) return
+        syncFirstWeekKey()
         store.firstWeekDone = done + id
         firstWeekSerial++
     }
 
     fun closeFirstWeek() {
-        firstWeekState()
+        if (view?.joinedAt == null) return
+        syncFirstWeekKey()
         store.firstWeekClosed = true
         firstWeekSerial++
     }
@@ -765,6 +782,8 @@ class AppViewModel internal constructor(
         viewGeneration = raw?.get("viewGeneration")?.jsonPrimitive?.longOrNull
         store.viewJson = text
         raw?.let { store.shownDigest = awayDigest(it).toString() }
+        // はじめての1週間: 球団か参加の時刻が変わったら済みの印を捨てる（画面の組み立てでは書かない）
+        syncFirstWeekKey()
         markResultsSeen()
     }
 
