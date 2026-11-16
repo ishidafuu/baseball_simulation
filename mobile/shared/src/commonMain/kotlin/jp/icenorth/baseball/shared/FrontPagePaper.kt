@@ -103,13 +103,6 @@ fun paperDate(date: GameDate?): String? = date?.let {
 
 private val POS_SHORT = POSITION_LABELS + mapOf("dh" to "指", "DH" to "指")
 
-/** 回の書き方（アウト数 → 「2⅔」「⅓」「7」） */
-internal fun inningsText(outs: Int): String {
-    val whole = outs / 3
-    val frac = when (outs % 3) { 1 -> "⅓"; 2 -> "⅔"; else -> "" }
-    return if (whole == 0 && frac.isNotEmpty()) frac else "$whole$frac"
-}
-
 /** 試合の詳細の選手（打撃と投球の数） */
 private class DetailPlayer(val o: JsonObject) {
     val id = o.at("id").long()
@@ -156,7 +149,7 @@ private fun boxTeam(view: LeagueView, game: JsonObject, team: String): BoxTeam? 
     val all = slots.flatten() + extra
     val totals = listOf(all.sumOf { it.b("atBats") }, all.sumOf { it.b("hits") }, all.sumOf { it.b("rbis") }, all.sumOf { it.b("homeruns") })
     val pitchers = pitchingOrder(game, team, players).map {
-        BoxPitcher(familyName(it.name), inningsText(it.outs), it.p("hits"), it.p("strikeouts"), it.p("runsAllowed"), it.p("pitches"))
+        BoxPitcher(familyName(it.name), inningsText(it.outs, InningsStyle.Box), it.p("hits"), it.p("strikeouts"), it.p("runsAllowed"), it.p("pitches"))
     }
     return BoxTeam(view.teamShort(team), batters, totals, pitchers)
 }
@@ -318,7 +311,7 @@ internal fun heroOf(view: LeagueView, game: JsonObject?, team: String, tone: Fro
     val isPitcherLine = pick == ace && (pick.outs >= 15 || !pick.batted) && !(pick == bat && batGood)
     val lines: List<Pair<String, Boolean>> = if (isPitcherLine) listOfNotNull(
         (if (pick.p("gamesStarted") > 0 || pitchingOrder(game, team, players).firstOrNull() == pick) "先発" else "救援") to false,
-        "${inningsText(pick.outs)}回" to true,
+        "${inningsText(pick.outs, InningsStyle.Box)}回" to true,
         "${pick.p("runsAllowed")}失点" to true,
         pick.p("strikeouts").takeIf { it > 0 }?.let { "${it}奪三振" to false },
     ) else listOfNotNull(
@@ -385,7 +378,7 @@ internal fun interviewOf(
             61,
         )
     } else if (ace != null && ace.outs >= 18) {
-        qa += "――${familyName(ace.name)}が${inningsText(ace.outs)}回${ace.runs}失点。" to pen.pick(
+        qa += "――${familyName(ace.name)}が${inningsText(ace.outs, InningsStyle.Box)}回${ace.runs}失点。" to pen.pick(
             when (tone) {
                 FrontPage.Tone.Win -> listOf("試合をつくってくれた。言うことはない", "球に力があった", "捕手とよく話し合えていた")
                 FrontPage.Tone.Lose -> listOf("よく投げた。打線が援護できなかった", "投手を責める試合ではない", "勝たせてあげたかった")
@@ -398,7 +391,7 @@ internal fun interviewOf(
     val order = game?.let { g -> pitchingOrder(g, team, g.at("teams", team).list().mapNotNull { it.obj() }.map { DetailPlayer(it) }) }
     val starter = order?.firstOrNull()
     if (starter != null && starter.outs < 15 && starter.p("runsAllowed") >= 3) {
-        qa += "――先発の${familyName(starter.name)}は${inningsText(starter.outs)}回で降板。" to when {
+        qa += "――先発の${familyName(starter.name)}は${inningsText(starter.outs, InningsStyle.Box)}回で降板。" to when {
             temper >= 1 -> pen.pick(listOf("あれでは任せられない。次は考える", "試合を壊した。反省してもらう"), 63)
             else -> pen.pick(listOf("本人がいちばん悔しいはず。次も任せる", "調子が悪い日もある。切り替えてほしい"), 63)
         }
@@ -462,12 +455,8 @@ internal fun buildTeamPage(
     leftover: List<FrontPage.Article>,
     pen: Pen,
 ): TeamPage {
-    fun outcome(r: GameResult): Int {
-        val h = r.home == team
-        return ((if (h) r.homeScore else r.awayScore) ?: 0).compareTo((if (h) r.awayScore else r.homeScore) ?: 0)
-    }
     val last10 = own.takeLast(10)
-    val form = last10.map(::outcome)
+    val form = last10.map { it.outcomeFor(team) }
     val now = mutableListOf<Pair<String, String>>()
     if (last10.isNotEmpty()) {
         val w = form.count { it > 0 }
@@ -479,26 +468,18 @@ internal fun buildTeamPage(
         now += "1試合の失点" to oneDecimal(allowed.toDouble() / last10.size)
     }
     // チーム打率・防御率（部の中の順位）
-    val league = view.teamLeagues[team]
-    val stats = raw?.at("teamStats").obj()
-    val inLeague = stats?.keys?.filter { league == null || view.teamLeagues[it] == league }.orEmpty()
-    var avgRank: Int? = null
-    var eraRank: Int? = null
-    stats?.get(team)?.let { mine ->
-        mine.at("average").num()?.let { a ->
-            avgRank = 1 + inLeague.count { (stats[it].at("average").num() ?: 0.0) > a }
-            now += "チーム打率" to "${rate3(a)}（${avgRank}位）"
-        }
-        mine.at("era").num()?.let { e ->
-            eraRank = 1 + inLeague.count { (stats[it].at("era").num() ?: 99.0) < e }
-            now += "チーム防御率" to "${twoDecimals(e)}（${eraRank}位）"
-        }
+    val ranks = teamStatRanks(view, raw, team)
+    val avgRank = ranks?.avgRank
+    val eraRank = ranks?.eraRank
+    ranks?.let { r ->
+        if (r.avg != null && r.avgRank != null) now += "チーム打率" to "${rate3(r.avg)}（${r.avgRank}位）"
+        if (r.era != null && r.eraRank != null) now += "チーム防御率" to "${twoDecimals(r.era)}（${r.eraRank}位）"
     }
-    val half = (inLeague.size + 1) / 2
+    val half = ((ranks?.teams ?: 0) + 1) / 2
     val nowNote = if (avgRank != null && eraRank != null) when {
-        avgRank!! <= half && eraRank!! <= half -> pen.pick(listOf("投打がかみ合い、地力がついてきた。", "打っても投げても上位。崩れる気配は少ない。"), 80)
-        avgRank!! <= half -> pen.pick(listOf("打線は好調だが、投手陣が踏ん張りきれていない。", "打ち勝つ野球。投手陣の立て直しが課題だ。"), 80)
-        eraRank!! <= half -> pen.pick(listOf("投手陣は粘っているが、打線の援護が足りない。", "守り勝つ野球。あと1本が出れば上が見える。"), 80)
+        avgRank <= half && eraRank <= half -> pen.pick(listOf("投打がかみ合い、地力がついてきた。", "打っても投げても上位。崩れる気配は少ない。"), 80)
+        avgRank <= half -> pen.pick(listOf("打線は好調だが、投手陣が踏ん張りきれていない。", "打ち勝つ野球。投手陣の立て直しが課題だ。"), 80)
+        eraRank <= half -> pen.pick(listOf("投手陣は粘っているが、打線の援護が足りない。", "守り勝つ野球。あと1本が出れば上が見える。"), 80)
         else -> pen.pick(listOf("投打ともに下位。我慢の時期が続く。", "打線も投手陣も、もう一段の奮起が要る。"), 80)
     } else null
 
@@ -566,6 +547,25 @@ internal fun teamNick(label: String, city: String): String = label.removePrefix(
 private fun oneDecimal(v: Double): String { val r = kotlin.math.round(v * 10).toInt(); return "${r / 10}.${abs(r % 10)}" }
 private fun twoDecimals(v: Double): String { val r = kotlin.math.round(v * 100).toInt(); return "${r / 100}.${(abs(r) % 100).toString().padStart(2, '0')}" }
 
+/** チーム打率・防御率と、部の中の順位（[teams] は部の球団の数）。チームの成績が無ければ null */
+private class TeamStatRanks(val avg: Double?, val avgRank: Int?, val era: Double?, val eraRank: Int?, val teams: Int)
+
+private fun teamStatRanks(view: LeagueView, raw: JsonObject?, team: String): TeamStatRanks? {
+    val stats = raw?.at("teamStats").obj() ?: return null
+    val league = view.teamLeagues[team]
+    val inLeague = stats.keys.filter { league == null || view.teamLeagues[it] == league }
+    val mine = stats[team] ?: return null
+    val avg = mine.at("average").num()
+    val era = mine.at("era").num()
+    return TeamStatRanks(
+        avg = avg,
+        avgRank = avg?.let { v -> 1 + inLeague.count { (stats[it].at("average").num() ?: 0.0) > v } },
+        era = era,
+        eraRank = era?.let { v -> 1 + inLeague.count { (stats[it].at("era").num() ?: 99.0) < v } },
+        teams = inLeague.size,
+    )
+}
+
 /** 次の相手を探る（相手の順位・連勝連敗・打率と防御率の順位・対戦成績） */
 private fun opponentReport(view: LeagueView, raw: JsonObject?, team: String, own: List<GameResult>): FrontPage.Article? {
     val g = view.nextGames.firstOrNull { it.home == team || it.away == team } ?: return null
@@ -578,26 +578,24 @@ private fun opponentReport(view: LeagueView, raw: JsonObject?, team: String, own
     val parts = mutableListOf<String>()
     st?.let { parts += "${LEAGUE_NAMES[league] ?: ""}${rank + 1}位の${O}は${it.wins}勝${it.losses}敗。" }
     view.teamStreaks[opp]?.takeIf { it.count >= 2 && it.kind != "D" }?.let { parts += "いま${it.count}${if (it.kind == "W") "連勝" else "連敗"}中だ。" }
-    val stats = raw?.at("teamStats").obj()
-    val inLeague = stats?.keys?.filter { league == null || view.teamLeagues[it] == league }.orEmpty()
-    stats?.get(opp)?.let { s ->
-        val a = s.at("average").num()
-        val e = s.at("era").num()
-        val ar = a?.let { v -> 1 + inLeague.count { (stats[it].at("average").num() ?: 0.0) > v } }
-        val er = e?.let { v -> 1 + inLeague.count { (stats[it].at("era").num() ?: 99.0) < v } }
+    teamStatRanks(view, raw, opp)?.let { r ->
+        val a = r.avg
+        val e = r.era
+        val ar = r.avgRank
+        val er = r.eraRank
         if (a != null && ar != null) parts += "チーム打率${rate3(a)}は部で${ar}位、"
         if (e != null && er != null) parts += "防御率${twoDecimals(e)}は${er}位。"
         if (ar != null && er != null) parts += when {
-            ar <= 2 && er >= inLeague.size - 1 -> "打線は怖いが、投手陣には付け入る隙がある。"
-            er <= 2 && ar >= inLeague.size - 1 -> "投手陣は手ごわいが、打線は湿りがちだ。"
+            ar <= 2 && er >= r.teams - 1 -> "打線は怖いが、投手陣には付け入る隙がある。"
+            er <= 2 && ar >= r.teams - 1 -> "投手陣は手ごわいが、打線は湿りがちだ。"
             ar <= 2 && er <= 2 -> "投打に穴の少ない難敵だ。"
             else -> ""
         }
     }
     val versus = own.filter { it.home == opp || it.away == opp }
     if (versus.isNotEmpty()) {
-        val w = versus.count { (if (it.home == team) (it.homeScore ?: 0) - (it.awayScore ?: 0) else (it.awayScore ?: 0) - (it.homeScore ?: 0)) > 0 }
-        val l = versus.count { (if (it.home == team) (it.homeScore ?: 0) - (it.awayScore ?: 0) else (it.awayScore ?: 0) - (it.homeScore ?: 0)) < 0 }
+        val w = versus.count { it.outcomeFor(team) > 0 }
+        val l = versus.count { it.outcomeFor(team) < 0 }
         parts += "今季の対戦は${w}勝${l}敗。"
     }
     if (parts.isEmpty()) return null

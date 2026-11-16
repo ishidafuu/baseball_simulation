@@ -117,10 +117,10 @@ class FrontPagePaperTest {
 
     @Test
     fun innings() {
-        assertEquals("7", inningsText(21))
-        assertEquals("2⅔", inningsText(8))
-        assertEquals("⅓", inningsText(1))
-        assertEquals("0", inningsText(0))
+        assertEquals("7", inningsText(21, InningsStyle.Box))
+        assertEquals("2⅔", inningsText(8, InningsStyle.Box))
+        assertEquals("⅓", inningsText(1, InningsStyle.Box))
+        assertEquals("0", inningsText(0, InningsStyle.Box))
     }
 
     @Test

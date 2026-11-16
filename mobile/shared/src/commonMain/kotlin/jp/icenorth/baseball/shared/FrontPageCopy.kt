@@ -158,9 +158,28 @@ internal class Situation(
     val place: String get() = if (home) "本拠地" else "敵地"
 }
 
-private fun ip(outs: Int): String = if (outs % 3 == 0) "${outs / 3}回" else "${outs / 3}回${outs % 3}/3"
+/** 投球回の書き方。[Prose] は文の中（「7回」「6回2/3」「1/3回」）、[Box] は成績表の回の欄（「7」「2⅔」「⅓」） */
+internal enum class InningsStyle { Prose, Box }
+
+/** アウトの数 → 投球回（[style] で文の中か成績表の欄か） */
+internal fun inningsText(outs: Int, style: InningsStyle): String {
+    val whole = outs / 3
+    val rest = outs % 3
+    return when (style) {
+        InningsStyle.Prose -> when {
+            rest == 0 -> "${whole}回"
+            whole == 0 -> "$rest/3回"
+            else -> "${whole}回$rest/3"
+        }
+        InningsStyle.Box -> {
+            val frac = when (rest) { 1 -> "⅓"; 2 -> "⅔"; else -> "" }
+            if (whole == 0 && frac.isNotEmpty()) frac else "$whole$frac"
+        }
+    }
+}
+
 /** 「7回を1失点」「6回2/3を無失点」（数字が続いて「6回2/31失点」と読めないように「を」を挟む） */
-private fun allowed(runs: Int): String = if (runs == 0) "を無失点" else "を${runs}失点"
+internal fun allowed(runs: Int): String = if (runs == 0) "を無失点" else "を${runs}失点"
 
 /** 勝った日の大見出し。上から順に当てはまる場面の言い回しを使う */
 internal fun winHeadline(s: Situation, pen: Pen): String {
@@ -399,7 +418,7 @@ internal fun heroSubhead(s: Situation, tone: FrontPage.Tone, pen: Pen): String? 
     val pitcherDay = p != null && won && ((f.theirHits == 0 && s.theirs == 0) || (f.complete && s.theirs <= 1) || p.strikeouts >= 10) &&
         (b == null || b.hr < 2)
     if (pitcherDay) {
-        val line = "${ip(p!!.outs)}${allowed(p.runs)}${if (p.strikeouts >= 7) "・${p.strikeouts}奪三振" else ""}"
+        val line = "${inningsText(p!!.outs, InningsStyle.Prose)}${allowed(p.runs)}${if (p.strikeouts >= 7) "・${p.strikeouts}奪三振" else ""}"
         return pen.pick(
             listOf("${p.name} ${line}の快投", "${p.name}、${line}", "投げては${p.name}が${line}"),
             2,
@@ -421,7 +440,7 @@ internal fun heroSubhead(s: Situation, tone: FrontPage.Tone, pen: Pen): String? 
         return pen.pick(pool, 2)
     }
     if (p != null && p.outs >= 15) {
-        val line = "${ip(p.outs)}${allowed(p.runs)}"
+        val line = "${inningsText(p.outs, InningsStyle.Prose)}${allowed(p.runs)}"
         return if (lost) pen.pick(listOf("${p.name} ${line}も援護なく", "${p.name}、${line}の力投報われず", "${p.name}が${line}"), 2)
         else pen.pick(listOf("${p.name} ${line}の好投", "${p.name}、${line}で試合をつくる", "${p.name}が${line}"), 2)
     }

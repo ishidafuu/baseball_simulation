@@ -122,6 +122,12 @@ internal fun gb(v: Double): String = if (v % 1.0 == 0.0) "${v.toInt()}" else one
 /** [leader] と [me] のゲーム差（0なら並んでいる）。地元紙・全国紙で共通 */
 internal fun gamesBehind(leader: Standing, me: Standing): Double = ((leader.wins - me.wins) + (me.losses - leader.losses)) / 2.0
 
+/** [team] から見た試合の結果（1 勝ち・−1 負け・0 引き分け。点が無ければ0点として数える） */
+internal fun GameResult.outcomeFor(team: String): Int {
+    val h = home == team
+    return ((if (h) homeScore else awayScore) ?: 0).compareTo((if (h) awayScore else homeScore) ?: 0)
+}
+
 /** 日付の通し番号（年×10000＋月×100＋日）。並べる・同じ日を見分けるのに使う（年をまたいでも大小が日付の順） */
 internal fun dayKey(year: Int, month: Int, day: Int): Int = year * 10000 + month * 100 + day
 
@@ -173,12 +179,7 @@ fun buildFrontPage(
         .filter { it.homeScore != null && it.awayScore != null }
         .distinctBy { it.gameId ?: it.hashCode().toLong() }
         .sortedWith(compareBy<GameResult>({ it.date?.month ?: 0 }, { it.date?.day ?: 0 }, { it.gameId ?: 0L }))
-    val outcome = { r: GameResult ->
-        val h = r.home == team
-        val a = (if (h) r.homeScore else r.awayScore) ?: 0
-        val b = (if (h) r.awayScore else r.homeScore) ?: 0
-        a.compareTo(b)
-    }
+    val outcome = { r: GameResult -> r.outcomeFor(team) }
     val last = own.lastOrNull()
     val articles = mutableListOf<FrontPage.Article>()
     // 言い回しは試合（無ければ日付）で選ぶ。同じ試合なら開き直しても同じ紙面
@@ -594,10 +595,7 @@ const val OWN_HISTORY_PAGE = 200
 suspend fun loadOwnHistory(team: String, maxPages: Int = 8, readPage: suspend (Int) -> JsonObject): Pair<List<GameResult>, Boolean> {
     val games = mutableListOf<GameResult>() // 新しい順
     var count = Int.MAX_VALUE
-    fun outcome(r: GameResult): Int {
-        val h = r.home == team
-        return ((if (h) r.homeScore else r.awayScore) ?: 0).compareTo((if (h) r.awayScore else r.homeScore) ?: 0)
-    }
+    fun outcome(r: GameResult): Int = r.outcomeFor(team)
     for (page in 0 until maxPages) {
         val data = readPage(page)
         count = data.at("count").int() ?: count
