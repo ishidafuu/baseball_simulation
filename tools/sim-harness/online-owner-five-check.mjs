@@ -10,7 +10,7 @@ import { proCareerOf, proNewsOf, withProCareer, PRO_SEASON_END_MONTH } from '../
 import { firstWeekGuide, inFirstWeek, markFirstWeek, FIRST_WEEK_STEPS, FIRST_WEEK_DAYS } from '../../src/online/firstWeek.js';
 import { ageOutlook, AGE_BANDS, CORE_FIELDERS, CORE_PITCHERS, outlookOf } from '../../src/online/ageOutlook.js';
 import { honorRows } from '../../src/online/chronicleText.js';
-import { honorsView, honorTitlesOf } from '../../server/seasonAwards.mjs';
+import { honorsView, honorTitlesOf, isRookie, ROOKIE_MAX_AGE } from '../../server/seasonAwards.mjs';
 import { createLeague } from '../../server/leagueEngine.mjs';
 
 // ---------- C1 ----------
@@ -120,5 +120,22 @@ import { createLeague } from '../../server/leagueEngine.mjs';
   const old = honorsView({ season: { year: 3 }, history: [{ year: 2, awards: { homeRunKing: { name: '丁', team: 'Z', homeruns: 30 } } }] });
   assert.equal(old.year, 2);
   assert.equal(old.leagues.length, 0);
+}
+
+// ---------- A2 新人王の決まり（どの年も「22歳以下」かつ「去年までの記録に無い」） ----------
+{
+  const records = { seasons: { 1: { players: { played: {} } } } };
+  const y1 = { records: { seasons: {} } };
+  const y2 = { records };
+  const p = (age, key) => ({ age, onlinePlayerId: key });
+  assert.ok(isRookie(y1, p(ROOKIE_MAX_AGE, 'a'), 1), '1年目の22歳が新人にならない');
+  assert.ok(!isRookie(y1, p(ROOKIE_MAX_AGE + 1, 'a'), 1), '1年目の23歳が新人になった');
+  // 2年目以降も年齢を見る（30歳のトライアウト入団・途中参加の人の初期メンバーのベテラン）
+  assert.ok(!isRookie(y2, p(30, 'tryout30'), 2), '2年目に入った30歳が新人になった');
+  assert.ok(!isRookie(y2, p(25, 'pack25'), 2), '途中参加の初期メンバーの25歳が新人になった');
+  assert.ok(isRookie(y2, p(19, 'tryout19'), 2), '2年目に入った19歳が新人にならない');
+  assert.ok(!isRookie(y2, p(20, 'played'), 2), '去年出た20歳が新人のまま');
+  // 名簿にいて出なかった若手も、23歳になれば外れる（ずっと新人のままにならない）
+  assert.ok(!isRookie({ records: { seasons: { 1: { players: {} }, 2: { players: {} } } } }, p(ROOKIE_MAX_AGE + 1, 'bench'), 3), '出ないまま23歳になっても新人');
 }
 console.log('online-owner-five-check PASS');

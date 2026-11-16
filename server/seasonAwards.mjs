@@ -122,12 +122,29 @@ function leagueAverages(players) {
   };
 }
 
-/** 去年までの記録に出ていない選手（新人王の候補）。1年目のリーグは22歳以下 */
-function isRookie(league, player, year) {
+/** 新人王に数える年齢の上限（表彰の時点の年齢） */
+export const ROOKIE_MAX_AGE = 22;
+
+/**
+ * 新人王の候補か。**どの年も同じ決まり**:
+ *   1. 表彰の時点で22歳以下（`ROOKIE_MAX_AGE`）
+ *   2. このリーグの去年までの記録（`league.records.seasons`）に出ていない
+ *      （＝このリーグで公式戦に出るのは今年がはじめて）
+ * ⚠ 1年目のリーグは去年の記録が無いので、1. だけで決まる（足す前の決まりと同じ）。
+ *    前は2年目から 1. を見ておらず、30歳のトライアウト入団や途中参加の人の
+ *    初期メンバー（24人）が丸ごと候補になっていた。
+ * ⚠ 選手ごとの「このリーグに来た年」は全員には無い（1年目の CPU 球団の名簿には
+ *    経歴が付かず、トライアウトの入団は前の年度の印で付く）ので、記録で見る。
+ *    名簿にいて1試合も出なかった若手は翌年も候補のままだが、年齢の上限で23歳には外れる
+ *    （NPB も「前の年までの出場が少ない」ことで決める）。
+ */
+export function isRookie(league, player, year) {
+  if ((player.age ?? 99) > ROOKIE_MAX_AGE) return false;
   const key = player.onlinePlayerId;
-  const past = Object.entries(league.records?.seasons || {}).filter(([y]) => Number(y) < year);
-  if (!past.length) return (player.age || 99) <= 22;
-  return !past.some(([, s]) => key && s.players?.[key]);
+  if (!key) return true;
+  return !Object.entries(league.records?.seasons || {}).some(
+    ([y, s]) => Number(y) < year && s.players?.[key],
+  );
 }
 
 const entryOf = (x, extra = {}) => ({
