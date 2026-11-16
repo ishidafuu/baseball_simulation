@@ -516,6 +516,8 @@ try {
     const joinerView = await service.view('late1', joiner);
     assert.equal(joinerView.pendingPack?.packs.length, PACK_COUNT, 'セットが渡っていない');
     assert.equal(joinerView.pendingPack.chosen, null, '選ぶ前なのに選択済み');
+    // ⚠ 年齢構成の見込みは、セットが入るまで出さない（いまの名簿は CPU のときの選手で、入れ替わる）
+    assert.equal(joinerView.ageOutlook, null, '初期メンバーを待っている間に、入れ替わる名簿の年齢構成が出た');
     // ⚠ 種から作り直したセットが**毎回同じ**こと。違うと、見た顔ぶれと
     //    実際に入る顔ぶれが食い違う
     const again = await service.view('late1', joiner);

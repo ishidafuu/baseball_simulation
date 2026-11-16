@@ -716,7 +716,9 @@ export function projectLeague(bundle, userId, sessionId, adminId) {
       })),
     history: l.history,
     // 年齢構成と3年後の見込み（自球団だけ。成長力を使うので他球団には作らない。`ageOutlook.js`）
-    ageOutlook: ageOutlook(
+    // ⚠ 途中参加で初期メンバーを待っている間（`packSeed`）は出さない。名簿はまだ CPU のときの
+    //    選手で、次のキャンプで丸ごと入れ替わるので、その見込みは自分の球団の話にならない
+    ageOutlook: member.packSeed ? null : ageOutlook(
       team.players,
       (l.season?.settings?.teamNames || []).flatMap((name) => (l.game?.teams?.[name]?.players || []).map((p) => p.age)),
     ),
