@@ -23,6 +23,8 @@ on:
       - 'src/online/campMenus.js'
       - 'src/online/social.js'
       - 'src/online/awaySummary.js'
+      - 'src/online/chronicleText.js'
+      - 'src/online/firstWeek.js'
       - 'src/utils/constants.js'
   pull_request:
     paths:
@@ -40,6 +42,8 @@ on:
       - 'src/online/campMenus.js'
       - 'src/online/social.js'
       - 'src/online/awaySummary.js'
+      - 'src/online/chronicleText.js'
+      - 'src/online/firstWeek.js'
       - 'src/utils/constants.js'
   workflow_dispatch:
 
@@ -73,6 +77,7 @@ jobs:
           node tools/gen-tables.mjs --check
           node tools/expect-logic.mjs --check
           node tools/expect-social.mjs --check
+          node tools/expect-chronicle.mjs --check
       - name: 共通部分の検査
         run: ./gradlew :shared:jvmTest --console=plain
       - name: アプリの通信・画面の回帰検査

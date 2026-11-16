@@ -63,6 +63,12 @@ export function worldText(w, short = (n) => n) {
  * タイトル（リーグ全体）と、部ごとの MVP・新人王・最優秀バッテリー・ベストナイン。
  * @returns {{ head: string, body: string }[]}
  */
+/**
+ * プロでのその後の行（球団史は全部の年 `career`、リーグ全体はいちばん新しい年 `after`）。
+ * ⚠ アプリ（`Chronicle.kt` の `proDraftedAfter`）と同じ
+ */
+export const proDraftedAfter = (r) => (r?.career?.length ? r.career : r?.after ? [r.after] : []);
+
 export function honorRows(h, short = (n) => n) {
   if (!h) return [];
   const who = (x) => `${x.name}（${short(x.team)}）`;

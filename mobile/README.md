@@ -52,6 +52,11 @@
 - 試合の勝敗投手（ビューの `results`・`games`・`game` の `decisions` の `winningPitcher` / `losingPitcher` / `savePitcher` / `holdPitchers`）は `{ id, name }` だけ（`server/recordedViews.mjs` の `decisionRefs`）。能力や成績は載らないので、自球団の投手は名簿（ビューの `roster`）から `id` で引く。
 - タイトル争い（ビューの `leaders` の `rows`）の行は `{ id, name, team, label, value }`（`server/leagueBoard.mjs` の `leagueLeaders`）。アプリは行を押すと球団の名簿から `id` で選手を探し、名前では探し直さない（同じ球団の同名の別人を開かないため。`shared/.../PlayerLookup.kt`）。`id` の無い古いサーバーの行だけ名前で探す。
 - 編成の保存（`command` の `lineup`）は、ビューの `lineup` を**丸ごと**送り返し、`baseLineup` に編集前の塊を添える。アプリが知らない項目もそのまま返すので、編成に項目を足すのは構わない。
+- 年間表彰・プロのその後・年齢構成・はじめての1週間で読むビューの項目（`docs/online/PYRAMID_LEAGUE.md` の同じ名前の節）。どれも古いサーバーには無く、無ければ出さない（版は上げていない）。名前を変えると黙って出なくなる:
+  - `chronicle.honors`（`server/seasonAwards.mjs` の `honorsView`）の `year`・`titles[]` の `label`・`name`・`team`・`line`、`leagues[]` の `league`・`mvp` / `rookie`（`name`・`team`・`line`）・`bestNine[]`（`label`・`name`・`team`）・`battery`（`team`・`pitcher`・`catcher`・`line`）。文は `Chronicle.kt` の `honorRows`（Web 版 `chronicleText.js` と同じ）。全国紙は `year` がビューの `year` と同じときだけ載せる。
+  - `chronicle.proNews[]`（`server/proCareer.mjs`）の `name`・`team`・`npbTeam`・`text`・`highlight`（`ended` は引退・戦力外）。`chronicle.proDrafted[].after` と、球団の窓口（`team`）の `chronicle.proDrafted[].career`（`proDraftedAfter`）。
+  - `ageOutlook`（`src/online/ageOutlook.js`）の `years`・`bands[]`（`label`・`pitchers`・`fielders`）・`core[]`・`lines[]`・`advice`。`null` のとき（名簿が空・途中参加で初期メンバー待ち）は出さない（`AgeOutlook.kt` の `ageOutlookOf`）。
+  - `joinedAt`（ISO の時刻。リーグを作ったときの人には無い）と `teamName`。はじめての1週間の期間と、端末に残す鍵（`FirstWeek.kt`）。鍵が変わったら済みの印を捨てるのは、ビューを受け取ったところ（`AppViewModel.applyView`）。
 - 手続きの任せ方は、ビューの `phase.delegated`（自分がその手続きを指導者に任せているか）と `members` の `ready`・`cpu`・`delegated` を読む。任せた手続きは決定の帯を出さず、`defaults` の案（指導者の案）を読むだけで見せる。待たれている最後の1人が手続きの分野を「任せる」にして保存すると、サーバーはその場で手続きを決めるので、アプリは送る前に確かめる（`shared/.../Staff.kt` の `delegationSettles`。`server/leagueEngine.mjs` の `waitsFor` と同じ見方）。
 
 ### 検査に使う実際の窓口の答え（`shared/src/jvmTest/resources/`）
@@ -62,7 +67,8 @@
 | --- | --- | --- | --- |
 | `view-running.json` | 開幕3日目（4月4日）のビュー | `node mobile/tools/view-fixture.mjs` のあと、必ず `node mobile/tools/expect-logic.mjs > mobile/shared/src/jvmTest/resources/logic-expected.json` と下の `expect-social.mjs` | `ViewTest`・`LogicTest`・`TipsTest`・`TwoWayTest`・`SocialTest` |
 | `front/view.json`・`game.json`・`games.json`・`team.json` | 同じリーグの6月12日のビュー、自球団の最新の試合の詳細、今季の自球団の試合、次の相手の名簿 | 同じ `view-fixture.mjs` が一緒に書き出す | `FrontPageTest`（紙面） |
-| `chronicle/view-late.json`・`view-offseason.json`・`team.json` | 1年目の終盤（マジックが出る頃）のビュー、2年目のキャンプのビュー（引退・裏の大会）、球団史 | `node mobile/tools/chronicle-fixtures.mjs`（引退が出ない年は1人分を作って載せる） | `ChronicleTest`（年代記の紙面） |
+| `chronicle/view-late.json`・`view-offseason.json`・`team.json`・`view-pro.json` | 1年目の終盤（マジックが出る頃）のビュー、2年目のキャンプのビュー（引退・裏の大会・前の年の表彰）、球団史、プロのその後と便りの出る頃のビュー（年代記・年齢構成・参加の時刻だけ。写しの年を進めて作る） | `node mobile/tools/chronicle-fixtures.mjs`（引退・プロ入りが出ない年は1人分を作って載せる）。そのあと必ず下の `expect-chronicle.mjs` | `ChronicleTest`（年代記の紙面）・`HonorsTest` |
+| `chronicle-expected.json` | Web 版の表彰の行・プロのその後の行・年齢構成の読み・はじめての1週間の時刻の答え（上の年代記のビューから） | `node mobile/tools/expect-chronicle.mjs > mobile/shared/src/jvmTest/resources/chronicle-expected.json`。CI は `--check` | `HonorsTest` |
 | `staff-view.json` | 指導者（監督・コーチ）の入ったビュー（2年目のキャンプ） | `WRITE_APP_FIXTURE=1 node tools/sim-harness/online-coach-check.mjs` | `StaffTest` |
 | `logic-expected.json` | Web 版の計算の答え（`view-running.json` の名簿から） | 上の `expect-logic.mjs`。CI は `--check` | `LogicTest` |
 | `social-expected.json` | Web 版の得点経過・時刻・最終ログイン・留守中のまとめの答え（`view-running.json` の要点から） | `node mobile/tools/expect-social.mjs > mobile/shared/src/jvmTest/resources/social-expected.json`。CI は `--check` | `SocialTest` |
