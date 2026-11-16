@@ -176,6 +176,10 @@ export function selectHonors(league, teams) {
   const honors = {};
   for (const leagueId of new Set(names.map((name) => tierOf.get(name)).filter(Boolean))) {
     const teamNames = names.filter((name) => tierOf.get(name) === leagueId);
+    // ⚠ **部は表彰の時点で居る球団で決め、成績はその年の通し**（`seasonStats` は移籍しても
+    //    選手に付いて回る）。年の途中にトレードで部をまたいだ選手は、移った先の部で、
+    //    前の球団の分も含めた1年分の成績で比べる（前の部では候補にならない）。
+    //    部の平均（`leagueAverages`）も同じ数え方。
     const players = teamNames.flatMap((team) =>
       (teams[team].players || []).map((player) => ({ team, player })),
     );
@@ -236,7 +240,7 @@ export function selectHonors(league, teams) {
       mvp: mvp ? entryOf(mvp, { line: mvp.line }) : null,
       rookie: rookie ? entryOf(rookie, { line: rookie.line }) : null,
       bestNine,
-      battery: bestBattery(league, teamNames, minOuts),
+      battery: bestBattery(league, teams, teamNames, minOuts),
     };
   }
   return honors;
@@ -246,17 +250,23 @@ export function selectHonors(league, teams) {
  * 最優秀バッテリー: 同じ球団の投手と捕手の組で、規定投球回の半分以上を組んだ中で防御率が一番。
  * 捕手の記録（`records.seasons[年].players[鍵].catching.pitchers`）から引く。
  */
-function bestBattery(league, teamNames, minOuts) {
+function bestBattery(league, teams, teamNames, minOuts) {
   const players = league.records?.seasons?.[league.season.year]?.players || {};
+  // ⚠ いまの球団は名簿で見る。記録の `teams` は来た順に**足すだけ**（`recordedStats.mjs`）
+  //    なので、A→B→A と戻った選手でも [A, B] のままで、最後の要素はいまの球団ではない
+  const teamOf = new Map();
+  for (const name of teamNames)
+    for (const p of teams[name]?.players || [])
+      if (p.onlinePlayerId) teamOf.set(p.onlinePlayerId, name);
   let top = null;
-  for (const rec of Object.values(players)) {
-    const team = rec.teams?.at?.(-1);
+  for (const [key, rec] of Object.entries(players)) {
+    const team = teamOf.get(key);
     if (!team || !teamNames.includes(team) || !rec.catching?.pitchers) continue;
     for (const [pitcherKey, line] of Object.entries(rec.catching.pitchers)) {
       const outs = n(line.outs);
       if (outs < minOuts * BATTERY_OUTS_SHARE) continue;
       const pitcher = players[pitcherKey];
-      if (!pitcher || pitcher.teams?.at?.(-1) !== team) continue;
+      if (!pitcher || teamOf.get(pitcherKey) !== team) continue;
       const era = era2(n(line.earnedRuns), outs);
       if (top == null || era < top.era || (era === top.era && outs > top.outs))
         top = { era, outs, team, pitcher: pitcher.name, catcher: rec.name };

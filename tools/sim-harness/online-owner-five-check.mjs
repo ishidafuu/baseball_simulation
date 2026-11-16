@@ -10,7 +10,7 @@ import { proCareerOf, proNewsOf, withProCareer, PRO_SEASON_END_MONTH } from '../
 import { firstWeekGuide, inFirstWeek, markFirstWeek, FIRST_WEEK_STEPS, FIRST_WEEK_DAYS } from '../../src/online/firstWeek.js';
 import { ageOutlook, AGE_BANDS, CORE_FIELDERS, CORE_PITCHERS, outlookOf } from '../../src/online/ageOutlook.js';
 import { honorRows } from '../../src/online/chronicleText.js';
-import { honorsView, honorTitlesOf, isRookie, ROOKIE_MAX_AGE } from '../../server/seasonAwards.mjs';
+import { honorsView, honorTitlesOf, isRookie, ROOKIE_MAX_AGE, selectHonors } from '../../server/seasonAwards.mjs';
 import { createLeague } from '../../server/leagueEngine.mjs';
 
 // ---------- C1 ----------
@@ -137,5 +137,29 @@ import { createLeague } from '../../server/leagueEngine.mjs';
   assert.ok(!isRookie(y2, p(20, 'played'), 2), '去年出た20歳が新人のまま');
   // 名簿にいて出なかった若手も、23歳になれば外れる（ずっと新人のままにならない）
   assert.ok(!isRookie({ records: { seasons: { 1: { players: {} }, 2: { players: {} } } } }, p(ROOKIE_MAX_AGE + 1, 'bench'), 3), '出ないまま23歳になっても新人');
+}
+
+// ---------- A2 最優秀バッテリーはいまの球団で数える（記録の teams は足すだけ） ----------
+{
+  // A→B→A と戻った投手と捕手。記録の teams は [A, B] のまま
+  const league = {
+    season: { year: 1, settings: { gamesPerSeason: 20, teamNames: ['A', 'B'] }, standings: [] },
+    teams: [{ name: 'A', league: 'L' }, { name: 'B', league: 'L' }],
+    records: {
+      seasons: {
+        1: {
+          players: {
+            c: { name: '捕', teams: ['A', 'B'], catching: { pitchers: { p: { outs: 300, earnedRuns: 10 } } } },
+            p: { name: '投', teams: ['A', 'B'] },
+          },
+        },
+      },
+    },
+  };
+  const teams = {
+    A: { players: [{ id: 1, name: '捕', onlinePlayerId: 'c', position: 'catcher' }, { id: 2, name: '投', onlinePlayerId: 'p', position: 'pitcher' }] },
+    B: { players: [{ id: 3, name: '他', onlinePlayerId: 'o', position: 'short' }] },
+  };
+  assert.equal(selectHonors(league, teams).L.battery?.team, 'A', 'A→B→A と戻った組がいまの球団で数えられない');
 }
 console.log('online-owner-five-check PASS');
