@@ -290,7 +290,8 @@ private fun PhotoStage(page: FrontPage, accent: Color, modifier: Modifier) {
             board = if (national) Color(0xFF1D2A3A) else Color(0xFF123524),
             modifier = Modifier.fillMaxSize(),
             scene = page.scene,
-            sceneImage = shotImageRes(page.shots, page.issue.hashCode())?.let { ImageBitmap.imageResource(it) },
+            // ⚠ 影絵を止めている間は絵（WebP）を読み込まない（描かないのに毎回読んでいた）
+            sceneImage = if (SILHOUETTES_ON) shotImageRes(page.shots, page.issue.hashCode())?.let { ImageBitmap.imageResource(it) } else null,
         )
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
