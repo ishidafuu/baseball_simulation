@@ -44,7 +44,7 @@
 
 ## 7. 取り込み
 
-マージコミットを作らず直線の履歴で取り込む（rebase / cherry-pick）。取り込むたびに確認を回し、最後に全部を通す。1回目に落ちて2回目で通ったテストは記録に書いて原因を直す。main の持ち主は ice-north で、変更はフォーク（ishidafuu）のブランチに push して PR にする（main へ直接 push しない）。
+マージコミットを作らず直線の履歴で取り込む（rebase / cherry-pick）。取り込むたびに確認を回し、最後に全部を通す。1回目に落ちて2回目で通ったテストは記録に書いて原因を直す。main の持ち主は ice-north で、変更はフォーク（ishidafuu）のブランチに push して PR にする（main へ直接 push しない）。PR は題と本文だけのコミットを `pr/<ブランチ名>` へ push すると作られる（`.github/workflows/upstream-pr.yml`）。
 
 ## 8. リファクタ
 

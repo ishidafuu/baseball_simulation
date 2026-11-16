@@ -7,18 +7,25 @@ name: check
 # 「いちばん長いジョブ」になり、どれが落ちたかも一覧で分かる。
 on:
   push:
-    branches: [main, master]
+    # claude/** は作業用のフォークで Claude が push するブランチ。PR を作る前に結果が分かるようにする
+    branches: [main, master, 'claude/**']
   pull_request:
 
-# 同じPR（同じブランチ）に新しく push したら、古い実行は止める。
+# 同じPR（同じブランチ）に新しく push したら、古い実行は止める（main は止めない）。
 concurrency:
   group: check-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' }}
 
 jobs:
-  # ビルド＋ npm run check（lint・一人用・オンラインの検査を並列で。約6分）
+  # ビルド＋ npm run check（lint・一人用・オンラインの検査を並列で）。1台だと約6分かかるので、
+  # 重さが揃うように2台へ分ける（run-checks.mjs の --shard。分け方は各検査の slow の目安で決まる）
   check:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    name: check (${{ matrix.shard }}/2)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,11 +36,11 @@ jobs:
       - name: Build
         run: npm run build
       - name: Simulation checks
-        run: npm run check
+        run: npm run check -- --shard ${{ matrix.shard }}/2
       # アプリの共通部（mobile/shared）は Web の表と計算を写している。写し元だけを変えた push でも
       # ずれに気づけるよう、Node だけで動く照合はここでも毎回回す（android.yml は paths で絞っている）
       - name: App tables match web
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: |
           node mobile/tools/gen-tables.mjs --check
           node mobile/tools/expect-logic.mjs --check

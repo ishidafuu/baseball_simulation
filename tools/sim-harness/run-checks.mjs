@@ -7,6 +7,7 @@
 //   node tools/sim-harness/run-checks.mjs online-ui  # オンラインの画面検査（dist を開く。サーバー不要。先に vite build）
 //   node tools/sim-harness/run-checks.mjs check --serial   # 1本ずつ（出力を追いたいとき）
 //   node tools/sim-harness/run-checks.mjs check -j 2       # 同時に走らせる数を決める
+//   node tools/sim-harness/run-checks.mjs check --shard 1/2  # 2台に分けたうちの1台目の分だけ（CI 用）
 //   node tools/sim-harness/run-checks.mjs season-check online-parity-check  # 名前で選ぶ
 //
 // 各検査は別プロセスで動くので、互いの TEAMS_DATA などは混ざらない。出力は検査ごとに
@@ -127,12 +128,19 @@ function assertAllListed() {
 }
 
 function parseArgs(argv) {
-  const opts = { jobs: null, names: [], preset: null };
+  const opts = { jobs: null, names: [], preset: null, shard: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--serial') opts.jobs = 1;
     else if (a === '-j' || a === '--jobs') opts.jobs = Math.max(1, Number(argv[++i]) || 1);
-    else if (a in LEVEL || a === 'online' || a === 'online-ui') opts.preset = a;
+    else if (a === '--shard') {
+      const m = /^(\d+)\/(\d+)$/.exec(argv[++i] ?? '');
+      if (!m || +m[1] < 1 || +m[1] > +m[2]) {
+        console.error('--shard は 1/2 のように「何台目/何台」で指定する');
+        process.exit(2);
+      }
+      opts.shard = { index: +m[1], count: +m[2] };
+    } else if (a in LEVEL || a === 'online' || a === 'online-ui') opts.preset = a;
     else opts.names.push(a);
   }
   // 画面検査はブラウザを開くので、指定が無ければ1本ずつ
@@ -156,6 +164,18 @@ function select({ preset, names }) {
   if (preset === 'online-ui') return DIST_UI;
   const level = LEVEL[preset ?? 'check'];
   return CHECKS.filter((c) => LEVEL[c.group] <= level);
+}
+
+// 検査を `slow` の合計がなるべく揃うように count 台へ分け、index 台目の分を返す。
+// 重い順に「いま合計がいちばん軽い台」へ配るので、同じ一覧なら毎回同じ分け方になる。
+function shardOf(checks, { index, count }) {
+  const loads = Array.from({ length: count }, () => ({ total: 0, checks: [] }));
+  for (const check of [...checks].sort((a, b) => b.slow - a.slow || a.name.localeCompare(b.name))) {
+    const lightest = loads.reduce((m, l) => (l.total < m.total ? l : m));
+    lightest.total += check.slow;
+    lightest.checks.push(check);
+  }
+  return loads[index - 1].checks;
 }
 
 function run(check) {
@@ -185,7 +205,12 @@ function run(check) {
 async function main() {
   assertAllListed();
   const opts = parseArgs(process.argv.slice(2));
-  const checks = select(opts).sort((a, b) => b.slow - a.slow);
+  let checks = select(opts);
+  if (opts.shard) {
+    checks = shardOf(checks, opts.shard);
+    console.log(`${opts.shard.count}台に分けたうちの${opts.shard.index}台目`);
+  }
+  checks.sort((a, b) => b.slow - a.slow);
   const jobs = Math.min(opts.jobs, checks.length);
   console.log(`検査 ${checks.length} 本を同時 ${jobs} 本で実行します`);
   const started = Date.now();

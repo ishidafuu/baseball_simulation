@@ -1,0 +1,105 @@
+name: upstream-pr
+
+# 作業用のフォークから ice-north/baseball_simulation へ PR を作る（Claude のセッションは ice-north に
+# 直接 PR を作れず、タグも push できないため、ブランチの push で頼む）。フォークでだけ動き、ice-north では何もしない。
+#
+# 使い方: 作業ブランチ claude/foo の先頭に「題と本文だけのコミット」を1つ載せて、pr/claude/foo へ push する。
+#   git commit-tree 'claude/foo^{tree}' -p claude/foo -F 本文.txt   # 1行目が題、3行目から本文。出たコミットを
+#   git push fork <そのコミット>:refs/heads/pr/claude/foo
+# 頼みのコミットは作業ブランチに入らない（PR は claude/foo から作る）。同じブランチの PR が開いていれば、
+# 題と本文を書き換える。済んだら（失敗しても）pr/ のブランチは消す。
+#
+# ついでに、ice-north に取り込み済みの PR のブランチをフォークから消す
+# （ブランチの先頭が、取り込まれたときの PR の先頭と同じものだけ。後から足したコミットがあれば残す）。
+#
+# 要る設定（フォークの Settings → Secrets and variables → Actions）:
+#   UPSTREAM_PR_TOKEN … いしだの classic PAT（scope は public_repo だけ）。ice-north は公開リポジトリなので、
+#                       書き込み権が無くても PR は作れる。
+on:
+  push:
+    branches: ['pr/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-pr
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: ice-north/baseball_simulation
+
+jobs:
+  pr:
+    if: github.repository_owner != 'ice-north'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: 頼みのコミットから題と本文を取り出す
+        id: req
+        run: |
+          req="${GITHUB_REF#refs/heads/}"
+          branch="${req#pr/}"
+          echo "req=$req" >> "$GITHUB_OUTPUT"
+          git log -1 --format=%B HEAD > "$RUNNER_TEMP/msg.txt"
+          title=$(head -1 "$RUNNER_TEMP/msg.txt")
+          [ -n "$title" ] || { echo "::error::頼みのコミットの1行目（題）が空"; exit 1; }
+          tail -n +2 "$RUNNER_TEMP/msg.txt" | sed '1{/^$/d}' > "$RUNNER_TEMP/body.md"
+          tip=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
+          [ -n "$tip" ] || { echo "::error::フォークにブランチ $branch が無い"; exit 1; }
+          parent=$(git rev-parse HEAD^)
+          [ "$parent" = "$tip" ] || { echo "::error::頼みのコミットの親（$parent）が $branch の先頭（$tip）と違う。先に $branch を push する"; exit 1; }
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          printf 'title<<__EOF__\n%s\n__EOF__\n' "$title" >> "$GITHUB_OUTPUT"
+      - name: PR を作る（開いていれば書き換える）
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
+          BRANCH: ${{ steps.req.outputs.branch }}
+          TITLE: ${{ steps.req.outputs.title }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo "::error::Secret UPSTREAM_PR_TOKEN が無い"; exit 1; }
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          num=$(gh pr list -R "$UPSTREAM" --state open --head "$BRANCH" --json number,headRepositoryOwner \
+                  --jq "map(select(.headRepositoryOwner.login == \"$owner\"))[0].number // empty")
+          if [ -n "$num" ]; then
+            gh pr edit "$num" -R "$UPSTREAM" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+            url="https://github.com/$UPSTREAM/pull/$num"
+            echo "既存の PR を書き換えた: $url"
+          else
+            url=$(gh pr create -R "$UPSTREAM" --base main --head "$owner:$BRANCH" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md")
+            echo "PR を作った: $url"
+          fi
+          echo "### $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: 頼みのブランチ（pr/…）を消す
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQ: ${{ github.ref_name }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$REQ" || true
+      - name: 取り込み済みのブランチを消す
+        if: always()
+        env:
+          UP_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          # 取り込み済みの PR のうち、このフォークから出したもの（ブランチ名 → 取り込まれたときの先頭）
+          GH_TOKEN="${UP_TOKEN:-$GH_TOKEN}" gh pr list -R "$UPSTREAM" --state merged --limit 200 \
+            --json headRefName,headRefOid,headRepositoryOwner \
+            --jq ".[] | select(.headRepositoryOwner.login == \"$owner\") | \"\(.headRefName) \(.headRefOid)\"" > merged.txt
+          # まだ開いている PR のブランチは残す
+          GH_TOKEN="${UP_TOKEN:-$GH_TOKEN}" gh pr list -R "$UPSTREAM" --state open --limit 200 \
+            --json headRefName,headRepositoryOwner \
+            --jq ".[] | select(.headRepositoryOwner.login == \"$owner\") | .headRefName" > open.txt
+          git ls-remote --heads origin | sed 's#refs/heads/##' > heads.txt   # "<sha>\t<branch>"
+          deleted=0
+          while read -r name oid; do
+            case "$name" in main|master|android-screens|pr/*) continue ;; esac
+            grep -qxF "$name" open.txt && continue
+            cur=$(awk -F'\t' -v b="$name" '$2 == b { print $1 }' heads.txt)
+            [ "$cur" = "$oid" ] || continue
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$name" && { echo "消した: $name ($oid)"; deleted=$((deleted+1)); }
+          done < <(sort -u merged.txt)
+          echo "取り込み済みで消したブランチ: $deleted 本" | tee -a "$GITHUB_STEP_SUMMARY"
