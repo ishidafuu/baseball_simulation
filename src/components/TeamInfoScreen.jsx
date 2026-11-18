@@ -1,30 +1,53 @@
 import React, { useState } from 'react';
 import { TEAMS_DATA } from '../teams-data.js';
 import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
-import { POSITION_NAMES, getAbilityColor } from '../utils/constants.js';
-import { AbilityValue } from './AbilityValue.jsx';
 // ⚠ チーム戦力レーダーはこの画面から撤去した（下記）。`AbilityRadar` / `teamRadarAxes`
 //    自体は試合前モーダルと選手詳細が使っているので消さないこと
 import { ensureTeamJerseyNumbers } from '../utils/jerseyNumbers.js';
-import { formatInnings } from '../utils/physics.js';
 import PlayerDetailModal from './PlayerDetailModal.jsx';
+import { CompactRoster } from '../online/PlayerPerformance.jsx';
+// ⚠ 成績の率（打率・防御率など）と「アベレージヒッター」などの札は、オンラインの名簿と
+//    **同じ式**で出す（サーバーの `performanceLabels.mjs`。今季成績を読むだけで書き換えない）
+import { performanceFor, comparisonFromPlayers } from '../../server/performanceLabels.mjs';
+import '../online/online.css';
+
+// ============================================================
+// 一人用のチーム情報（管理 → チーム情報）。
+// **オンラインPC版の選手成績の表（`CompactRoster`）を流用**する。投手と野手を2つの表に
+// 分けず1枚にし、打撃／投球の切り替え・成績と能力の区分のタブ・調子の顔・列の見出しで
+// 並べ替え、をオンラインと同じにする（2026-11 いしだ「オンライン版のUIを1人用に流用」）。
+// ⚠ オンラインの表は `view`（`roster` と `lineup`）を読むので、ここで球団から組み立てる。
+//    `performance` はサーバーがビューに載せる項目なので、ここで同じ関数で作る。
+// ⚠ 選手名を押すと一人用の選手詳細を開く（`onOpen`。オンラインの小窓は使わない）。
+// ⚠ 見た目はオンラインの部品のクラスなので `.online.online-desktop.online-embed` の中に置く。
+// ============================================================
 
 const RECRUIT_TYPE_LABEL = {
-  scouted: { label: '推薦', cls: 'text-blue-400' },
-  selection: { label: 'セレクション', cls: 'text-green-400' },
+  scouted: '推薦',
+  selection: 'セレクション',
   // 自分のスカウトを通さずに決まった推薦入学（ほかの大学の新入生はみなこれ）。⚠ 「AI」は作る側の言葉なので出さない
-  recommended: { label: '推薦（自動）', cls: 'text-gray-300' },
-  general: { label: '一般', cls: 'text-gray-400' },
+  recommended: '推薦（自動）',
+  general: '一般',
 };
+
+/** 球団からオンラインの名簿の表が読む形（`view`）を作る */
+function viewOfTeam(teamName, team, comparison) {
+  const rotation = team.pitchingRotation || {};
+  return {
+    teamName,
+    roster: team.players.map((p) => ({ ...p, performance: performanceFor(p, comparison) })),
+    lineup: {
+      battingOrder: team.lineupSettings?.battingOrder || [],
+      starters: rotation.starters || [],
+      pitcherRoles: rotation.pitcherRoles || {},
+    },
+  };
+}
 
 const TeamInfoScreen = ({ gameMode }) => {
   const isUniversity = gameMode === 'university';
   const teamNames = Object.keys(TEAMS_DATA || {});
   const [selectedTeam, setSelectedTeam] = useState(teamNames[0] || 'チームA');
-  const [pitcherSortKey, setPitcherSortKey] = useState(null);
-  const [pitcherSortDir, setPitcherSortDir] = useState('desc');
-  const [fielderSortKey, setFielderSortKey] = useState(null);
-  const [fielderSortDir, setFielderSortDir] = useState('desc');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   const team = TEAMS_DATA[selectedTeam];
@@ -33,98 +56,44 @@ const TeamInfoScreen = ({ gameMode }) => {
   }
   ensureTeamJerseyNumbers(team); // 背番号を（未設定なら）割り当て
 
-  const handlePitcherSort = (key) => {
-    if (pitcherSortKey === key) setPitcherSortDir(pitcherSortDir === 'asc' ? 'desc' : 'asc');
-    else { setPitcherSortKey(key); setPitcherSortDir(['era', 'bb9', 'losses'].includes(key) ? 'asc' : 'desc'); }
-  };
-
-  const handleFielderSort = (key) => {
-    if (fielderSortKey === key) setFielderSortDir(fielderSortDir === 'asc' ? 'desc' : 'asc');
-    else { setFielderSortKey(key); setFielderSortDir(['strikeouts'].includes(key) ? 'asc' : 'desc'); }
-  };
-
-  const SortableHeader = ({ label, sortKey, currentKey, currentDir, onClick, align = 'center' }) => (
-    <th
-      className={`px-2 py-2 text-${align} cursor-pointer hover:bg-gray-600 transition ${currentKey === sortKey ? 'text-yellow-400' : ''}`}
-      onClick={() => onClick(sortKey)}
-    >
-      {label} {currentKey === sortKey && (currentDir === 'asc' ? '▲' : '▼')}
-    </th>
+  // 札（アベレージヒッターなど）は全球団の今季の平均と比べる（オンラインはリーグの平均）
+  const comparison = comparisonFromPlayers(teamNames.flatMap((name) => TEAMS_DATA[name]?.players || []));
+  const view = viewOfTeam(selectedTeam, team, comparison);
+  // 大学は学年と入部の種類を名前の横に（以前の表の「出身校・入部」の列。出身校は印の説明に）
+  const extraMark = isUniversity
+    ? (player) => {
+        const recruit = RECRUIT_TYPE_LABEL[player.recruitType];
+        if (!player.universityYear && !recruit) return null;
+        return (
+          <small title={player.highSchool?.name ? `出身校: ${player.highSchool.name}` : undefined}>
+            {[player.universityYear ? `${player.universityYear}年` : null, recruit].filter(Boolean).join('・')}
+          </small>
+        );
+      }
+    : undefined;
+  const selector = (
+    <span className="online-team-selector">
+      <select
+        aria-label="表示する球団"
+        value={selectedTeam}
+        onChange={(e) => {
+          setSelectedTeam(e.target.value);
+          setSelectedPlayer(null);
+        }}
+      >
+        {teamNames.map((teamName) => (
+          <option key={teamName} value={teamName}>
+            {teamName}
+          </option>
+        ))}
+      </select>
+    </span>
   );
-
-  const getPitcherValue = (player, key) => {
-    const stats = player.seasonStats?.pitching;
-    if (!stats) return key === 'era' || key === 'k9' || key === 'bb9' ? 999 : 0;
-    const ip = stats.inningsPitched || 0;
-    if (key === 'era') return ip > 0 ? (stats.earnedRuns * 27) / ip : 999;
-    if (key === 'k9') return ip > 0 ? (stats.strikeouts * 27) / ip : 0;
-    if (key === 'bb9') return ip > 0 ? (stats.walks * 27) / ip : 999;
-    if (key === 'qsPct') { const gs = stats.gamesStarted || 0; return gs > 0 ? (stats.qualityStarts || 0) / gs : 0; }
-    if (key === 'hqsPct') { const gs = stats.gamesStarted || 0; return gs > 0 ? (stats.highQualityStarts || 0) / gs : 0; }
-    if (key === 'velocity') return player.pitching?.velocity || 0;
-    if (key === 'control') return player.pitching?.control || 0;
-    if (key === 'stamina') return player.pitching?.stamina || 0;
-    if (key === 'spinRate') return player.pitching?.spinRate ?? 50;
-    if (key === 'bodyStamina') return player.physical?.bodyStamina || 50;
-    if (key === 'age') return player.age || 0;
-    if (key === 'name') return player.name || '';
-    return stats[key] || 0;
-  };
-
-  const getFielderValue = (player, key) => {
-    const stats = player.seasonStats?.batting;
-    if (!stats) return 0;
-    if (key === 'avg') return stats.atBats > 0 ? stats.hits / stats.atBats : 0;
-    if (key === 'meet') return player.batting?.meet || 0;
-    if (key === 'power') return player.batting?.power || 0;
-    if (key === 'eye') return player.batting?.eye || 0;
-    if (key === 'steal') return player.batting?.steal || 0;
-    if (key === 'speed') return player.physical?.speed || 0;
-    if (key === 'defense') return player.fielding?.defense || 0;
-    if (key === 'arm') return player.physical?.arm || 0;
-    if (key === 'bodyStamina') return player.physical?.bodyStamina || 50;
-    if (key === 'age') return player.age || 0;
-    if (key === 'name') return player.name || '';
-    return stats[key] || 0;
-  };
-
-  const pitchers = team.players.filter(p => p.position === 'pitcher').map(p => {
-    const stats = p.seasonStats?.pitching;
-    const ip = stats?.inningsPitched || 0;
-    const era = ip > 0 ? (stats.earnedRuns * 27) / ip : null;
-    const k9 = ip > 0 ? (stats.strikeouts * 27) / ip : null;
-    const bb9 = ip > 0 ? (stats.walks * 27) / ip : null;
-    const gs = stats?.gamesStarted || 0;
-    const qsPct = gs > 0 ? (stats.qualityStarts || 0) / gs * 100 : null;
-    const hqsPct = gs > 0 ? (stats.highQualityStarts || 0) / gs * 100 : null;
-    return { ...p, _era: era, _ip: ip > 0 ? formatInnings(ip) : '0', _k9: k9, _bb9: bb9, _qsPct: qsPct, _hqsPct: hqsPct, _gs: gs };
-  });
-  if (pitcherSortKey) {
-    pitchers.sort((a, b) => {
-      let valA = getPitcherValue(a, pitcherSortKey), valB = getPitcherValue(b, pitcherSortKey);
-      if (typeof valA === 'string') return pitcherSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      return pitcherSortDir === 'asc' ? valA - valB : valB - valA;
-    });
-  }
-
-  const fielders = team.players.filter(p => p.position !== 'pitcher').map(p => {
-    const stats = p.seasonStats?.batting;
-    const avg = stats?.atBats > 0 ? (stats.hits / stats.atBats) : 0;
-    return { ...p, _avg: avg };
-  });
-  if (fielderSortKey) {
-    fielders.sort((a, b) => {
-      let valA = getFielderValue(a, fielderSortKey), valB = getFielderValue(b, fielderSortKey);
-      if (typeof valA === 'string') return fielderSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      return fielderSortDir === 'asc' ? valA - valB : valB - valA;
-    });
-  }
-
 
   return (
     <ScreenShell>
       {/* ⚠ かつてここに「総人数 / 投手 / 野手 ＋ チーム戦力レーダー」の全幅パネルがあったが
-          **撤去した**。3つの数字は下の表の見出し（`投手 (10人)`）と重複しており、
+          **撤去した**。3つの数字は下の表の見出し（人数）と重複しており、
           大学・独立のチームでは実質それとレーダーだけで、1250×330px のパネルの大半が空白だった。
           ⚠ ただし**社会人チームだけはランクと注目度も持っていた**——これはこの画面に
           他に出る場所が無いので、見出しの右へ移して残す。数字と重複しているものだけ捨てる。
@@ -154,183 +123,18 @@ const TeamInfoScreen = ({ gameMode }) => {
         })() : null}
       />
 
-        <div className="bg-surface-2 rounded-lg p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">チーム選択</label>
-          <select value={selectedTeam} onChange={(e) => { setSelectedTeam(e.target.value); setSelectedPlayer(null); }} className="w-full bg-gray-700 text-white rounded px-4 py-2">
-            {Object.keys(TEAMS_DATA).map(teamName => (
-              <option key={teamName} value={teamName}>{teamName}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 投手テーブル */}
-        <div className="bg-surface-2 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-white mb-1">投手 ({pitchers.length}人)</h2>
-          <p className="text-xs text-gray-400 mb-3">クリックで詳細表示</p>
-          {pitchers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-max w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-600 text-gray-200">
-                    <th className="px-2 py-2 text-center" title="背番号">背</th>
-                    <SortableHeader label="名前" sortKey="name" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} align="left" />
-                    <SortableHeader label="年齢" sortKey="age" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <th className="px-2 py-2 text-center">投</th>
-                    {isUniversity && <th className="px-2 py-2 text-center">出身校</th>}
-                    {isUniversity && <th className="px-2 py-2 text-center">入部</th>}
-                    <SortableHeader label="球速" sortKey="velocity" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="制球" sortKey="control" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="スタミナ" sortKey="stamina" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="回転" sortKey="spinRate" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="体力" sortKey="bodyStamina" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="試合" sortKey="games" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="先発" sortKey="gamesStarted" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="勝" sortKey="wins" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="敗" sortKey="losses" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="H" sortKey="holds" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="S" sortKey="saves" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="回" sortKey="inningsPitched" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="失点" sortKey="runsAllowed" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="奪三振" sortKey="strikeouts" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="与四球" sortKey="walks" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="防御率" sortKey="era" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="K/9" sortKey="k9" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="BB/9" sortKey="bb9" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="QS%" sortKey="qsPct" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                    <SortableHeader label="HQS%" sortKey="hqsPct" currentKey={pitcherSortKey} currentDir={pitcherSortDir} onClick={handlePitcherSort} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {pitchers.map((player, index) => {
-                    const stats = player.seasonStats?.pitching;
-                    const gradeLabel = player.universityYear ? `${player.universityYear}年` : `${player.age}歳`;
-                    const rt = RECRUIT_TYPE_LABEL[player.recruitType] || null;
-                    return (
-                      <tr key={player.id} className={`cursor-pointer hover:bg-gray-600 transition ${index % 2 === 0 ? 'bg-gray-900/25' : 'bg-surface-2'}`}
-                        onClick={() => setSelectedPlayer(player)}>
-                        <td className="px-2 py-1 text-gray-300 text-center tabular-nums font-bold">{player.number ?? '-'}</td>
-                        <td className="px-2 py-1 text-white font-medium whitespace-nowrap">{player.name}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{gradeLabel}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{player.physical?.throws === 'left' ? '左' : '右'}</td>
-                        {isUniversity && <td className="px-2 py-1 text-gray-300 text-center whitespace-nowrap">{player.highSchool?.name || '—'}</td>}
-                        {isUniversity && <td className={`px-2 py-1 text-center whitespace-nowrap font-bold ${rt ? rt.cls : 'text-gray-400'}`}>{rt ? rt.label : '—'}</td>}
-                        <td className="px-2 py-1 text-center"><AbilityValue value={player.pitching?.velocity} isVel placeholder="-" /></td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.pitching?.control)}`}>{player.pitching?.control || '-'}</td>
-                        <td className="px-2 py-1 text-center"><AbilityValue value={player.pitching?.stamina} isSta placeholder="-" /></td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.pitching?.spinRate ?? 50)}`}>{player.pitching?.spinRate ?? 50}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.physical?.bodyStamina || 50)}`}>{player.physical?.bodyStamina || 50}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.games || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{player._gs}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.wins || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.losses || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.holds || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.saves || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{player._ip}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.runsAllowed || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.strikeouts || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.walks || 0}</td>
-                        <td className="px-2 py-1 text-yellow-400 text-center font-bold">
-                          {player._era !== null ? player._era.toFixed(2) : '-.--'}
-                        </td>
-                        <td className="px-2 py-1 text-cyan-400 text-center font-bold">
-                          {player._k9 !== null ? player._k9.toFixed(1) : '-.–'}
-                        </td>
-                        <td className="px-2 py-1 text-orange-400 text-center font-bold">
-                          {player._bb9 !== null ? player._bb9.toFixed(1) : '-.–'}
-                        </td>
-                        <td className="px-2 py-1 text-green-400 text-center font-bold">
-                          {player._qsPct !== null ? `${Math.round(player._qsPct)}%` : (player._gs > 0 ? '0%' : '—')}
-                        </td>
-                        <td className="px-2 py-1 text-blue-400 text-center font-bold">
-                          {player._hqsPct !== null ? `${Math.round(player._hqsPct)}%` : (player._gs > 0 ? '0%' : '—')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-gray-300 text-center py-4">投手がいません</p>
-          )}
-        </div>
-
-        {/* 野手テーブル */}
-        <div className="bg-surface-2 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-1">野手 ({fielders.length}人)</h2>
-          <p className="text-xs text-gray-400 mb-3">クリックで詳細表示</p>
-          {fielders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-600 text-gray-200">
-                    <th className="px-2 py-2 text-center" title="背番号">背</th>
-                    <SortableHeader label="名前" sortKey="name" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} align="left" />
-                    <th className="px-2 py-2 text-center">守備</th>
-                    <SortableHeader label="年齢" sortKey="age" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <th className="px-2 py-2 text-center">投打</th>
-                    {isUniversity && <th className="px-2 py-2 text-center">出身校</th>}
-                    {isUniversity && <th className="px-2 py-2 text-center">入部</th>}
-                    <SortableHeader label="ミート" sortKey="meet" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="パワー" sortKey="power" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="走力" sortKey="speed" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="守備" sortKey="defense" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="肩" sortKey="arm" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="選球眼" sortKey="eye" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="盗塁力" sortKey="steal" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="体力" sortKey="bodyStamina" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="試合" sortKey="games" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="打席" sortKey="atBats" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="安打" sortKey="hits" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="HR" sortKey="homeruns" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="打点" sortKey="rbis" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="盗塁" sortKey="stolenBases" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="四球" sortKey="walks" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="三振" sortKey="strikeouts" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                    <SortableHeader label="打率" sortKey="avg" currentKey={fielderSortKey} currentDir={fielderSortDir} onClick={handleFielderSort} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {fielders.map((player, index) => {
-                    const stats = player.seasonStats?.batting;
-                    const gradeLabel = player.universityYear ? `${player.universityYear}年` : `${player.age}歳`;
-                    const rt = RECRUIT_TYPE_LABEL[player.recruitType] || null;
-                    return (
-                      <tr key={player.id} className={`cursor-pointer hover:bg-gray-600 transition ${index % 2 === 0 ? 'bg-gray-900/25' : 'bg-surface-2'}`}
-                        onClick={() => setSelectedPlayer(player)}>
-                        <td className="px-2 py-1 text-gray-300 text-center tabular-nums font-bold">{player.number ?? '-'}</td>
-                        <td className="px-2 py-1 text-white font-medium whitespace-nowrap">{player.name}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{POSITION_NAMES[player.position]}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{gradeLabel}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{player.physical?.throws === 'left' ? '左' : '右'}{player.batting?.bats === 'left' ? '左' : player.batting?.bats === 'switch' ? '両' : '右'}</td>
-                        {isUniversity && <td className="px-2 py-1 text-gray-300 text-center whitespace-nowrap">{player.highSchool?.name || '—'}</td>}
-                        {isUniversity && <td className={`px-2 py-1 text-center whitespace-nowrap font-bold ${rt ? rt.cls : 'text-gray-400'}`}>{rt ? rt.label : '—'}</td>}
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.batting?.meet)}`}>{player.batting?.meet || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.batting?.power)}`}>{player.batting?.power || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.physical?.speed)}`}>{player.physical?.speed || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.fielding?.defense)}`}>{player.fielding?.defense || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.physical?.arm)}`}>{player.physical?.arm || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.batting?.eye)}`}>{player.batting?.eye || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.batting?.steal)}`}>{player.batting?.steal || '-'}</td>
-                        <td className={`px-2 py-1 text-center font-bold ${getAbilityColor(player.physical?.bodyStamina || 50)}`}>{player.physical?.bodyStamina || 50}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.games || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.atBats || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.hits || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.homeruns || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.rbis || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.stolenBases || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.walks || 0}</td>
-                        <td className="px-2 py-1 text-gray-300 text-center">{stats?.strikeouts || 0}</td>
-                        <td className="px-2 py-1 text-yellow-400 text-center font-bold">{player._avg.toFixed(3)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-gray-300 text-center py-4">野手がいません</p>
-          )}
+        <div className="online online-desktop online-embed">
+          <section className="online-card" data-testid="solo-team-roster">
+            <CompactRoster
+              key={selectedTeam}
+              view={view}
+              desktop
+              teamSelector={selector}
+              // ⚠ 表の行は `performance` を足した写しなので、元の選手で開く（詳細で書き換える項目がある）
+              onOpen={(p) => setSelectedPlayer(team.players.find((x) => x.id === p.id) || p)}
+              extraMark={extraMark}
+            />
+          </section>
         </div>
 
       {selectedPlayer && <PlayerDetailModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}

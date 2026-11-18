@@ -8,6 +8,7 @@ import { TabBar } from './GameUIComponents.jsx';
 import { AbilityValue } from './AbilityValue.jsx';
 import TutorialHint from './TutorialHint.jsx';
 import SoloLineupBoard from './lineup/SoloLineupBoard.jsx';
+import SoloPitchingBoard from './lineup/SoloPitchingBoard.jsx';
 import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { ensureTeamJerseyNumbers } from '../utils/jerseyNumbers.js';
 import { surnameOf } from '../data/playerNames.js';
@@ -1855,7 +1856,23 @@ export const LineupSettingContent = ({
           </>
         )}
 
-        {tab === 'rotation' && (() => {
+        {/* 一人用（`board`）の投手起用も、オンラインPC版と同じ1枚の表（`lineup/SoloPitchingBoard.jsx`）。
+            ⚠ オンラインのスマホ版は `board` を渡さないので、下の従来の画面のまま */}
+        {tab === 'rotation' && board && (
+          <>
+          <TutorialHint id="rotation-board" title="投手の役割を決める">
+            全投手を<b className="text-cyan-200">1枚の表</b>に、先発ローテ（登板順）→ 救援（使われる場面の順）→ 役割なし と並べています。
+            役割の札を押すと役割を選び直せます。行を選んでほかの行を押すと、登板順や役割を入れ替えます。先発は5〜6人、クローザーは1人が目安です。
+          </TutorialHint>
+          <SoloPitchingBoard
+            team={team}
+            onChange={() => setUpdateTrigger(prev => prev + 1)}
+            onOpen={setDetailPlayer}
+            resetKey={historyState.index}
+          />
+          </>
+        )}
+        {tab === 'rotation' && !board && (() => {
           // 全選手をロール別にグループ分け（ベンチ外選手=isActive:falseを除外）
           const allPlayers = (team.players || []).filter(p => p.isActive !== false);
           const starterPitchers = allPlayers.filter(p => ['ace', 'complete', 'short', 'quality', 'opener', 'auto_s'].includes(getPitcherRole(p.id)));

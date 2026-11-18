@@ -568,14 +568,17 @@ export function PlayerStatsButton({
   panel = 'stats',
   children,
   className = '',
+  onOpen,
 }) {
   const [open, setOpen] = useState(false);
   if (!player) return null;
+  // `onOpen`: 押したときに自分の小窓を開く（一人用のチーム情報。⚠ オンラインの小窓は
+  //   サーバーから読む項目があるので、一人用では一人用の選手詳細を開く）
   return (
     <>
       <button
         className={`online-player-name ${className}`}
-        onClick={() => setOpen(true)}
+        onClick={() => (onOpen ? onOpen(player) : setOpen(true))}
         aria-label={`${player.name}の選手情報を見る`}
       >
         {children || player.name}
@@ -727,7 +730,9 @@ export function RoleMark({ player, lineup }) {
 }
 
 /**
- * 名簿の表（選手成績・通算成績で共通）。
+ * 名簿の表（選手成績・通算成績で共通。一人用のチーム情報 `TeamInfoScreen.jsx` も使う）。
+ * ⚠ `onOpen` は選手名を押したとき（渡さなければオンラインの小窓）。`extraMark` は名前の
+ *    横に足す印（一人用の大学の学年・入部の種類）。
  * ⚠ `periodLabel` は見出しの脇に出す期間の名前。**合計の出し方は呼ぶ側が決める**
  *    （通算は `careerTotals` が出した値を `seasonStats` に差し替えて渡す）。
  */
@@ -738,6 +743,8 @@ export function CompactRoster({
   periodLabel = '今季',
   title = '選手成績',
   volumeOrder = false,
+  onOpen,
+  extraMark,
 }) {
   const [page, setPage] = useState(0);
   const [category, setCategory] = useState('batting');
@@ -928,6 +935,7 @@ export function CompactRoster({
               category={category}
               group={group.id}
               className="online-roster-row"
+              onOpen={onOpen}
             >
               <span className="online-roster-person">
                 <span className="online-roster-name">
@@ -937,6 +945,7 @@ export function CompactRoster({
                   <ConditionMark player={player} />
                   <small>{POS[player.position]}</small>
                   <RoleMark player={player} lineup={view.lineup} />
+                  {extraMark?.(player)}
                 </span>
                 <StatLabels
                   player={player}
