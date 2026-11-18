@@ -3,7 +3,7 @@ import { createDecisionLog, observeDecisionLog, decisionsFromResult, recordDecis
 import { TEAMS_DATA, LEAGUE_SETTINGS, normalizeMaxExtraInnings } from '../teams-data.js';
 import { calculatePhysicsContact, calculateBattedBallPhysics, judgeFielderReach, getTunnelingEffect, getThrowErrorRate, spinAdjustedArsenal } from '../simulation-logic.js';
 import { PITCHING_FORM_EFFECTS, adjustGrowthModifier, applyFatigueGrowthPenalty, DP_BASE,
-  pitchVelocityDrop, isUnreadablePitch, registeredAsFielder } from '../utils/constants.js';
+  pitchVelocityDrop, isUnreadablePitch, registeredAsFielder, addFatigue } from '../utils/constants.js';
 import { conditionBattingMod, CONDITION_PITCHING_MODIFIER, CONDITION_LEVELS, initializeCondition } from './condition.js';
 import { getPositionFitness, getHandednessEffect } from '../utils/physics.js';
 import { contactFoulProbability, isDirectionalFoul } from './contactRules.js';
@@ -3132,9 +3132,9 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
         // 代打(1-2打席)や守備固めは疲労の蓄積なし（ただし回復もしない）
         // 基礎疲労 7〜15（体力100→7, 体力1→15）。オンラインは別の式（`withFielderGameFatigue`）
         const baseFatigue = fielderGameFatigue(playerData.physical?.bodyStamina || 50, b);
-        if (baseFatigue > 0) playerData.fatigue = (playerData.fatigue || 0) + baseFatigue;
+        if (baseFatigue > 0) addFatigue(playerData, baseFatigue);
         // 死球の疲労は打席数に関わらず乗る（代打の1打席で当たっても痛い）
-        if (b.hbpFatigue) playerData.fatigue = (playerData.fatigue || 0) + b.hbpFatigue;
+        if (b.hbpFatigue) addFatigue(playerData, b.hbpFatigue);
 
         // 成長率変動: 10試合出場ごとに+0.01
         // 摩耗ペナルティはスタメン出場(3打席以上)時のみ、疲労度に応じて段階的に適用
@@ -3180,7 +3180,7 @@ const simulateGame = (homeTeamName, awayTeamName, isCupGame = false, observer = 
         // startBonusは先発として1イニング以上投げた場合のみ付与（短命降板でもペナルティがつかないよう）
         const startBonus = (wasStarter && (p.outs || 0) >= 3) ? 30 : 0;
         const fatigueGain = wasStarter ? pitchFatigue + startBonus : Math.max(11, pitchFatigue);
-        playerData.fatigue = (playerData.fatigue || 0) + fatigueGain;
+        addFatigue(playerData, fatigueGain);
 
         // 成長率変動: 先発はイニング数ベース、リリーフは登板数ベース
         if (wasStarter) {

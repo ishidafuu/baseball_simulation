@@ -1904,6 +1904,14 @@ export function selectPlayerForAI(
       } else {
         candidate.valueScore += 30; // 不足している場合
       }
+    } else {
+      // ⚠ **目標の人数に届いた区分は引く**（届いた時点で-20、1人超えるごとに-20）。
+      //    引かないと、一芸ボーナス（球速145以上・制球60以上など）が大きい投手ばかり取り続け、
+      //    10年の長期シミュで投手18〜20人・野手8人の球団ができた（控えの野手が居ないので
+      //    同じ8人が毎日出て疲労が溜まり続け、チーム打率.115・10勝105敗）
+      const group = rosterGroup(candidate.position);
+      const over = (rosterCounts[group] ?? 0) - (targets[group] ?? Infinity);
+      if (over >= 0) candidate.valueScore -= 20 + 20 * over;
     }
   });
 

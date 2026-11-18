@@ -7,7 +7,7 @@ import { TEAMS_DATA, LEAGUE_SETTINGS } from '../teams-data.js';
 import { generateAILineup } from './autoSimulation.js';
 import { recordGameResult } from '../season/dateProgression.js';
 import { decidePitchers, recordDecisions } from './pitcherDecisions.js';
-import { adjustGrowthModifier, applyFatigueGrowthPenalty } from '../utils/constants.js';
+import { adjustGrowthModifier, applyFatigueGrowthPenalty, addFatigue } from '../utils/constants.js';
 import { advanceQualifierWithResult, autoPlayBracket, isBracketComplete, getBracketRankings, buildLosersBracket, recordResult } from '../corporate/toshitaikou.js';
 
 /**
@@ -358,10 +358,10 @@ export function executeHandleManagedGameEnd(ctx) {
         if (isStarterAppearance) {
           const bodyStamina = playerData.physical?.bodyStamina || 50;
           const baseFatigue = Math.round(15 - (bodyStamina / 100) * 8);
-          playerData.fatigue = (playerData.fatigue || 0) + baseFatigue;
+          addFatigue(playerData, baseFatigue);
         }
         // 死球の疲労は打席数に関わらず乗る（代打の1打席で当たっても痛い）
-        if (gs.hbpFatigue) playerData.fatigue = (playerData.fatigue || 0) + gs.hbpFatigue;
+        if (gs.hbpFatigue) addFatigue(playerData, gs.hbpFatigue);
       }
 
       // 守備成績。**采配モードにも自動シミュと同じ集計を持たせる**
@@ -415,7 +415,7 @@ export function executeHandleManagedGameEnd(ctx) {
           if ((ps.outs || 0) >= 21 && er <= 2) sp.highQualityStarts = (sp.highQualityStarts || 0) + 1;
         }
         const fatigue = isStarter ? pitchFatigue + startBonus : Math.max(11, pitchFatigue);
-        playerData.fatigue = (playerData.fatigue || 0) + fatigue;
+        addFatigue(playerData, fatigue);
         if (isStarter) {
           // 先発: 15イニング(45アウト)ごとに+0.01
           if (Math.floor(sp.inningsPitched / 45) > Math.floor(prevTotalOuts / 45)) {

@@ -560,6 +560,18 @@ export const getRankColor = (rank) => ({
 /**
  * growthModifier を安全に加減算するユーティリティ
  */
+/**
+ * 疲労を足す（試合の後）。⚠ **上限で止める**。控えの居ない球団では同じ選手が毎日出て
+ * 回復の日が来ないので、上限が無いと疲労が2000を超え、能力の引き算（疲労²/1200）で
+ * ミートが数千も下がっていた（10年の長期シミュ）。150 は普段の最高（先発の翌日で100前後）より上
+ */
+export const FATIGUE_MAX = 150;
+export function addFatigue(player, amount) {
+  if (!(amount > 0)) return;
+  const now = player.fatigue || 0;
+  player.fatigue = Math.min(Math.max(FATIGUE_MAX, now), now + amount);
+}
+
 export const adjustGrowthModifier = (player, delta) => {
   player.growthModifier = Math.round(((player.growthModifier || 0) + delta) * 100) / 100;
 };

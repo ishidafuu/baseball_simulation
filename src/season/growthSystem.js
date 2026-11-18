@@ -868,7 +868,13 @@ export function applyAgeCurveChanges(allTeams, { online = null } = {}) {
             ? Math.round(rawChange * 1.2 * growthPotential)
             : Math.round(rawChange * 1.2 * decayMult * decayDiscMult);
 
-          const newValue = Math.max(1, currentValue + change);
+          // ⚠ **上限で止めること**。社会人・独立・クラブの選手は体力・回復力・盗塁・バントを
+          //    ここだけで伸ばすので、止めないとオンラインの自然成長（体力×1.8）で体力が
+          //    100を超えていた（10年の長期シミュで最大118）。上限は `STAT_GROWTH` の物差しと同じ
+          const statCap = STAT_GROWTH[stat] ? STAT_GROWTH[stat].cap : 99;
+          const newValue = change > 0 && statCap != null
+            ? Math.max(1, Math.min(Math.max(statCap, currentValue), currentValue + change))
+            : Math.max(1, currentValue + change);
 
           if (change !== 0) {
             updatedPlayer = setNestedValue(updatedPlayer, statPath, newValue);

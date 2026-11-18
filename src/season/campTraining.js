@@ -552,8 +552,9 @@ export function executeSubTraining(player, subType, options = {}, staffBonus = n
           growthReport.push({ statName: 'フォーム改造成功', before: FORM_SHORT[currentForm], after: FORM_SHORT[targetForm], growth: 0, isAwakening: true });
           const bonus = Math.floor(Math.random() * 3) + 3;
           const oldCtrl = player.pitching.control || 50;
-          player.pitching.control = oldCtrl + bonus;
-          growthReport.push({ statName: '制球', before: oldCtrl, after: player.pitching.control, growth: bonus });
+          // ⚠ 上限100で止める（ほかの制球の伸びと同じ。98で成功すると103になっていた）
+          player.pitching.control = Math.min(100, oldCtrl + bonus);
+          growthReport.push({ statName: '制球', before: oldCtrl, after: player.pitching.control, growth: player.pitching.control - oldCtrl });
         } else {
           // 失敗: フォーム変更 + 制球-1~3 ダウン
           growthReport.push({ statName: 'フォーム改造', before: FORM_SHORT[currentForm], after: FORM_SHORT[targetForm], growth: 0 });
