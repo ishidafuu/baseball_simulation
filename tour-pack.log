@@ -1,0 +1,41 @@
+--------- beginning of main
+11-21 13:55:18.033  3471  3725 I ScreenTour: shot pack-01-login.png
+11-21 13:55:29.392  3471  3725 I ScreenTour: shot pack-02-home.png
+11-21 13:55:30.832  3471  3725 I ScreenTour: shot pack-03-home-2.png
+11-21 13:55:32.354  3471  3725 I ScreenTour: shot pack-04-home-3.png
+11-21 13:55:33.830  3471  3725 I ScreenTour: shot pack-05-home-4.png
+11-21 13:55:37.558  3471  3725 W ScreenTour: skip home-page2: Failed to inject touch input.
+11-21 13:55:37.558  3471  3725 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '2面 チーム' (ignoreCase: false)'
+11-21 13:55:37.558  3471  3725 W ScreenTour: There are no existing nodes for that selector.
+11-21 13:55:41.550  3471  3725 W ScreenTour: skip home-page3: Failed to inject touch input.
+11-21 13:55:41.550  3471  3725 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '3面 記録' (ignoreCase: false)'
+11-21 13:55:41.550  3471  3725 W ScreenTour: There are no existing nodes for that selector.
+11-21 13:55:45.007  3471  3725 W ScreenTour: skip home-page1: Failed to inject touch input.
+11-21 13:55:45.007  3471  3725 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '1面' (ignoreCase: false)'
+11-21 13:55:45.007  3471  3725 W ScreenTour: There are no existing nodes for that selector.
+11-21 13:55:51.149  3471  3725 I ScreenTour: shot pack-06-home-national.png
+11-21 13:55:52.485  3471  3725 I ScreenTour: shot pack-07-home-national-2.png
+11-21 13:55:53.867  3471  3725 I ScreenTour: shot pack-08-home-national-3.png
+11-21 13:56:02.143  3471  3725 I ScreenTour: shot pack-09-home-web.png
+11-21 13:56:03.518  3471  3725 I ScreenTour: shot pack-10-home-web-2.png
+11-21 13:56:04.912  3471  3725 I ScreenTour: shot pack-11-home-web-3.png
+11-21 13:56:09.390  3471  3725 I ScreenTour: shot pack-12-home-plain.png
+11-21 13:56:10.742  3471  3725 I ScreenTour: shot pack-13-home-plain-2.png
+11-21 13:56:12.044  3471  3725 I ScreenTour: shot pack-14-home-plain-3.png
+11-21 13:56:16.722  3471  3725 I ScreenTour: shot pack-15-home-menu.png
+11-21 13:56:24.658  3471  3725 I ScreenTour: shot pack-16-home-back-issues.png
+11-21 13:56:32.150  3471  3725 I ScreenTour: shot pack-17-home-inbox.png
+11-21 13:56:37.193  3471  3725 I ScreenTour: shot pack-18-procedures.png
+11-21 13:56:38.556  3471  3725 I ScreenTour: shot pack-19-procedures-2.png
+11-21 13:56:39.853  3471  3725 I ScreenTour: shot pack-20-procedures-3.png
+11-21 13:56:41.156  3471  3725 I ScreenTour: shot pack-21-procedures-4.png
+11-21 13:56:42.455  3471  3725 I ScreenTour: shot pack-22-procedures-5.png
+11-21 13:56:43.754  3471  3725 I ScreenTour: shot pack-23-procedures-6.png
+11-21 13:56:46.098  3471  3725 I ScreenTour: shot pack-24-procedures-pack-detail.png
+11-21 13:56:47.413  3471  3725 I ScreenTour: shot pack-25-procedures-pack-detail-2.png
+11-21 13:56:53.674  3471  3725 I ScreenTour: shot pack-26-games-news.png
+11-21 13:56:54.969  3471  3725 I ScreenTour: shot pack-27-games-news-2.png
+11-21 13:56:58.330  3471  3725 I ScreenTour: shot pack-28-plan-order.png
+11-21 13:57:01.755  3471  3725 I ScreenTour: shot pack-29-players.png
+11-21 13:57:10.377  3471  3725 I ScreenTour: shot pack-30-rename-dialog.png
+11-21 13:57:11.786  3471  3725 I ScreenTour: done pack: 30 shots
