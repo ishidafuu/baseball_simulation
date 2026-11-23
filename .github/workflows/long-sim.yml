@@ -30,6 +30,15 @@ jobs:
       - run: npm ci
       - name: Long run
         run: node --max-old-space-size=6144 tools/sim-harness/long-run-probe.mjs ${{ github.event.inputs.years || '10' }} ${{ matrix.seed }} long-sim-${{ matrix.seed }}.json > long-sim-${{ matrix.seed }}.log
+      # 結果の JSON をログにも出す（成果物を落とせない環境からも `gh api .../jobs/<id>/logs` で読める）
+      - name: Result
+        if: always()
+        run: |
+          tail -n 40 long-sim-${{ matrix.seed }}.log
+          echo '::group::json'
+          gzip -c long-sim-${{ matrix.seed }}.json | base64 -w 0
+          echo
+          echo '::endgroup::'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
