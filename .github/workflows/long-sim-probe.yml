@@ -1,0 +1,27 @@
+name: long-sim-probe
+# 一時的な計測用（PR には入れない）。10年の長期シミュを種4つで回し、結果の JSON を成果物に置く。
+on:
+  push:
+    branches: ['probe/**']
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [11, 22, 33, 44]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node tools/sim-harness/long-run-probe.mjs 10 ${{ matrix.seed }} long-${{ matrix.seed }}.json > long-${{ matrix.seed }}.log 2>&1; tail -40 long-${{ matrix.seed }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: long-${{ matrix.seed }}
+          path: long-${{ matrix.seed }}.*
+          retention-days: 3
