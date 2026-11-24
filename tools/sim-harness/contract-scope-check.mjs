@@ -55,7 +55,7 @@ for (const [name, t] of Object.entries(TEAMS_DATA)) {
 
 // 社会人モードの退団（CorporateDepartureScreen → processCorporateRetirements）も
 // 同じ穴を持っていた。大学が対象外になっているかを実物の関数で検証する
-const { processCorporateRetirements } = await import('../../src/corporate/scoutingSystem.js');
+const { processCorporateRetirements } = await import('../../src/corporate/corporateDepartures.js');
 const corpRes = processCorporateRetirements(TEAMS_DATA, userTeamName);
 let corpUni = 0, corpUniTeams = 0, corpOther = 0;
 for (const [name, ids] of Object.entries(corpRes.aiReleases || {})) {

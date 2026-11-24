@@ -11,10 +11,11 @@ import { PHYSICAL_STATS, TECHNICAL_STATS, getAgeGrowthBase, getStatPath, getStat
 import { PITCHING_FORM_EFFECTS, getUtilityScore } from '../utils/constants.js';
 import { pitchOwnValue } from '../game/pitchCalling.js';
 import { deviationValue, deviationOf, valueGroup, DRAFT_DEMAND } from '../game/playerValue.js';
-import { generateHighSchoolClass, assignCareerPaths, enrollInUniversity, processUniversityYear, universityPool, highSchoolPool, processHighSchoolNPBDraft, distributeHighSchoolGraduates, HIGH_SCHOOL_CLASS_SIZE, absorbUniversityPoolIntoRosters } from './universityPool.js';
+import { generateHighSchoolClass, assignCareerPaths, enrollInUniversity, processUniversityYear, processHighSchoolNPBDraft, distributeHighSchoolGraduates, HIGH_SCHOOL_CLASS_SIZE, absorbUniversityPoolIntoRosters } from './universityPool.js';
+import { universityPool, highSchoolPool } from '../state/schoolPools.js';
 import { initializeUniversityLeagues, processUniversityPromotionRelegation } from '../university/universityLeagueManager.js';
 import { getUniversityLeagueSchedule, getUniversityLeagueStandings } from '../university/universityInit.js';
-import { generatePositionFitness } from './tryoutSystem.js';
+import { generatePositionFitness } from './playerFactory.js';
 import { assignSecondCareer } from './secondCareer.js';
 import { syncPositionToFitness, getVelocityCap, getVelocityCatchupMult } from '../utils/physics.js';
 import { WORLD_DATA } from '../corporate/worldData.js';

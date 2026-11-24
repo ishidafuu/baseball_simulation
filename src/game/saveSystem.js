@@ -3,7 +3,8 @@ import { TEAMS_DATA, releasedPlayersPool, clearReleasedPlayersPool } from '../te
 import { addManyToReleasedPool } from '../state/pools.js';
 import { createSeasonStats, createCareerStats } from '../players.js';
 import { WORLD_DATA, initializeWorld } from '../corporate/worldData.js';
-import { universityPool, highSchoolPool, serializeUniversityPool, deserializeUniversityPool, seedInitialUniversityClasses, absorbUniversityPoolIntoRosters } from '../season/universityPool.js';
+import { serializeUniversityPool, deserializeUniversityPool, seedInitialUniversityClasses, absorbUniversityPoolIntoRosters } from '../season/universityPool.js';
+import { universityPool, highSchoolPool } from '../state/schoolPools.js';
 import { UNIVERSITY_TEAMS, generateLeagueAbbreviations } from '../university/universityTeamsData.js';
 import { isIndexedDBAvailable, idbGetItem, idbSetItem, idbRemoveItem, migrateLocalStorageToIDB, getIDBUsage, requestPersistentStorage } from '../utils/indexedDBStorage.js';
 import { migrateSaveData, CURRENT_SAVE_VERSION } from './saveMigration.js';

@@ -15,9 +15,9 @@ import {
   calculateDailyGaugeRate,
   getMaxApproaches,
   getRivalInfo,
-} from '../corporate/scoutingSystem.js';
+} from '../university/universityScout.js';
 import { addToWatchList, removeFromWatchList } from '../game/watchList.js';
-import { highSchoolPool } from '../season/universityPool.js';
+import { highSchoolPool } from '../state/schoolPools.js';
 import { WORLD_DATA } from '../corporate/worldData.js';
 import ConfirmBar from './ConfirmBar.jsx';
 

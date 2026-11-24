@@ -15,9 +15,10 @@
 
 import { SRC } from './bootstrap.mjs';
 
-const { generateHighSchoolClass, enrollInUniversity, processUniversityYear,
-        highSchoolPool, universityPool, clearUniversityPool, clearHighSchoolPool } =
+const { generateHighSchoolClass, enrollInUniversity, processUniversityYear } =
   await import(SRC + '/season/universityPool.js');
+const { highSchoolPool, universityPool, clearUniversityPool, clearHighSchoolPool } =
+  await import(SRC + '/state/schoolPools.js');
 const { generateCorporateRoster } = await import(SRC + '/corporate/corporateInit.js');
 const { applyCorporatePlayerGrowth } = await import(SRC + '/season/growthSystem.js');
 const { processNPBDraft } = await import(SRC + '/season/npbDraft.js');

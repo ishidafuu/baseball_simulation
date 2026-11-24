@@ -8,7 +8,8 @@ import { WORLD_DATA, initializeWorld } from '../corporate/worldData.js';
 import { UNIVERSITY_TEAMS, UNIVERSITY_REGIONS, generateLeagueAbbreviations } from './universityTeamsData.js';
 import { initializeUniversityLeagues } from './universityLeagueManager.js';
 import { generateCorporateRoster, initializeCorporateParallelWorld } from '../corporate/corporateInit.js';
-import { seedInitialUniversityClasses, warmUpPlayerPipeline, clearUniversityPool, clearHighSchoolPool, universityPool, absorbUniversityPoolIntoRosters } from '../season/universityPool.js';
+import { seedInitialUniversityClasses, warmUpPlayerPipeline, absorbUniversityPoolIntoRosters } from '../season/universityPool.js';
+import { clearUniversityPool, clearHighSchoolPool, universityPool } from '../state/schoolPools.js';
 
 // 大学チームの学年あたり人数（1〜4年生 × 人数 = 総在籍数）
 const UNI_PLAYERS_PER_GRADE = { S: 14, A: 12, B: 10, C: 8, D: 6 };

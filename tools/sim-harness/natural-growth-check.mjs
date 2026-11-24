@@ -47,7 +47,7 @@ import { estimatePeakAge } from '../../src/season/potential.js';
 import { outlookOf } from '../../src/online/ageOutlook.js';
 import { ABILITY_HELP } from '../../src/online/playerInfo.js';
 import { growthStopAge } from '../../src/season/campTraining.js';
-import { createCandidatePlayer } from '../../src/season/tryoutSystem.js';
+import { createCandidatePlayer } from '../../src/season/playerFactory.js';
 import { naturalGrowthOf, naturalGrowthText, naturalGrowthColor } from '../../src/utils/naturalGrowth.js';
 
 /** いしだ指定の表（素質1.0・1能力あたり・1年） */

@@ -16,7 +16,7 @@
 // 同学年の選手が存在するのは夏の大会だけになる。
 // ============================================================
 
-import { highSchoolPool } from './universityPool.js';
+import { highSchoolPool } from '../state/schoolPools.js';
 import { WORLD_DATA } from '../corporate/worldData.js';
 import { createBracket } from '../corporate/toshitaikou.js';
 

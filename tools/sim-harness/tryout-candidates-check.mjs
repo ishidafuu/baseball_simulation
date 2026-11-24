@@ -24,7 +24,7 @@
 import './lib/bootstrap.mjs';
 import assert from 'node:assert/strict';
 import { bootstrapWorld } from './lib/world.mjs';
-import { highSchoolPool } from '../../src/season/universityPool.js';
+import { highSchoolPool } from '../../src/state/schoolPools.js';
 import { generateTryoutCandidates } from '../../src/season/tryoutSystem.js';
 import { weightedScore, DEFAULT_WEIGHTS } from '../../src/online/tryoutPlan.js';
 import { generateCorporateRoster } from '../../src/corporate/corporateInit.js';

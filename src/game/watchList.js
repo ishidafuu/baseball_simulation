@@ -17,7 +17,7 @@
 
 import { WORLD_DATA } from '../corporate/worldData.js';
 import { TEAMS_DATA, releasedPlayersPool } from '../teams-data.js';
-import { highSchoolPool, universityPool } from '../season/universityPool.js';
+import { highSchoolPool, universityPool } from '../state/schoolPools.js';
 
 const MAX_WATCH = 60;
 

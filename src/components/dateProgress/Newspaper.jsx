@@ -3,7 +3,7 @@ import { TEAMS_DATA } from '../../teams-data.js';
 import { WORLD_DATA } from '../../corporate/worldData.js';
 import { FORM_NAME } from '../../utils/constants.js';
 import { checkNPBDraftEligibility } from '../../season/yearProgressionSystem.js';
-import { highSchoolPool, universityPool } from '../../season/universityPool.js';
+import { highSchoolPool, universityPool } from '../../state/schoolPools.js';
 
 // ============================================================
 // スポーツ新聞「ドラフト戦線」（`DateProgressScreen` から抽出）

@@ -263,7 +263,7 @@ export const MIGRATIONS = [
     note: '初期セットの選手に出身（高校・大学）を付けた',
     apply(league) {
       // ⚠ いしだ 2026-11-20「初期メンバーにも、高校や大学のラベル付けをしてほしいです」。
-      //    これから作るセットは生成のときに付く（`tryoutSystem.js` の `createCandidatePlayer`）。
+      //    これから作るセットは生成のときに付く（`playerFactory.js` の `createCandidatePlayer`）。
       //    **前からあるリーグはここで付ける**（付けないと、いま遊んでいるリーグだけ空のまま）。
       // ⚠ 出身が分かっている選手（高校・大学から入った選手）は触らない（`fillPlayerOrigin`）。
       // ⚠ **選手ごとに種を決めて引く**。移行をやり直しても同じ学校になる

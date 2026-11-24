@@ -81,7 +81,7 @@ export function assignPlayerOrigin(age, rank = 'C', { university = true } = {}) 
 /**
  * 出身の無い選手に出身を付ける（既に分かっている選手は触らない）。
  * 初期セットの生成と、前からあるリーグの移行（`leagueMigration.js`）の両方で使う。
- * @param options.university false なら高校だけ付ける（一人用の生成候補。`tryoutSystem.js` の注）
+ * @param options.university false なら高校だけ付ける（一人用の生成候補。`playerFactory.js` の `createCandidatePlayer` の注）
  * @returns 付けたら true
  */
 export function fillPlayerOrigin(player, { university = true } = {}) {

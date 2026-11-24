@@ -21,7 +21,8 @@
 //     合計 ≒ 18-20名
 // ============================================================
 
-import { generateTryoutCandidates, selectPlayerForAI, generateScoutComment } from '../season/tryoutSystem.js';
+import { generateTryoutCandidates, selectPlayerForAI } from '../season/tryoutSystem.js';
+import { generateScoutComment } from '../game/scoutComment.js';
 import { generateRandomPlayerName } from '../data/playerNames.js';
 import { taperLow, RANK_ORDER, RANK_DESC } from '../utils/constants.js';
 import { generateStaff, STAFF_GRADE_CAP } from './staffData.js';
@@ -34,7 +35,8 @@ import { generateFullSeasonSchedule } from '../season/scheduleGenerator.js';
 import { initializeStandings, compareStandings } from '../season/seasonManager.js';
 import { initializeUniversityLeagues } from '../university/universityLeagueManager.js';
 import { UNIVERSITY_TEAMS } from '../university/universityTeamsData.js';
-import { seedInitialUniversityClasses, warmUpPlayerPipeline, universityPool, clearUniversityPool, clearHighSchoolPool } from '../season/universityPool.js';
+import { seedInitialUniversityClasses, warmUpPlayerPipeline } from '../season/universityPool.js';
+import { universityPool, clearUniversityPool, clearHighSchoolPool } from '../state/schoolPools.js';
 import { assignInitialUniversityBackgrounds } from '../university/universityPipeSystem.js';
 import { UNIVERSITY_REGIONS } from '../university/universityTeamsData.js';
 

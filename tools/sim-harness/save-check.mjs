@@ -237,7 +237,7 @@ assert.equal(getPlayerIdCounter(), 90001, 'ロード失敗後に採番位置を�
 // ⚠ 保存で落としたプールの選手の成績欄は、ロードで空の成績として戻す
 //    （戻さないと名簿に入った選手が成績欄の無いまま年度替わりを迎え、通算成績が作られなかった）
 {
-  const { highSchoolPool, universityPool } = await import('../../src/season/universityPool.js');
+  const { highSchoolPool, universityPool } = await import('../../src/state/schoolPools.js');
   const { optimizeSaveData } = await import('../../src/utils/compression.js');
   const pooled = { id: 4242, name: '高校生', position: 'short', seasonStats: { batting: {} }, careerStats: { batting: {} } };
   const stripped = optimizeSaveData({ universityPool: { highSchool: { players: [pooled], year: 1 }, university: { 2026: [{ player: { ...pooled, id: 4243 } }] } } }).universityPool;

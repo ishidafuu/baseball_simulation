@@ -4,7 +4,7 @@
 // ============================================================
 
 import { createPlayerStats, createSeasonStats, createCareerStats } from './players.js';
-import { clearUniversityPool, clearHighSchoolPool } from './season/universityPool.js';
+import { clearUniversityPool, clearHighSchoolPool } from './state/schoolPools.js';
 import { autoStarterRole } from './utils/constants.js';
 
 /**

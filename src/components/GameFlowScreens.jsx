@@ -10,7 +10,7 @@ import { openSoloSeason } from '../season/soloSeasonSteps.js';
 import { initializeCorporateGame, initializeParallelWorldForIndependent, ensureUserIndependentLeagueTagged } from '../corporate/corporateInit.js';
 import { INDEPENDENT_LEAGUES } from '../corporate/independentLeagueData.js';
 import { initializeWorld, WORLD_DATA } from '../corporate/worldData.js';
-import { clearUniversityPool, clearHighSchoolPool } from '../season/universityPool.js';
+import { clearUniversityPool, clearHighSchoolPool } from '../state/schoolPools.js';
 import { initializeUniversityGame, getUniversityLeagueSchedule, getUniversityLeagueStandings } from '../university/universityInit.js';
 
 let selectedIndependentLeague = null;

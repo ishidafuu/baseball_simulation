@@ -3,7 +3,7 @@ import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { TEAMS_DATA } from '../teams-data.js';
 import { calcPlayerOverall } from '../season/dispatchSystem.js';
 import { POSITION_NAMES, getOverallColor } from '../utils/constants.js';
-import { universityPool, highSchoolPool } from '../season/universityPool.js';
+import { universityPool, highSchoolPool } from '../state/schoolPools.js';
 import { checkNPBDraftEligibility } from '../season/yearProgressionSystem.js';
 import PlayerDetailModal from './PlayerDetailModal.jsx';
 

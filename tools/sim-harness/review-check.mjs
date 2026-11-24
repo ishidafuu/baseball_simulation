@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { normalizePlayer } from '../../src/game/saveMigration.js';
 import { reservePlayerIds } from '../../src/state/playerIds.js';
 import { TEAMS_DATA, releasedPlayersPool } from '../../src/teams-data.js';
-import { universityPool, highSchoolPool } from '../../src/season/universityPool.js';
+import { universityPool, highSchoolPool } from '../../src/state/schoolPools.js';
 import { initializeStandings, updateStandings, updatePlayoffProgress, getPlayoffChampion, SEASON_PHASES } from '../../src/season/seasonManager.js';
 import { handlePhaseTransition } from '../../src/season/dateProgression.js';
 import { createSeededRandom, withSeededRandom } from '../../src/game/rng.js';

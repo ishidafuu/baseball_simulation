@@ -1,4 +1,4 @@
-import { createCandidatePlayer } from '../season/tryoutSystem.js';
+import { createCandidatePlayer } from '../season/playerFactory.js';
 import { createSeededRandom } from '../game/rng.js';
 
 // ============================================================

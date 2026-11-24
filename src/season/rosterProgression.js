@@ -10,9 +10,10 @@ import { humanTeamNames } from '../game/teamControl.js';
 // replenishCorporateRosters / replenishIndependentLeagueRosters（advanceToNextYearから利用）。
 // ============================================================
 
-import { highSchoolPool, applyUniversityYear } from './universityPool.js';
+import { applyUniversityYear } from './universityPool.js';
+import { highSchoolPool } from '../state/schoolPools.js';
 import { generateCatcherLead, RANK_DESC, blankSeasonStats, blankCareerStats } from '../utils/constants.js';
-import { generatePositionFitness } from './tryoutSystem.js';
+import { generatePositionFitness } from './playerFactory.js';
 import { syncPositionToFitness } from '../utils/physics.js';
 import { generateHandedness, generateBats } from '../utils/handedness.js';
 import { releasedPlayersPool, TEAMS_DATA } from '../teams-data.js';

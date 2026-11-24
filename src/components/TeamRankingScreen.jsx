@@ -5,7 +5,7 @@ import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { WORLD_DATA } from '../corporate/worldData.js';
 import { TEAMS_DATA } from '../teams-data.js';
 import { UNIVERSITY_TEAMS } from '../university/universityTeamsData.js';
-import { universityPool } from '../season/universityPool.js';
+import { universityPool } from '../state/schoolPools.js';
 import { calcPlayerOverall } from '../season/dispatchSystem.js';
 import { POSITION_NAMES, getOverallColor } from '../utils/constants.js';
 import PlayerDetailModal from './PlayerDetailModal.jsx';

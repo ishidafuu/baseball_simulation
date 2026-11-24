@@ -1,5 +1,5 @@
 import { TEAMS_DATA, releasedPlayersPool } from '../teams-data.js';
-import { universityPool, highSchoolPool } from '../season/universityPool.js';
+import { universityPool, highSchoolPool } from './schoolPools.js';
 
 let lastIssuedId = 0;
 

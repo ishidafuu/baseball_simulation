@@ -9,7 +9,7 @@
 // ============================================================
 import assert from 'node:assert/strict';
 import { applyAgeCurveChanges } from '../../src/season/growthSystem.js';
-import { createCandidatePlayer } from '../../src/season/tryoutSystem.js';
+import { createCandidatePlayer } from '../../src/season/playerFactory.js';
 import { normalizePlayer } from '../../src/game/saveMigration.js';
 import { ABILITY_CAP } from '../../src/utils/constants.js';
 

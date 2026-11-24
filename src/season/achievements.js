@@ -9,7 +9,7 @@
 // ============================================================
 
 import { TEAMS_DATA } from '../teams-data.js';
-import { universityPool } from './universityPool.js';
+import { universityPool } from '../state/schoolPools.js';
 
 const clampGrade = (g) => Math.max(1, Math.min(4, g));
 

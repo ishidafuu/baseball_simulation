@@ -7,7 +7,8 @@
 // こちらから一方向に import する（yps は本関数を内部呼び出ししないため循環参照なし）。
 // ============================================================
 
-import { generateHighSchoolClass, universityPool, highSchoolPool, HIGH_SCHOOL_CLASS_SIZE } from './universityPool.js';
+import { generateHighSchoolClass, HIGH_SCHOOL_CLASS_SIZE } from './universityPool.js';
+import { universityPool, highSchoolPool } from '../state/schoolPools.js';
 import { WORLD_DATA } from '../corporate/worldData.js';
 import { checkNPBDraftEligibility, checkHallOfFame, cleanupPlayerReferences, computeSeasonAwardBonuses } from './yearProgressionSystem.js';
 import { addToObRegistry } from '../game/obRegistry.js';

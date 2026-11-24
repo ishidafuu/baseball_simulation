@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import PlayerDetailModal from './PlayerDetailModal.jsx';
 import { ScreenShell, ScreenHeader } from './GameUIComponents.jsx';
 import { TEAMS_DATA } from '../teams-data.js';
-import { highSchoolPool, universityPool } from '../season/universityPool.js';
+import { highSchoolPool, universityPool } from '../state/schoolPools.js';
 import { releasedPlayersPool } from '../teams-data.js';
 import { POSITION_NAMES, POSITION_ORDER, FORM_SHORT, FORM_CODE } from '../utils/constants.js';
 import { AbilityValue, overallRating } from './AbilityValue.jsx';
 import { WORLD_DATA } from '../corporate/worldData.js';
-import { addHighSchoolPlayerToScoutList } from '../corporate/scoutingSystem.js';
+import { addHighSchoolPlayerToScoutList } from '../university/universityScout.js';
 
 const SOURCES = [
   { key: 'highschool', label: '高校生' },

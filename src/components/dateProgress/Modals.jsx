@@ -1,7 +1,7 @@
 import React from 'react';
 import { KOSHIEN_STAGE_LABEL } from '../../season/koshien.js';
 import { addToWatchList, removeFromWatchList, isWatched } from '../../game/watchList.js';
-import { highSchoolPool } from '../../season/universityPool.js';
+import { highSchoolPool } from '../../state/schoolPools.js';
 
 // ============================================================
 // 日程進行画面のモーダル（`DateProgressScreen` から抽出）

@@ -3,7 +3,7 @@ import { rosterIndex, departedSince } from '../season/departedStats.js';
 import { TEAMS_DATA } from '../teams-data.js';
 import { POSITION_NAMES, getAbilityColor, getPositionSortIndex } from '../utils/constants.js';
 import { AbilityValue } from './AbilityValue.jsx';
-import { processCorporateRetirements, executeDepartures } from '../corporate/scoutingSystem.js';
+import { processCorporateRetirements, executeDepartures } from '../corporate/corporateDepartures.js';
 import { getPlayerSalary, getStaffSalary, convertPlayerToStaff, STAFF_ABILITIES, MAX_STAFF } from '../corporate/staffData.js';
 import { budgetBreakdown, generateSponsorOffers, acceptSponsor, SPONSOR_TIERS } from '../corporate/corporateInit.js';
 import { getTeamStaffBonus, STAFF_GRADES } from '../corporate/staffData.js';

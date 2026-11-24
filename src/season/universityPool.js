@@ -8,7 +8,7 @@ import { generateRandomPlayerName, getRandomGivenName } from '../data/playerName
 import { getRegionalSurname, REGIONAL_SHARE } from '../data/prefectureNames.js';
 import { homeBlockOf, blockOfUniversity, HOME_UNIV_PREF } from '../data/regions.js';
 import { generateCatcherLead, taperLow, ALL_PITCH_TYPES, FORM_PITCH_SYNERGY, createEmptyStats, blankSeasonStats } from '../utils/constants.js';
-import { generatePositionFitness, generateRandomArsenal, generateTwoWayPositionFitness } from './tryoutSystem.js';
+import { generatePositionFitness, generateRandomArsenal, generateTwoWayPositionFitness } from './playerFactory.js';
 import { getUniversityGrowthMultiplier, UNIVERSITY_TEAMS, getUniversityTeamsByRank } from '../university/universityTeamsData.js';
 import { assignHighSchool } from '../data/highSchoolData.js';
 import { getVelocityCap, getVelocityCatchupMult } from '../utils/physics.js';
@@ -18,6 +18,7 @@ import { generateHandedness } from '../utils/handedness.js';
 import { releasedPlayersPool, TEAMS_DATA } from '../teams-data.js';
 import { buildToolNorms, toolProfile } from '../game/scoutTools.js';
 import { addToReleasedPool, replaceReleasedPool } from '../state/pools.js';
+import { universityPool, highSchoolPool, clearUniversityPool, clearHighSchoolPool } from '../state/schoolPools.js';
 import { addToRoster } from '../state/roster.js';
 import { WORLD_DATA } from '../corporate/worldData.js';
 import { reservePlayerIds } from '../state/playerIds.js';
@@ -31,35 +32,7 @@ const BAT_TAPER_AT = 45;
 const BAT_TAPER_K = 0.7;
 export const batTaperHigh = (v) => (v > BAT_TAPER_AT ? Math.round(BAT_TAPER_AT + (v - BAT_TAPER_AT) * BAT_TAPER_K) : v);
 
-/**
- * 大学プール: **初期化の途中だけ使う仮置き場**。
- * { [enrollYear]: [ { player, enrollYear, graduateYear } ] }
- *
- * ⚠ **大学生の実体は TEAMS_DATA の大学チームの名簿ひとつだけ**。かつてはこのプールと
- *    名簿が別々に在学生を持っており、同じ「近畿大学」に名簿56人とプール60人が別人として
- *    居た（大学生の総数が設計の約2倍の 17,800人）。しかも成長はプール側にしか掛からず、
- *    画面に出る名簿の選手は伸びないまま、S校のスタメンが5年でミート63→30に落ちていた。
- *    いまは `enrollInUniversity` が名簿へ直接入れ、年次の成長・知名度・卒業は
- *    `processUniversityTeamGraduation`（名簿側）が担う。ここに入るのは
- *    **大学チームがまだ TEAMS_DATA に無い初期化の途中**だけで、
- *    `initializeUniversityTeamsForParallelWorld` / `absorbUniversityPoolIntoRosters` が名簿へ移す。
- */
-export const universityPool = {};
-
-/**
- * 高校生プール: 4月に生成、10月ドラフト→11月進路振り分けまで保持
- * { players: Array, year: number }
- */
-export const highSchoolPool = { players: [], year: 0 };
-
-export const clearUniversityPool = () => {
-  Object.keys(universityPool).forEach(k => delete universityPool[k]);
-};
-
-export const clearHighSchoolPool = () => {
-  highSchoolPool.players = [];
-  highSchoolPool.year = 0;
-};
+// 大学・高校のプールの実体は src/state/schoolPools.js（頭の注）。
 
 /**
  * 高卒世代を一括生成（毎年1回、ドラフト前に実行）
@@ -686,7 +659,7 @@ export function processHighSchoolNPBDraft() {
 // ⚠ トライアウトは別経路で既に是正済み（`TRYOUT_OVERDRAW` + `balanceByPosition`）。
 //    そちらへこの関数を持ち込むと二重に効く。
 // ⚠ **大学推薦スカウトの候補の帯も同じ順位表を切っている**ので、そちらからも呼ぶ
-//    （`scoutingSystem.discoverCandidatesFromPool`）。**同じ並べ替えを書き写さないこと**。
+//    （`universityScout.js` の `discoverCandidatesFromPool`）。**同じ並べ替えを書き写さないこと**。
 export function balanceRankByPosition(scored) {
   const P = scored.filter(e => e.player?.position === 'pitcher');
   const F = scored.filter(e => e.player?.position !== 'pitcher');

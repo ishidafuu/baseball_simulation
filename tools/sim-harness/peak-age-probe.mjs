@@ -47,7 +47,7 @@ for (const [, , lab] of bands) {
 // ---------- ② 縦断（同じ選手を追う） ----------
 // ⚠ 社会人ロスターの18〜20歳は数が少ないので、**高校生プールを社会人チームへ
 //    入れて18歳から追う**。「18歳で入ってきた選手がいつ完成するか」がここでの問い。
-const { highSchoolPool } = await import(SRC + '/season/universityPool.js');
+const { highSchoolPool } = await import(SRC + '/state/schoolPools.js');
 const pool = (highSchoolPool.players || []).slice(0, 1200);
 const cohort = [];
 const growTeams = {};

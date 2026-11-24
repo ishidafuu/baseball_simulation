@@ -24,7 +24,7 @@ import { bootstrapWorld, TEAMS_DATA } from './lib/world.mjs';
 import { Report } from './lib/report.mjs';
 
 bootstrapWorld();
-const { highSchoolPool } = await import('../../src/season/universityPool.js');
+const { highSchoolPool } = await import('../../src/state/schoolPools.js');
 const { processUniversityTeamGraduation } = await import('../../src/season/rosterProgression.js');
 
 const uniTeams = {};

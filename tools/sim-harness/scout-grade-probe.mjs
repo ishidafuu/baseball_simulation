@@ -11,8 +11,10 @@
 // ============================================================
 import './lib/bootstrap.mjs';
 import { SRC } from './lib/bootstrap.mjs';
-const { generateHighSchoolClass, highSchoolPool, balanceRankByPosition } = await import(SRC + '/season/universityPool.js');
-const { evaluatePlayerScore, initUniversityScoutList, getUniversityScoutRecommendation } = await import(SRC + '/corporate/scoutingSystem.js');
+const { generateHighSchoolClass, balanceRankByPosition } = await import(SRC + '/season/universityPool.js');
+const { highSchoolPool } = await import(SRC + '/state/schoolPools.js');
+const { evaluatePlayerScore } = await import(SRC + '/game/scoutReport.js');
+const { initUniversityScoutList, getUniversityScoutRecommendation } = await import(SRC + '/university/universityScout.js');
 const { WORLD_DATA } = await import(SRC + '/corporate/worldData.js');
 
 const N = +process.argv[2] || 10;
