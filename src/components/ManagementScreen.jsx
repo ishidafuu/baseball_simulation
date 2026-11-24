@@ -1,16 +1,11 @@
 import React from 'react';
 import { TEAMS_DATA, initializeAllPitchingRotations } from '../teams-data.js';
-import { SEASON_PHASES, calendarYearOf } from '../season/seasonManager.js';
 import { applyNextSeasonRegulations } from '../season/nextSeasonRegulations.js';
 import { withDeparted, rosterIndex, departedSince } from '../season/departedStats.js';
 import { progressDate } from '../season/dateProgression.js';
-import { initializeAllPlayersCondition } from '../game/condition.js';
-import { generateAILineup, setRecommendedLineup } from '../game/autoSimulation.js';
-import { generateOptimalLineup, generatePitchingRotation, generateAllTeamsLineup, ensureAllTeamsReady } from '../game/lineupGenerator.js';
-import { snapshotRankings, snapshotAbilityHistory } from '../season/yearProgressionSystem.js';
-import { soloSeasonEnd } from '../season/soloChronicle.js';
+import { generateOptimalLineup, generatePitchingRotation, generateAllTeamsLineup } from '../game/lineupGenerator.js';
+import { openSoloSeason, soloSeasonEndFreeze } from '../season/soloSeasonSteps.js';
 import { processNPBDraft } from '../season/npbDraft.js';
-import { generateRegionalTournament } from '../corporate/toshitaikou.js';
 import { withoutTryoutDraft } from '../season/tryoutDraftState.js';
 
 import TryoutScreen from './TryoutScreen.jsx';
@@ -198,9 +193,7 @@ const ManagementScreen = ({
     onSetupManagedGame={setupManagedGame}
     onForceEvent={(eventType) => {
       if (gameMode === 'sandbox' && (eventType === 'contract' || eventType === 'tryout' || eventType === 'draft' || eventType === 'corporate_departure' || eventType === 'corporate_scout' || eventType === 'club_recruit' || eventType === 'budget_settlement' || eventType === 'university_scout')) {
-        const update = {};
-        if (!seasonData.frozenAwards) update.frozenAwards = soloSeasonEnd(seasonData, TEAMS_DATA);
-        if (!seasonData.finalRankings) update.finalRankings = snapshotRankings(TEAMS_DATA, seasonData.settings?.teamNames);
+        const update = soloSeasonEndFreeze(seasonData);
         if (Object.keys(update).length > 0) setSeasonData(prev => ({ ...prev, ...update }));
         setManagementView('offseason');
         return;
@@ -215,9 +208,7 @@ const ManagementScreen = ({
       else if (eventType === 'tryout') setManagementView('tryout');
       else if (eventType === 'draft') {
         // プロ指名で選手が消える前にランキング・表彰を確定する
-        const preUpdate = {};
-        if (!seasonData.frozenAwards) preUpdate.frozenAwards = soloSeasonEnd(seasonData, TEAMS_DATA);
-        if (!seasonData.finalRankings) preUpdate.finalRankings = snapshotRankings(TEAMS_DATA, seasonData.settings?.teamNames);
+        const preUpdate = soloSeasonEndFreeze(seasonData);
         // ⚠ 指名で名簿から抜ける社会人・独立・大学の選手の、その年の成績を写しておく
         //    （選手成績の画面が年度末まで出す。`departedStats.js`）
         const rosterBefore = rosterIndex(TEAMS_DATA);
@@ -271,9 +262,7 @@ const ManagementScreen = ({
         setManagementView('draft');
       }
       else if (eventType === 'offseason') {
-        const update = {};
-        if (!seasonData.frozenAwards) update.frozenAwards = soloSeasonEnd(seasonData, TEAMS_DATA);
-        if (!seasonData.finalRankings) update.finalRankings = snapshotRankings(TEAMS_DATA, seasonData.settings?.teamNames);
+        const update = soloSeasonEndFreeze(seasonData);
         if (Object.keys(update).length > 0) setSeasonData(prev => ({ ...prev, ...update }));
         setManagementView('offseason');
       }
@@ -300,21 +289,11 @@ const ManagementScreen = ({
       } else if (gameMode === 'university' || gameMode === 'corporate') {
         if (next?.settings?.clubMode) {
           // クラブチームはキャンプなし → 直接シーズンへ
-          initializeAllPlayersCondition();
-          ensureAllTeamsReady({
-      userTeamName, generatePitchingRotation, setRecommendedLineup, generateAILineup,
-      preserveUserLineup: true,
-    });
-          snapshotAbilityHistory(TEAMS_DATA, next.year);
-          const calYear = calendarYearOf(next?.year || 1);
-          const rtSeeds = next?.tournamentSeeds || null;
-          const rt = generateRegionalTournament({ userTeamName, calendarYear: calYear, seeds: rtSeeds });
-          setSeasonData(prev => ({
-            ...prev,
-            currentDate: { year: calYear, month: 4, day: 1 },
-            phase: SEASON_PHASES.REGULAR_SEASON,
-            regionalTournament: { ...rt, generated: true },
-          }));
+          const opening = openSoloSeason({
+            userTeamName, year: next?.year, preserveUserLineup: true, snapshotYear: next.year,
+            regional: { seeds: next?.tournamentSeeds },
+          });
+          setSeasonData(prev => ({ ...prev, ...opening }));
           setSelectedMonth(4);
           setManagementView('dateprogress');
         } else {
@@ -349,20 +328,10 @@ const ManagementScreen = ({
     generatePitchingRotation={generatePitchingRotation}
     generateAllTeamsLineup={() => generateAllTeamsLineup(allTeams)}
     onComplete={() => {
-      initializeAllPlayersCondition();
-      ensureAllTeamsReady({
-      userTeamName, generatePitchingRotation, setRecommendedLineup, generateAILineup,
-      preserveUserLineup: true,
-    });
-      snapshotAbilityHistory(TEAMS_DATA, seasonData.year);
-      setSeasonData(prev => {
-        const calYear = calendarYearOf(prev.year);
-        return {
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON
-        };
+      const opening = openSoloSeason({
+        userTeamName, year: seasonData.year, preserveUserLineup: true, snapshotYear: seasonData.year,
       });
+      setSeasonData(prev => ({ ...prev, ...opening }));
       setSelectedMonth(4);
       setManagementView('dateprogress');
     }}
@@ -395,19 +364,12 @@ const ManagementScreen = ({
     allTeams={allTeams}
     gameMode={gameMode}
     onComplete={() => {
-      ensureAllTeamsReady({
-      userTeamName, generatePitchingRotation, setRecommendedLineup, generateAILineup,
-      preserveUserLineup: true,
-    });
-      snapshotAbilityHistory(TEAMS_DATA, seasonData.year);
-      setSeasonData(prev => {
-        const calYear = calendarYearOf(prev.year);
-        return {
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON
-        };
+      // ⚠ ここだけ調子を作り直さない（写しだったときからの違い。`soloSeasonSteps.js`）
+      const opening = openSoloSeason({
+        userTeamName, year: seasonData.year, resetCondition: false, preserveUserLineup: true,
+        snapshotYear: seasonData.year,
       });
+      setSeasonData(prev => ({ ...prev, ...opening }));
       setSelectedMonth(4);
       setManagementView('jersey'); // シーズン開始直前に背番号設定
     }}

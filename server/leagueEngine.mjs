@@ -35,6 +35,7 @@ import {
   getNPBDraftDay,
   getPlayoffChampion,
   calendarYearOf,
+  openingDayFields,
 } from '../src/season/seasonManager.js';
 import {
   generateFullSeasonSchedule,
@@ -2494,12 +2495,8 @@ function resolvePhase(league, now) {
     initializeAllPlayersCondition();
     for (const name of league.season.settings.teamNames)
       refreshTeamPlan(league, name);
-    league.season.currentDate = {
-      year: calendarYearOf(league.season.year),
-      month: 4,
-      day: 1,
-    };
-    league.season.phase = SEASON_PHASES.REGULAR_SEASON;
+    // 開幕の日とフェーズは一人用と同じ（`seasonManager.js` の `openingDayFields`）
+    Object.assign(league.season, openingDayFields(league.season.year));
     generateAprilHighSchoolClass(league.season.year);
     league.season._highSchoolGenerated = true;
     generateBackgroundTournaments(league.season.currentDate);

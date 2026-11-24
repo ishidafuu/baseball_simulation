@@ -3,12 +3,10 @@ import { RANK_LABELS, RANK_HEX } from '../utils/constants.js';
 import SelectShell from './select/SelectShell.jsx';
 import TeamSelectCard from './select/TeamSelectCard.jsx';
 import { TEAMS_DATA, initializeAllPitchingRotations } from '../teams-data.js';
-import { SEASON_PHASES, createSeasonData, calendarYearOf } from '../season/seasonManager.js';
+import { createSeasonData } from '../season/seasonManager.js';
 import { REGULATION_PRESETS } from '../season/regulationSettings.js';
-import { initializeAllPlayersCondition } from '../game/condition.js';
-import { generateAILineup, setRecommendedLineup } from '../game/autoSimulation.js';
-import { generateOptimalLineup, generatePitchingRotation, generateAllTeamsLineup, ensureAllTeamsReady } from '../game/lineupGenerator.js';
-import { generateRegionalTournament } from '../corporate/toshitaikou.js';
+import { generateOptimalLineup, generatePitchingRotation, generateAllTeamsLineup } from '../game/lineupGenerator.js';
+import { openSoloSeason } from '../season/soloSeasonSteps.js';
 import { initializeCorporateGame, initializeParallelWorldForIndependent, ensureUserIndependentLeagueTagged } from '../corporate/corporateInit.js';
 import { INDEPENDENT_LEAGUES } from '../corporate/independentLeagueData.js';
 import { initializeWorld, WORLD_DATA } from '../corporate/worldData.js';
@@ -48,6 +46,20 @@ const GameFlowScreens = ({
   setSelectedMonth,
   setLeagueConfig
 }) => {
+  // 新しいゲームの開幕（キャンプ・チーム設定の後）。背番号の画面から始める
+  const enterFirstSeason = () => {
+    setSelectedMonth(4);
+    setManagementView('jersey');
+    setScreenMode('management');
+    setGameFlowState('season');
+  };
+  // ⚠ 新しいゲームは自チームの打順を推奨で組み直し、能力の記録は取らない（`soloSeasonSteps.js`）
+  const openFirstSeason = (regional = null) => {
+    const opening = openSoloSeason({ userTeamName, year: seasonData?.year, regional });
+    setSeasonData(prev => ({ ...prev, ...opening }));
+    enterFirstSeason();
+  };
+
   // TITLE: スタート画面
   if (gameFlowState === 'title') {
     return <StartScreen
@@ -255,21 +267,11 @@ const GameFlowScreens = ({
 
           if (isClubTeam) {
             // クラブチームはキャンプなし → 直接シーズンへ
-            initializeAllPlayersCondition();
-            ensureAllTeamsReady({
-              userTeamName: result.userTeamName,
-              generatePitchingRotation, setRecommendedLineup, generateAILineup,
-            });
-            const calYear = 2024;
-            const rt = generateRegionalTournament({ userTeamName: result.userTeamName, calendarYear: calYear, seeds: null });
-            newSeasonData.currentDate = { year: calYear, month: 4, day: 1 };
-            newSeasonData.phase = SEASON_PHASES.REGULAR_SEASON;
-            newSeasonData.regionalTournament = { ...rt, generated: true };
+            Object.assign(newSeasonData, openSoloSeason({
+              userTeamName: result.userTeamName, year: newSeasonData.year, regional: { seeds: null },
+            }));
             setSeasonData(newSeasonData);
-            setSelectedMonth(4);
-            setManagementView('jersey');
-            setScreenMode('management');
-            setGameFlowState('season');
+            enterFirstSeason();
           } else {
             setGameFlowState('corporate_camp');
           }
@@ -300,28 +302,8 @@ const GameFlowScreens = ({
     return <CampScreen
       seasonData={seasonData}
       allTeams={allTeams}
-      onComplete={() => {
-        initializeAllPlayersCondition();
-        ensureAllTeamsReady({
-          userTeamName: userTeamName,
-          generatePitchingRotation, setRecommendedLineup, generateAILineup,
-        });
-
-        const calYear = calendarYearOf(seasonData?.year || 1);
-        // 地域トーナメントをキャンプ終了時に生成（4/1開始時に組み合わせ確定済み）
-        const rtSeeds = seasonData?.tournamentSeeds || null;
-        const rt = generateRegionalTournament({ userTeamName, calendarYear: calYear, seeds: rtSeeds });
-        setSeasonData(prev => ({
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON,
-          regionalTournament: { ...rt, generated: true },
-        }));
-        setSelectedMonth(4);
-        setManagementView('jersey');
-        setScreenMode('management');
-        setGameFlowState('season');
-      }}
+      // 地域トーナメントをキャンプ終了時に生成（4/1開始時に組み合わせ確定済み）
+      onComplete={() => openFirstSeason({ seeds: seasonData?.tournamentSeeds })}
     />;
   }
 
@@ -385,24 +367,7 @@ const GameFlowScreens = ({
     return <CampScreen
       seasonData={seasonData}
       allTeams={allTeams}
-      onComplete={() => {
-        initializeAllPlayersCondition();
-        ensureAllTeamsReady({
-          userTeamName: userTeamName,
-          generatePitchingRotation, setRecommendedLineup, generateAILineup,
-        });
-
-        const calYear = calendarYearOf(seasonData?.year || 1);
-        setSeasonData(prev => ({
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON,
-        }));
-        setSelectedMonth(4);
-        setManagementView('jersey');
-        setScreenMode('management');
-        setGameFlowState('season');
-      }}
+      onComplete={() => openFirstSeason()}
     />;
   }
 
@@ -477,24 +442,7 @@ const GameFlowScreens = ({
     return <CampScreen
       seasonData={seasonData}
       allTeams={allTeams}
-      onComplete={() => {
-        initializeAllPlayersCondition();
-        ensureAllTeamsReady({
-          userTeamName: userTeamName,
-          generatePitchingRotation, setRecommendedLineup, generateAILineup,
-        });
-
-        const calYear = calendarYearOf(seasonData?.year || 1);
-        setSeasonData(prev => ({
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON
-        }));
-        setSelectedMonth(4);
-        setManagementView('jersey');
-        setScreenMode('management');
-        setGameFlowState('season');
-      }}
+      onComplete={() => openFirstSeason()}
     />;
   }
 
@@ -523,24 +471,7 @@ const GameFlowScreens = ({
       generateOptimalLineup={generateOptimalLineup}
       generatePitchingRotation={generatePitchingRotation}
       generateAllTeamsLineup={() => generateAllTeamsLineup(allTeams)}
-      onComplete={() => {
-        initializeAllPlayersCondition();
-        ensureAllTeamsReady({
-          userTeamName: userTeamName,
-          generatePitchingRotation, setRecommendedLineup, generateAILineup,
-        });
-
-        const calYear = calendarYearOf(seasonData?.year || 1);
-        setSeasonData(prev => ({
-          ...prev,
-          currentDate: { year: calYear, month: 4, day: 1 },
-          phase: SEASON_PHASES.REGULAR_SEASON
-        }));
-        setSelectedMonth(4);
-        setManagementView('jersey');
-        setScreenMode('management');
-        setGameFlowState('season');
-      }}
+      onComplete={() => openFirstSeason()}
     />;
   }
 

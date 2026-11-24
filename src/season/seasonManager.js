@@ -145,6 +145,16 @@ export const getCurrentPhase = (month, day, options, year) => {
 export const calendarYearOf = (gameYear) => 2024 + gameYear - 1;
 
 /**
+ * 開幕の日（4月1日）とフェーズ。一人用の開幕（`soloSeasonSteps.js` の `openSoloSeason`）と
+ * オンラインのキャンプ明け（`server/leagueEngine.mjs`）が同じものを使う。
+ * 年度が無いとき（作りかけのデータ）は1年目として扱う。
+ */
+export const openingDayFields = (gameYear) => ({
+  currentDate: { year: calendarYearOf(gameYear || 1), month: 4, day: 1 },
+  phase: SEASON_PHASES.REGULAR_SEASON,
+});
+
+/**
  * シーズン初期データ作成
  */
 export const createSeasonData = (year = 1) => {
