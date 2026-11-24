@@ -24,7 +24,19 @@ import { squadStrength } from '../../src/online/tradeSearch.js';
 
 const MODE = process.argv[2] || 'trade'; // trade | none
 const SEED = Number(process.argv[3] || 20261028);
-const MAX_TRADES = Number(process.argv[4] || 8);
+// ⚠ 何が勝ちすぎを生むかを切り分ける試し（TRADE_VARIANT。カンマ区切りで重ねられる）:
+//   rounds=pack+mid+y2 … トレードを探す時期（開幕前・1年目60日目・2年目開幕）
+//   one   … 1対1だけ（2人で1人を取る交換をしない）
+//   cap=N … 1回に1球団あたり最大N件
+//   norebuy … 一度動かした選手（出した・取った）をもう動かさない
+//   pairlimit=N … 同じCPU球団とは1シーズンにN件まで
+const VARIANT = Object.fromEntries((process.env.TRADE_VARIANT || '').split(',').filter(Boolean)
+  .map((kv) => { const [k, v] = kv.split('='); return [k, v ?? true]; }));
+const ROUNDS = new Set(String(VARIANT.rounds || 'pack+mid+y2').split('+'));
+const MAX_TRADES = Number(VARIANT.cap || process.argv[4] || 8);
+const touched = new Set();
+const pairCount = new Map();
+const tradeLog = [];
 let now = new Date('2026-10-28T00:00:00Z');
 const league = createLeague({ seed: SEED, members: [{ userId: 'a' }, { userId: 'b' }], now: now.toISOString() });
 const humans = new Set(league.members.map((m) => m.teamName));
@@ -42,8 +54,8 @@ function standings(label) {
   log(`[${label}] ` + st.map((s) => `${humans.has(s.team) ? '*' : ''}${s.team.slice(0, 3)} ${s.wins}-${s.losses}`).join(' / '));
 }
 
-function tradeRound(label) {
-  if (MODE !== 'trade') return;
+function tradeRound(label, key) {
+  if (MODE !== 'trade' || !ROUNDS.has(key)) return;
   loadLeagueWorld(league);
   let made = 0;
   for (const member of league.members) {
@@ -54,13 +66,18 @@ function tradeRound(label) {
       const contrib = mine.map((p) => ({ p, drop: base - squadStrength(mine.filter((q) => q.id !== p.id)) }))
         .sort((a, b) => a.drop - b.drop);
       const cheap = contrib.slice(0, 12).map((x) => x.p);
-      const offers = [...mine.map((p) => [p])];
-      for (let i = 0; i < cheap.length; i++) for (let j = i + 1; j < cheap.length; j++) offers.push([cheap[i], cheap[j]]);
+      const movable = (p) => !(VARIANT.norebuy && touched.has(p.id));
+      const offers = [...mine.filter(movable).map((p) => [p])];
+      const cheapM = cheap.filter(movable);
+      if (!VARIANT.one) for (let i = 0; i < cheapM.length; i++) for (let j = i + 1; j < cheapM.length; j++) offers.push([cheapM[i], cheapM[j]]);
       let best = null;
       for (const to of names()) {
         if (humans.has(to)) continue;
+        const pk = `${league.season.year}|${member.teamName}|${to}`;
+        if (VARIANT.pairlimit && (pairCount.get(pk) || 0) >= Number(VARIANT.pairlimit)) continue;
         const theirs = TEAMS_DATA[to].players;
         for (const want of theirs) {
+          if (!movable(want)) continue;
           for (const offer of offers) {
             if (offer.length === 2 && theirs.length >= 26) continue;
             const after = [...mine.filter((p) => !offer.includes(p)), want];
@@ -70,7 +87,7 @@ function tradeRound(label) {
             // ⚠ CPUの判断は**サーバーの関数そのもの**（`cpuDecisionFor`。出番の上乗せ・まとめて抜けた穴・
             //    戦力の開き）。値段の式をここに写すと、サーバーを変えたときに測るものが食い違う
             const d = cpuDecisionFor(league, TEAMS_DATA[member.teamName], to, offer.map((p) => p.id), [want.id], judge);
-            if (d.action === 'accept') best = { gain, to, offer, want };
+            if (d.action === 'accept') best = { gain, to, offer, want, cpuBase: squadStrength(theirs) };
           }
         }
       }
@@ -78,6 +95,13 @@ function tradeRound(label) {
       const r = openTrade(league, member.userId, { to: best.to, offer: best.offer.map((p) => p.id), want: [best.want.id] }, now.toISOString());
       if (r.status !== 'accepted') { log('not accepted?', r); break; }
       made++;
+      for (const p of [...best.offer, best.want]) touched.add(p.id);
+      const pk = `${league.season.year}|${member.teamName}|${best.to}`;
+      pairCount.set(pk, (pairCount.get(pk) || 0) + 1);
+      const toAfter = squadStrength(TEAMS_DATA[best.to].players);
+      tradeLog.push({ round: key, team: member.teamName, to: best.to, n: best.offer.length, gain: +best.gain.toFixed(1),
+        give: best.offer.map((p) => ({ age: p.age, pos: p.position, ovr: p.overall ?? null })), want: { age: best.want.age, pos: best.want.position },
+        cpuGain: +(toAfter - best.cpuBase).toFixed(1) });
       log(`  trade ${member.teamName.slice(0,3)}: ${best.offer.map((p) => `${p.name}(${p.age})`).join('+')} -> ${best.want.name}(${best.want.age}) from ${best.to.slice(0,3)} gain ${best.gain.toFixed(1)}`);
     }
   }
@@ -85,13 +109,17 @@ function tradeRound(label) {
   log(`[${label}] trades ${made}`);
 }
 
+let y1rec = null;
+// 人の球団の勝率（と全体の得失点）
+const record = () => Object.fromEntries(league.season.standings.filter((s) => humans.has(s.team))
+  .map((s) => [s.team, { w: s.wins, l: s.losses, pct: +(s.wins / Math.max(1, s.wins + s.losses)).toFixed(3) }]));
 let days = 0;
 let did = { pack: false, mid: false, y2: false };
 while (days < 2000) {
-  if (league.season.year === 2 && days > 0 && league.status === 'running' && !did.y2) { strengthReport('y2 start before trades'); tradeRound('y2 start'); strengthReport('y2 start after trades'); did.y2 = true; }
+  if (league.season.year === 2 && days > 0 && league.status === 'running' && !did.y2) { strengthReport('y2 start before trades'); tradeRound('y2 start', 'y2'); strengthReport('y2 start after trades'); did.y2 = true; }
   if (league.status === 'waiting' && league.phase) {
     const phase = league.phase;
-    if (phase.kind === 'contract') { standings('y1 end'); strengthReport('y1 end'); }
+    if (phase.kind === 'contract') { standings('y1 end'); strengthReport('y1 end'); y1rec = record(); }
     strengthReport(`before ${phase.kind} y${league.season.year}`);
     // ⚠ **1人出すごとに手続きが閉じていないか見る**。最後の1人が決めた瞬間に処理されて
     //    `league.phase` が null になるので、次の人の `defaultPhasePlan` が落ちていた
@@ -101,15 +129,19 @@ while (days < 2000) {
       submitPhase(league, m.userId, { phaseId: phase.id, plan: defaultPhasePlan(league, m.teamName), ready: true }, now.toISOString());
     }
     if (league.phase?.id !== phase.id) strengthReport(`after ${phase.kind} y${league.season.year}`);
-    if (phase.kind === 'pack_select' && !did.pack) { strengthReport('after pack'); tradeRound('after pack'); strengthReport('after pack trades'); did.pack = true; }
+    if (phase.kind === 'pack_select' && !did.pack) { strengthReport('after pack'); tradeRound('after pack', 'pack'); strengthReport('after pack trades'); did.pack = true; }
     continue;
   }
   now = new Date(now.getTime() + 4 * 3600000);
   advanceLeagueDay(league, `p:${days}`, now.toISOString());
   days++;
-  if (league.season.year === 1 && days === 60 && !did.mid) { tradeRound('y1 mid'); strengthReport('y1 mid after trades'); did.mid = true; }
+  if (league.season.year === 1 && days === 60 && !did.mid) { tradeRound('y1 mid', 'mid'); strengthReport('y1 mid after trades'); did.mid = true; }
   if (league.season.year === 2) {
     const g = league.season.standings.reduce((a, s) => a + s.wins + s.losses, 0) / 12;
-    if (g >= 73) { standings('y2 ~73g'); strengthReport('y2 ~73g'); break; }
+    if (g >= 73) {
+      standings('y2 ~73g'); strengthReport('y2 ~73g');
+      console.log('RESULT ' + JSON.stringify({ mode: MODE, variant: process.env.TRADE_VARIANT || '', seed: SEED, y1: y1rec, y2: record(), trades: tradeLog }));
+      break;
+    }
   }
 }
