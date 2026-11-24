@@ -1,5 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { PitchingHeaderRow, PitchingCells, pitchingColumnCount, useRoleMenuDismiss } from '../../online/PitchingRows.jsx';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  PitchingHeaderRow,
+  PitchingCells,
+  pitchingColumnCount,
+  useRoleMenuDismiss,
+  SlotButton,
+  RoleChip,
+} from '../../online/PitchingRows.jsx';
+import { usePitchingPicking } from '../../online/usePitchingPicking.js';
 import {
   MAX_STARTERS,
   STARTER_ORDER,
@@ -18,6 +26,7 @@ import {
 } from '../../online/pitchingEdit.js';
 import { ConditionMark } from '../../online/PlayerPerformance.jsx';
 import '../../online/online.css';
+import { inningsCell } from '../../utils/physics.js';
 import {
   NO_ROLE,
   soloRoleLabel,
@@ -53,12 +62,10 @@ import {
 // ============================================================
 
 // 今季成績（投球）。⚠ 一人用の選手は `seasonStats.pitching` に積む（`inningsPitched` はアウト数）
-// 投球回（アウト数 → 「18 2/3」）
-const innings = (outs) => `${Math.floor(outs / 3)}${outs % 3 ? ` ${outs % 3}/3` : ''}`;
 const decimal = (v, digits = 2) => (v === null ? '—' : v.toFixed(digits));
 const STATS = [
   { id: 'games', label: '登板', title: '登板', show: (s) => s.games || 0 },
-  { id: 'outs', label: '投球回', title: '投球回', show: (s) => innings(s.inningsPitched || 0) },
+  { id: 'outs', label: '投球回', title: '投球回', show: (s) => inningsCell(s.inningsPitched || 0) },
   {
     id: 'era',
     label: '防御率',
@@ -177,33 +184,8 @@ export default function SoloPitchingBoard({ team, onChange, onOpen, resetKey }) 
   const roster = team.players || [];
   const byId = new Map(roster.map((p) => [p.id, p]));
   const state = pitchingFromTeam(team);
-  const [selection, setSelection] = useState(null);
-  const [menu, setMenu] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [dropAt, setDropAt] = useState(null);
   // 「野手を投手で起用する」の一覧を開いているか（ふだんは畳む。野手は多い）
   const [fieldersOpen, setFieldersOpen] = useState(false);
-  const clearSelection = useCallback(() => {
-    setSelection(null);
-    setMenu(null);
-  }, []);
-  const closeMenu = useCallback(() => setMenu(null), []);
-  useEffect(clearSelection, [resetKey, clearSelection]);
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') setSelection(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  const commit = (next) => {
-    setSelection(null);
-    setMenu(null);
-    if (next === state) return;
-    writePitching(team, next);
-    onChange();
-  };
 
   const nameOf = (id) => byId.get(id)?.name || '名簿に居ない投手';
   const pitcherOf = (id) => (onStaff(state, id) && byId.get(id)) || null;
@@ -222,11 +204,6 @@ export default function SoloPitchingBoard({ team, onChange, onOpen, resetKey }) 
     const noRole = (id) => !state.starters.includes(id) && state.roles[id] === NO_ROLE;
     return !((isFielder(a) && noRole(b)) || (isFielder(b) && noRole(a)));
   };
-  const swap = (a, b) => (canSwap(a, b) ? swapPitchers(state, a, b) : state);
-  const clickRow = (id) => {
-    if (selection !== null && selection !== id) commit(swap(selection, id));
-    else setSelection(selection === id ? null : id);
-  };
   // 見出しへ移せるか: 救援・役割なし → 「先発ローテーション」（最後へ入る）/ 先発・救援 → 「救援」/
   //   先発・救援 → 「役割なし」。⚠ 人数の決まり（先発は1〜8人）で動かせないときは光らせない
   const canMoveTo = (id, target) => {
@@ -237,64 +214,36 @@ export default function SoloPitchingBoard({ team, onChange, onOpen, resetKey }) 
     // 役割なし: 投手だけ（野手は「投手起用から外す」で外す）
     return !isFielder(id) && state.roles[id] !== undefined && state.roles[id] !== NO_ROLE;
   };
-  const moveTo = (id, target) => {
-    if (!canMoveTo(id, target)) return state;
-    if (target === 'rotation') return insertStarter(state, id, state.starters.length);
-    return setRole(state, id, target === 'relief' ? 'auto_r' : NO_ROLE);
-  };
-  const clickHead = (target) => {
-    if (selection !== null) commit(moveTo(selection, target));
-  };
-  const openMenu = (player) => (e) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = 420;
-    setSelection(null);
-    setMenu(
-      menu?.id === player.id
-        ? null
-        : {
-            id: player.id,
-            name: player.name,
-            // ⚠ 一人用は「控え（役割なし）」の段があるぶんオンラインより背が高い（下が切れないように）
-            top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 470)),
-            left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-          },
-    );
-  };
-
-  // ---- ドラッグ: 落とした先で決まる（行＝入れ替え、見出し＝そこへ移す）
-  const startDrag = (id) => (e) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(id));
-    setDrag(id);
-    setSelection(null);
-    setMenu(null);
-  };
-  const endDrag = () => {
-    setDrag(null);
-    setDropAt(null);
-  };
-  const HEADS = ['rotation', 'relief', 'none'];
-  const over = (target) => (e) => {
-    if (drag === null) return;
-    if (HEADS.includes(target) ? !canMoveTo(drag, target) : !canSwap(drag, target)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropAt !== target) setDropAt(target);
-  };
-  const dropOn = (target) => (e) => {
-    e.preventDefault();
-    const id = drag;
-    endDrag();
-    if (id === null) return;
-    commit(HEADS.includes(target) ? moveTo(id, target) : swap(id, target));
-  };
-  const dropProps = (target) => ({
-    onDragOver: over(target),
-    onDragLeave: () => setDropAt(null),
-    onDrop: dropOn(target),
+  // 選ぶ・入れ替える・見出しへ移す・ドラッグ・役割の一覧の位置はオンラインPC版と共通（`usePitchingPicking`）
+  const picking = usePitchingPicking({
+    commit: (next) => {
+      if (next === state) return;
+      writePitching(team, next);
+      onChange();
+    },
+    swap: (a, b) => (canSwap(a, b) ? swapPitchers(state, a, b) : state),
+    canSwap,
+    canMoveTo,
+    moveTo: (id, target) => {
+      if (!canMoveTo(id, target)) return state;
+      if (target === 'rotation') return insertStarter(state, id, state.starters.length);
+      return setRole(state, id, target === 'relief' ? 'auto_r' : NO_ROLE);
+    },
+    heads: ['rotation', 'relief', 'none'],
+    // ⚠ 一人用は「控え（役割なし）」の段があるぶんオンラインより背が高い（下が切れないように）
+    menuHeight: () => 470,
   });
+  const { selection, menu, clearSelection, closeMenu, clickRow, clickHead, startDrag, endDrag, dropProps, rowClass, headClass } =
+    picking;
+  const commit = picking.apply;
+  useEffect(clearSelection, [resetKey, clearSelection]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') clearSelection();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [clearSelection]);
 
   const problems = [
     ...pitchingProblems(state, roster),
@@ -322,61 +271,21 @@ export default function SoloPitchingBoard({ team, onChange, onOpen, resetKey }) 
                 : `先発は${MAX_STARTERS}人までです。ローテに入れるには先発の投手と入れ替えてください。`
         }`
       : '役割の札を押すと役割を選び直せます。行を押して選び、ほかの投手を押すと持ち場を入れ替えます。ドラッグでも同じです（先発どうしは2人の登板順を入れ替えます）。Escで選択を取り消します。';
-  const pickLabel = (id, name) => (selection !== null && selection !== id ? `${name}と入れ替える` : `${name}を選ぶ`);
-
-  const rowClass = (id, extra = []) =>
-    ['online-lineup-row', selection === id ? 'is-selected' : '', drag === id ? 'is-dragging' : '', dropAt === id ? 'is-drop' : '', ...extra]
-      .filter(Boolean)
-      .join(' ');
-  const headClass = (target) =>
-    [
-      'online-lineup-bench-head',
-      dropAt === target ? 'is-drop' : '',
-      selection !== null && canMoveTo(selection, target) ? 'is-target' : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-
   const roleChip = (player) => {
     const role = state.roles[player.id];
     return (
-      <button
-        type="button"
-        className={[
-          'online-role-chip',
-          isStarterRole(role) ? 'is-starter' : 'is-relief',
-          role === 'closer' ? 'is-closer' : '',
-          role.startsWith('auto') || role === NO_ROLE ? 'is-auto' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-haspopup="dialog"
-        aria-expanded={menu?.id === player.id}
-        aria-label={`${player.name}の役割（${soloRoleLabel(role)}）を選び直す`}
-        title={soloRoleHint(role)}
-        onClick={openMenu(player)}
-      >
-        {soloRoleLabel(role)}
-      </button>
+      <RoleChip
+        picking={picking}
+        player={player}
+        role={role}
+        label={soloRoleLabel(role)}
+        hint={soloRoleHint(role)}
+        starter={isStarterRole(role)}
+        auto={role.startsWith('auto') || role === NO_ROLE}
+      />
     );
   };
-
-  const slotButton = (id, name, number = null) => (
-    <button
-      type="button"
-      aria-pressed={selection === id}
-      aria-label={pickLabel(id, name)}
-      onClick={(e) => {
-        e.stopPropagation();
-        clickRow(id);
-      }}
-    >
-      <span aria-hidden="true" className="online-lineup-grip">
-        ⠿
-      </span>
-      {number}
-    </button>
-  );
+  const slotButton = (id, name, number = null) => <SlotButton picking={picking} id={id} name={name} number={number} />;
 
   const pitcherRow = (player, kind, extra = []) => (
     <tr

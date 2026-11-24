@@ -3,8 +3,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LookToggle } from './look/LookToggle.jsx';
 import {
   useDraftMemoryPeek,
-  useDraftState,
-  LINEUP_ORDER_DRAFT,
 } from './Drafts.jsx';
 import {
   Standings,
@@ -16,7 +14,7 @@ import {
   packStartText,
 } from './LeaguePanels.jsx';
 import TeamRoster from './TeamRoster.jsx';
-import OnlineLineup from './OnlineLineup.jsx';
+import MobilePitching from './MobilePitching.jsx';
 import { fullLineupTouchesPitching } from './lineupBridge.js';
 import { CompactRoster, TeamBrief } from './PlayerPerformance.jsx';
 import { formatTurn } from './shared.js';
@@ -51,9 +49,6 @@ export default function MobileView(props) {
     useDraftMemoryPeek('lineup.full'),
   );
   const [fullLineup, setFullLineup] = useState(unsavedFull);
-  // 全画面の編成で保存したら、2タップの表の下書きを捨てる（打順の編集も一緒に保存したので。
-  // 残すと、保存した後に古い打順の編集が戻ってくる）
-  const [, setOrderDraft] = useDraftState(LINEUP_ORDER_DRAFT, null);
   const tabs = [
     ['today', '今日'],
     ['games', '試合'],
@@ -232,29 +227,20 @@ export default function MobileView(props) {
           {/* ⚠ **手続き中でも開けること**。以前は「決定待ちです」で塞いでいたが、
               打順や投手起用はいつ決めてもよく、止める理由が無い */}
           {fullLineup ? (
-            <OnlineLineup
+            <MobilePitching
               view={view}
               busy={props.busy}
-              tab="rotation"
               onClose={() => setFullLineup(false)}
-              onSave={async (plan, baseLineup) => {
-                // ⚠ **失敗したら閉じない**（PCと同じ）。閉じると編集がまるごと消える
-                const result = await props.run(() =>
-                  props.command('lineup', { ...plan, baseLineup }),
-                );
-                if (result?.ok) {
-                  setOrderDraft(null);
-                  setFullLineup(false);
-                }
-                return result;
-              }}
+              // ⚠ 送る形は `MobilePitching` が組む（投手起用の項目だけを最新の編成に載せる）
+              onSave={(payload) =>
+                props.run(() => props.command('lineup', payload))
+              }
             />
           ) : (
             <>
-              {/* ⚠ スマホからも一人用の編成画面（`OnlineLineup.jsx`）へ入れるようにする。
-                  横に長い画面なので既定では開かず、押したときだけ出す。
-                  ⚠ 打順・守備・控えは下の2タップの表で決めるので、ここは**投手起用の入口**
-                  （開くと投手起用のタブから始まる）。打順のタブも中にはある */}
+              {/* 投手起用の入口（`MobilePitching.jsx`。PCと同じ1枚の表を全画面で出す）。
+                  横に長い表なので既定では開かず、押したときだけ出す。
+                  ⚠ 打順・守備・控えは下の2タップの表で決める */}
               {/* ⚠ **保存の応答を待つ間は開かない**。開くと「打順」の表が外れ、保存する前の
                   起点の編集が全画面へ渡る（そこで保存すると「編成が更新されています」で断られる） */}
               <button

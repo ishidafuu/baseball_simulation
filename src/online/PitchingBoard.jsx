@@ -1,9 +1,17 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ConditionMark, PlayerStatsButton } from './PlayerPerformance.jsx';
 import { overviewGroup, formatStat } from './statsView.js';
 import { BoardPage } from './BoardParts.jsx';
 import { useBoardHistory } from './useBoardHistory.js';
-import { PitchingHeaderRow, PitchingCells, pitchingColumnCount, useRoleMenuDismiss } from './PitchingRows.jsx';
+import {
+  PitchingHeaderRow,
+  PitchingCells,
+  pitchingColumnCount,
+  useRoleMenuDismiss,
+  SlotButton,
+  RoleChip,
+} from './PitchingRows.jsx';
+import { usePitchingPicking } from './usePitchingPicking.js';
 import {
   MAX_STARTERS,
   STARTER_ORDER,
@@ -178,17 +186,38 @@ export default function PitchingBoard({
 }) {
   const roster = view.roster || [];
   const byId = new Map(roster.map((p) => [p.id, p]));
-  const [selection, setSelection] = useState(null);
-  const [menu, setMenu] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [dropAt, setDropAt] = useState(null);
   // 「野手を投手で起用する」の一覧を開いているか（ふだんは畳む。野手は多い）
   const [fieldersOpen, setFieldersOpen] = useState(false);
-  const clearSelection = useCallback(() => {
-    setSelection(null);
-    setMenu(null);
-  }, []);
-  const closeMenu = useCallback(() => setMenu(null), []);
+
+  // ---- 操作。行を選び、もう一方を押す（スタメン設定と同じ。一人用と共通の `usePitchingPicking`）
+  //   行 → ほかの行: 持ち場を入れ替える（`swapPitchers`。先発どうしは2人の登板順だけ入れ替え、間は動かさない）
+  //   救援 → 「先発ローテーション」の見出し: ローテの最後へ / 先発 → 「救援」の見出し: ローテから外す
+  // ⚠ 名簿に居ない先発（崩れた保存）も選べる。名前は無いので行の説明で呼ぶ
+  // ⚠ 下の関数は押したときに呼ばれる。`state`（下の `board.value`）はその時の値を読む
+  // 見出しへ移せるか: 救援 → 「先発ローテーション」（最後へ入る）/ 先発 → 「救援」（外れる）。
+  // ⚠ 先発をローテの見出しへ落としても動かさない（見出しは1番手の上にあり、
+  //    最後へ回すと「先頭へ」のつもりのエースが最後に投げる）
+  // ⚠ 人数の決まり（先発は1〜8人。`setRole`）で動かせないときは、見出しを落とし先に
+  //    光らせない（光ったのに何も起きない、にしない。役割の一覧も同じ決まりで選べなくする）
+  const canMoveTo = (id, target) =>
+    target === 'rotation'
+      ? !state.starters.includes(id) && state.starters.length < MAX_STARTERS
+      : state.starters.includes(id) && state.starters.length > 1;
+  const picking = usePitchingPicking({
+    commit: (next) => board.commit(next),
+    swap: (a, b) => swapPitchers(state, a, b),
+    canMoveTo,
+    moveTo: (id, target) => {
+      if (!canMoveTo(id, target)) return state;
+      return target === 'rotation'
+        ? insertStarter(state, id, state.starters.length)
+        : setRole(state, id, 'auto_r');
+    },
+    heads: ['rotation', 'relief'],
+    menuHeight: (player) => (player.position !== 'pitcher' ? 400 : 330),
+  });
+  const { selection, menu, closeMenu, clickRow, clickHead, startDrag, endDrag, dropProps, rowClass, headClass } =
+    picking;
   const board = useBoardHistory({
     view,
     fromView: (v) => pitchingFromLineup(v.lineup, v.roster),
@@ -199,110 +228,14 @@ export default function PitchingBoard({
     onDraft,
     restore,
     keyActive: !hidden && !busy && !menu,
-    onEscape: clearSelection,
+    onEscape: picking.clearSelection,
   });
   const state = board.value;
-  const commit = (next) => {
-    board.commit(next);
-    setSelection(null);
-    setMenu(null);
-  };
-
-  // ---- クリック: 行を選び、もう一方を押す（スタメン設定と同じ）
-  //   行 → ほかの行: 持ち場を入れ替える（`swapPitchers`。先発どうしは登板順）
-  //   救援 → 「先発ローテーション」の見出し: ローテの最後へ / 先発 → 「救援」の見出し: ローテから外す
-  // ⚠ 名簿に居ない先発（崩れた保存）も選べる。名前は無いので行の説明で呼ぶ
+  const commit = picking.apply;
   const nameOf = (id) => byId.get(id)?.name || '名簿に居ない投手';
   // 起用できる投手（名簿に居て、抹消されていない投手と、加えた野手）。⚠ 名簿（byId）には
   //    抹消中も入る。役割（state.roles）は起用できる選手にしか無いので、それ以外は崩れた行として出す
   const pitcherOf = (id) => (onStaff(state, id) && byId.get(id)) || null;
-  const clickRow = (id) => {
-    if (selection !== null && selection !== id)
-      commit(swapPitchers(state, selection, id));
-    else setSelection(selection === id ? null : id);
-  };
-  // 見出しへ移せるか: 救援 → 「先発ローテーション」（最後へ入る）/ 先発 → 「救援」（外れる）。
-  // ⚠ 先発をローテの見出しへ落としても動かさない（見出しは1番手の上にあり、
-  //    最後へ回すと「先頭へ」のつもりのエースが最後に投げる）
-  // ⚠ 人数の決まり（先発は1〜8人。`setRole`）で動かせないときは、見出しを落とし先に
-  //    光らせない（光ったのに何も起きない、にしない。役割の一覧も同じ決まりで選べなくする）
-  const canMoveTo = (id, target) =>
-    target === 'rotation'
-      ? !state.starters.includes(id) && state.starters.length < MAX_STARTERS
-      : state.starters.includes(id) && state.starters.length > 1;
-  const moveTo = (id, target) => {
-    if (!canMoveTo(id, target)) return state;
-    return target === 'rotation'
-      ? insertStarter(state, id, state.starters.length)
-      : setRole(state, id, 'auto_r');
-  };
-  const clickHead = (target) => {
-    if (selection !== null) commit(moveTo(selection, target));
-  };
-  const openMenu = (player) => (e) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = 420;
-    setSelection(null);
-    setMenu(
-      menu?.id === player.id
-        ? null
-        : {
-            id: player.id,
-            name: player.name,
-            fielder: player.position !== 'pitcher',
-            top: Math.min(
-              rect.bottom + 4,
-              window.innerHeight - (player.position !== 'pitcher' ? 400 : 330),
-            ),
-            left: Math.max(
-              8,
-              Math.min(rect.left, window.innerWidth - width - 8),
-            ),
-          },
-    );
-  };
-
-  // ---- ドラッグ: 落とした先で決まる
-  //   → 行: 持ち場を入れ替える（クリックと同じ `swapPitchers`。先発どうしは2人の登板順だけ入れ替え、間は動かさない）
-  //   → 見出し（'rotation' / 'relief'）: そこへ移す。行の落とし先は投手のid
-  const startDrag = (id) => (e) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(id));
-    setDrag(id);
-    setSelection(null);
-    setMenu(null);
-  };
-  const endDrag = () => {
-    setDrag(null);
-    setDropAt(null);
-  };
-  const over = (target) => (e) => {
-    if (drag === null) return;
-    if (
-      (target === 'rotation' || target === 'relief') &&
-      !canMoveTo(drag, target)
-    )
-      return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropAt !== target) setDropAt(target);
-  };
-  const dropOn = (target) => (e) => {
-    e.preventDefault();
-    const id = drag;
-    endDrag();
-    if (id === null) return;
-    if (target !== 'rotation' && target !== 'relief') {
-      if (target === id) return;
-      commit(swapPitchers(state, id, target));
-    } else commit(moveTo(id, target));
-  };
-  const dropProps = (target) => ({
-    onDragOver: over(target),
-    onDragLeave: () => setDropAt(null),
-    onDrop: dropOn(target),
-  });
 
   const problems = pitchingProblems(state, roster);
   // ⚠ 次の先発。サーバーは**先発の並びが変わると先頭から登板し直す**（`lineupCommand.mjs`）。
@@ -342,42 +275,18 @@ export default function PitchingBoard({
               : `先発は${MAX_STARTERS}人までです。ローテに入れるには先発の投手と入れ替えてください。`
         }`
       : '役割の札を押すと役割を選び直せます。行を押して選び、ほかの投手を押すと持ち場を入れ替えます。ドラッグでも同じです（先発どうしは2人の登板順を入れ替えます）。';
-  const pickLabel = (id, name) =>
-    selection !== null && selection !== id
-      ? `${name}と入れ替える`
-      : `${name}を選ぶ`;
-
-  const rowClass = (id, extra = []) =>
-    [
-      'online-lineup-row',
-      selection === id ? 'is-selected' : '',
-      drag === id ? 'is-dragging' : '',
-      ...extra,
-    ]
-      .filter(Boolean)
-      .join(' ');
-
   const roleChip = (player) => {
     const role = state.roles[player.id];
     return (
-      <button
-        type="button"
-        className={[
-          'online-role-chip',
-          isStarterRole(role) ? 'is-starter' : 'is-relief',
-          role === 'closer' ? 'is-closer' : '',
-          role.startsWith('auto') ? 'is-auto' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-haspopup="dialog"
-        aria-expanded={menu?.id === player.id}
-        aria-label={`${player.name}の役割（${roleLabel(role)}）を選び直す`}
-        title={ROLE_HINT[role]}
-        onClick={openMenu(player)}
-      >
-        {roleLabel(role)}
-      </button>
+      <RoleChip
+        picking={picking}
+        player={player}
+        role={role}
+        label={roleLabel(role)}
+        hint={ROLE_HINT[role]}
+        starter={isStarterRole(role)}
+        auto={role.startsWith('auto')}
+      />
     );
   };
 
@@ -404,11 +313,7 @@ export default function PitchingBoard({
             </thead>
             <tbody aria-label="先発ローテーション" data-starter-order>
               <tr
-                className={`online-lineup-bench-head ${dropAt === 'rotation' ? 'is-drop' : ''} ${
-                  selection !== null && canMoveTo(selection, 'rotation')
-                    ? 'is-target'
-                    : ''
-                }`}
+                className={headClass('rotation')}
                 onClick={() => clickHead('rotation')}
                 {...dropProps('rotation')}
               >
@@ -427,7 +332,7 @@ export default function PitchingBoard({
                 return (
                   <tr
                     key={id}
-                    className={rowClass(id, [dropAt === id ? 'is-drop' : ''])}
+                    className={rowClass(id)}
                     draggable={!busy}
                     onDragStart={startDrag(id)}
                     onDragEnd={endDrag}
@@ -436,20 +341,7 @@ export default function PitchingBoard({
                     data-starter={id}
                   >
                     <td className="online-lineup-slot">
-                      <button
-                        type="button"
-                        aria-pressed={selection === id}
-                        aria-label={pickLabel(id, `先発${index + 1}番手`)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clickRow(id);
-                        }}
-                      >
-                        <span aria-hidden="true" className="online-lineup-grip">
-                          ⠿
-                        </span>
-                        {index + 1}
-                      </button>
+                      <SlotButton picking={picking} id={id} name={`先発${index + 1}番手`} number={index + 1} />
                       {id === nextStarterId && (
                         <span
                           className="online-pitch-next"
@@ -485,11 +377,7 @@ export default function PitchingBoard({
             </tbody>
             <tbody aria-label="救援">
               <tr
-                className={`online-lineup-bench-head ${dropAt === 'relief' ? 'is-drop' : ''} ${
-                  selection !== null && canMoveTo(selection, 'relief')
-                    ? 'is-target'
-                    : ''
-                }`}
+                className={headClass('relief')}
                 onClick={() => clickHead('relief')}
                 {...dropProps('relief')}
               >
@@ -508,7 +396,6 @@ export default function PitchingBoard({
                 <tr
                   key={player.id}
                   className={rowClass(player.id, [
-                    dropAt === player.id ? 'is-drop' : '',
                     i > 0 &&
                     state.roles[relievers[i - 1].id] !== state.roles[player.id]
                       ? 'is-role-start'
@@ -522,19 +409,7 @@ export default function PitchingBoard({
                   data-reliever={player.id}
                 >
                   <td className="online-lineup-slot">
-                    <button
-                      type="button"
-                      aria-pressed={selection === player.id}
-                      aria-label={pickLabel(player.id, player.name)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clickRow(player.id);
-                      }}
-                    >
-                      <span aria-hidden="true" className="online-lineup-grip">
-                        ⠿
-                      </span>
-                    </button>
+                    <SlotButton picking={picking} id={player.id} name={player.name} />
                   </td>
                   <td className="online-pitch-rolecell">
                     {roleChip(player)}

@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { POS, POS_FULL, posTone, posInk } from './api.js';
 import { turnOfDate, restFatigueOf } from './shared.js';
 import { BoardPage, Fatigue } from './BoardParts.jsx';
 import FieldDiagram from './FieldDiagram.jsx';
 import { useBoardHistory } from './useBoardHistory.js';
+import { useLineupPicking } from './useLineupPicking.js';
 import { ConditionMark, PlayerStatsButton } from './PlayerPerformance.jsx';
 import { overviewGroup, formatStat } from './statsView.js';
 import { teamShort } from './gameText.js';
@@ -13,9 +14,6 @@ import {
   orderFromLineup,
   battingOrderFromOrder,
   sameOrder,
-  swapOrder,
-  swapPositions,
-  replaceStarter,
   benchFielders,
   groupBench,
   candidatesFor,
@@ -272,15 +270,14 @@ export default function LineupBoard({
   };
 
   // ---- 編集の状態（履歴つき。`useBoardHistory`）
-  const [selection, setSelection] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [dropAt, setDropAt] = useState(null);
   // 守備図。守備位置を選ぶと開き、表の成績の列の場所に出す（閉じるまで開いたまま）
   const [fieldOpen, setFieldOpen] = useState(false);
   const [hoverPos, setHoverPos] = useState(null);
   // 控えの投手を全員出すか（ふだんは守れる位置のある投手だけ）
   const [allPitchers, setAllPitchers] = useState(false);
-  const clearSelection = useCallback(() => setSelection(null), []);
+  // ⚠ 選択は下の `useLineupPicking` が持つ。履歴（元に戻す・Esc）から外せるよう、ここは引き当てだけ
+  const clearRef = useRef(null);
+  const clearSelection = useCallback(() => clearRef.current?.(), []);
   const board = useBoardHistory({
     view,
     fromView: (v) => orderFromLineup(v.lineup),
@@ -294,93 +291,34 @@ export default function LineupBoard({
     onEscape: clearSelection,
   });
   const order = board.value;
-  const commit = (next) => {
-    board.commit(next);
-    setSelection(null);
-  };
 
-  // ---- 操作（クリック）
+  // ---- 操作（クリック・ドラッグ。一人用と共通の `useLineupPicking`）
   const bench = benchFielders(roster, order);
   const pitcherBench = benchPitchers(roster, order);
-  const selectedRow = selection?.kind === 'row' ? selection.index : null;
-  const selectedPos = selection?.kind === 'pos' ? selection.index : null;
-  const selectedBench =
-    selection?.kind === 'bench' ? byId.get(selection.playerId) : null;
-  const focusPosition =
-    selectedRow !== null ? order[selectedRow]?.position : null;
-
-  const clickRow = (index) => {
-    if (selectedRow !== null && selectedRow !== index)
-      commit(swapOrder(order, selectedRow, index));
-    else if (selectedBench)
-      commit(replaceStarter(order, index, selectedBench.id));
-    else if (selectedPos !== null && selectedPos !== index)
-      commit(swapPositions(order, selectedPos, index));
-    else setSelection(selectedRow === index ? null : { kind: 'row', index });
-  };
-  const clickPosition = (index) => {
-    if (selectedPos !== null && selectedPos !== index)
-      commit(swapPositions(order, selectedPos, index));
-    else {
-      setSelection(selectedPos === index ? null : { kind: 'pos', index });
-      setFieldOpen(true);
-    }
-  };
-  const clickBench = (playerId) => {
-    if (selectedRow !== null)
-      commit(replaceStarter(order, selectedRow, playerId));
-    else
-      setSelection(
-        selection?.kind === 'bench' && selection.playerId === playerId
-          ? null
-          : { kind: 'bench', playerId },
-      );
-  };
-
-  // ---- 操作（ドラッグ）。落とした先の行で、運んだものに応じて決まる
-  //   打順の行 → 打順の行: 2人の打順を入れ替える（クリックと同じ。間の選手は動かさない）
-  //   ⚠ 前は「その打順へ動かす（間はずれる）」で、入れ替えたつもりが下の選手が全員1つずれた
-  //   守備位置 → 打順の行: 守備位置を入れ替える
-  //   控え → 打順の行 / 打順の行 → 控え: 交代
-  const startDrag = (payload) => (e) => {
-    e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    // Firefox はデータが無いとドラッグを始めない
-    e.dataTransfer.setData('text/plain', JSON.stringify(payload));
-    setDrag(payload);
-    setSelection(null);
-  };
-  const endDrag = () => {
-    setDrag(null);
-    setDropAt(null);
-  };
-  const over = (target) => (e) => {
-    if (!drag) return;
-    if (target.kind === 'bench' && drag.kind !== 'row') return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (
-      dropAt?.kind !== target.kind ||
-      dropAt?.index !== target.index ||
-      dropAt?.playerId !== target.playerId
-    )
-      setDropAt(target);
-  };
-  const dropOn = (target) => (e) => {
-    e.preventDefault();
-    const d = drag;
-    endDrag();
-    if (!d) return;
-    if (target.kind === 'row') {
-      if (d.kind === 'row') commit(swapOrder(order, d.index, target.index));
-      else if (d.kind === 'pos')
-        commit(swapPositions(order, d.index, target.index));
-      else if (d.kind === 'bench')
-        commit(replaceStarter(order, target.index, d.playerId));
-    } else if (target.kind === 'bench' && d.kind === 'row') {
-      commit(replaceStarter(order, d.index, target.playerId));
-    }
-  };
+  const {
+    selectedRow,
+    selectedPos,
+    selectedBench,
+    focusPosition,
+    drag,
+    dropAt,
+    clickRow,
+    clickPosition,
+    clickBench,
+    startDrag,
+    endDrag,
+    over,
+    leave,
+    dropOn,
+    rowClass,
+    clearSelection: clearPicking,
+  } = useLineupPicking({
+    order,
+    byId,
+    commit: board.commit,
+    onPickPosition: () => setFieldOpen(true),
+  });
+  clearRef.current = clearPicking;
 
   // ---- 表示
   const problems = orderProblems(order, roster);
@@ -429,21 +367,6 @@ export default function LineupBoard({
     (e) => e.playerId != null && e.playerId === view.nextStarterId,
   );
 
-  const rowClass = (index) =>
-    [
-      'online-lineup-row',
-      selectedRow === index ? 'is-selected' : '',
-      drag && dropAt?.kind === 'row' && dropAt.index === index
-        ? `is-drop is-drop-${drag.kind}`
-        : '',
-      drag?.kind === 'row' && drag.index === index ? 'is-dragging' : '',
-      selectedBench &&
-      positionFitness(selectedBench, order[index]?.position) >= LOW_FITNESS
-        ? 'is-fit'
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
 
   return (
     <BoardPage
@@ -490,7 +413,7 @@ export default function LineupBoard({
                       onDragStart={startDrag({ kind: 'row', index })}
                       onDragEnd={endDrag}
                       onDragOver={over({ kind: 'row', index })}
-                      onDragLeave={() => setDropAt(null)}
+                      onDragLeave={leave}
                       onDrop={dropOn({ kind: 'row', index })}
                       onClick={() => clickRow(index)}
                       data-slot={index + 1}
@@ -675,7 +598,7 @@ export default function LineupBoard({
                             kind: 'bench',
                             playerId: player.id,
                           })}
-                          onDragLeave={() => setDropAt(null)}
+                          onDragLeave={leave}
                           onDrop={dropOn({
                             kind: 'bench',
                             playerId: player.id,

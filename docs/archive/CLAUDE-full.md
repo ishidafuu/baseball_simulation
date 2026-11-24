@@ -1381,7 +1381,7 @@ CLAUDE.md の各所で潰してきたのと同じ型の誤り:
 - `src/game/bunting.js` (~69行) - バントの解決モデル（両エンジン共有。フェア率・質・送球アウト・スクイズ）
 - `src/game/saveSystem.js` (~800行) - セーブ/ロード/ファイル書き出し・読み込み
 - `src/simulation-logic.js` (~1090行) - 物理演算（打球・投球）
-- `src/components/LineupSettingScreen.jsx` (~2980行) - スタメン/投手起用/守備分析の3タブ（元に戻す/やり直す付き）
+- `src/components/LineupSettingScreen.jsx` (~1460行) - スタメン/投手起用/守備分析の3タブ（元に戻す/やり直す付き）
 - `src/components/DateProgressScreen.jsx` (~3760行) - 日程進行画面
   （`dateProgress/` に切り出し済み: `Newspaper.jsx` 440行 / `PreGameModal.jsx` 530行 /
    `Modals.jsx` 125行 / `bracketRenderer.jsx` 190行）

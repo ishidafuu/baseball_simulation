@@ -1,13 +1,12 @@
-// 一人用の編成画面をオンラインへ移植した部分の検査。
+// オンラインの編成の受け渡し（`src/online/lineupBridge.js`）とスマホの打順（`tapLineup.js`）の検査。
 //
-// ⚠ 主目的は「**画面が書き換えた `team` から、サーバーが受け取れる `plan` が作れること**」。
-//    `src/online/OnlineLineup.jsx` は 2,600行の一人用画面に `team` 形の複製を渡し、
-//    書き換えられた結果を読み直して送る。投影（`projectLineup`）と検証
-//    （`validateLineup`）の両方と形が合っていないと、画面では編集できるのに
-//    保存の瞬間だけ弾かれる——いちばん気づきにくい壊れ方になる。
-//
-// ⚠ 見た目（`.online button` に潰されないこと）はここでは見ない。CSSの詳細度の
-//    問題なのでブラウザでしか出ない。`OnlineLineup.jsx` のポータルの注記を参照。
+// ⚠ 主目的は「**保存していない編集の入れ物（`lineup.full`。`team` 形）から、サーバーが
+//    受け取れる `plan` が作れること**」。スマホとPCの画面が入れ替わるとき（回転）は、
+//    編集を `team` 形で預けて読み直す。投影（`projectLineup`）と検証（`validateLineup`）の
+//    両方と形が合っていないと、画面では編集できるのに保存の瞬間だけ弾かれる——
+//    いちばん気づきにくい壊れ方になる。
+// ⚠ 以前はスマホの投手起用が一人用の編成画面（`team` 形をその場で書き換える）を使っていた。
+//    いまはPCと同じ表（`MobilePitching.jsx` → `PitchingBoard.jsx`）で、`team` 形は受け渡しだけ。
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

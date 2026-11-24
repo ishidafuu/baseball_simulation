@@ -3,9 +3,6 @@ import { POS, POS_FULL, posTone, posInk } from '../../online/api.js';
 import { Fatigue } from '../../online/BoardParts.jsx';
 import FieldDiagram from '../../online/FieldDiagram.jsx';
 import {
-  swapOrder,
-  swapPositions,
-  replaceStarter,
   benchFielders,
   benchPitchers,
   groupBench,
@@ -19,6 +16,7 @@ import { getFatigueTone } from '../../utils/constants.js';
 import { ConditionMark } from '../../online/PlayerPerformance.jsx';
 import '../../online/online.css';
 import { orderFromTeam, writeOrder, candidatesForSlot, orderProblems } from './soloLineupOrder.js';
+import { useLineupPicking } from '../../online/useLineupPicking.js';
 
 // ============================================================
 // 一人用のスタメン設定（ロスター管理 → 試合のオーダー → スタメン設定）。
@@ -201,86 +199,49 @@ export default function SoloLineupBoard({ team, useDH, nextStarter, onChange, on
   };
   const order = orderFromTeam(team, useDH);
 
-  const [selection, setSelection] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [dropAt, setDropAt] = useState(null);
   const [fieldOpen, setFieldOpen] = useState(false);
   const [hoverPos, setHoverPos] = useState(null);
   const [allPitchers, setAllPitchers] = useState(false);
+
+  const bench = benchFielders(roster, order);
+  const pitcherBench = benchPitchers(roster, order);
+  // 選ぶ・入れ替える・ドラッグはオンラインPC版と共通（`useLineupPicking`）
+  const {
+    selectedRow,
+    selectedPos,
+    selectedBench,
+    focusPosition,
+    drag,
+    dropAt,
+    clickRow,
+    clickPosition,
+    clickBench,
+    startDrag,
+    endDrag,
+    over,
+    leave,
+    dropOn,
+    rowClass,
+    setSelection,
+  } = useLineupPicking({
+    order,
+    byId,
+    commit: (next) => {
+      if (next === order) return;
+      writeOrder(team, next, useDH, nextStarter?.id);
+      onChange();
+    },
+    onPickPosition: () => setFieldOpen(true),
+  });
   // 親の 元に戻す・やり直す で並びが替わったら選択を外す（位置で持つ選択が別の選手を指す）
-  useEffect(() => setSelection(null), [resetKey]);
+  useEffect(() => setSelection(null), [resetKey, setSelection]);
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') setSelection(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  const commit = (next) => {
-    setSelection(null);
-    if (next === order) return;
-    writeOrder(team, next, useDH, nextStarter?.id);
-    onChange();
-  };
-
-  const bench = benchFielders(roster, order);
-  const pitcherBench = benchPitchers(roster, order);
-  const selectedRow = selection?.kind === 'row' ? selection.index : null;
-  const selectedPos = selection?.kind === 'pos' ? selection.index : null;
-  const selectedBench = selection?.kind === 'bench' ? byId.get(selection.playerId) : null;
-  const focusPosition = selectedRow !== null ? order[selectedRow]?.position : null;
-
-  const clickRow = (index) => {
-    if (selectedRow !== null && selectedRow !== index) commit(swapOrder(order, selectedRow, index));
-    else if (selectedBench) commit(replaceStarter(order, index, selectedBench.id));
-    else if (selectedPos !== null && selectedPos !== index) commit(swapPositions(order, selectedPos, index));
-    else setSelection(selectedRow === index ? null : { kind: 'row', index });
-  };
-  const clickPosition = (index) => {
-    if (selectedPos !== null && selectedPos !== index) commit(swapPositions(order, selectedPos, index));
-    else {
-      setSelection(selectedPos === index ? null : { kind: 'pos', index });
-      setFieldOpen(true);
-    }
-  };
-  const clickBench = (playerId) => {
-    if (selectedRow !== null) commit(replaceStarter(order, selectedRow, playerId));
-    else setSelection(selection?.kind === 'bench' && selection.playerId === playerId ? null : { kind: 'bench', playerId });
-  };
-
-  // ドラッグ。落とした先の行で、運んだものに応じて決まる（オンラインと同じ）
-  const startDrag = (payload) => (e) => {
-    e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify(payload));
-    setDrag(payload);
-    setSelection(null);
-  };
-  const endDrag = () => {
-    setDrag(null);
-    setDropAt(null);
-  };
-  const over = (target) => (e) => {
-    if (!drag) return;
-    if (target.kind === 'bench' && drag.kind !== 'row') return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropAt?.kind !== target.kind || dropAt?.index !== target.index || dropAt?.playerId !== target.playerId) setDropAt(target);
-  };
-  const dropOn = (target) => (e) => {
-    e.preventDefault();
-    const d = drag;
-    endDrag();
-    if (!d) return;
-    if (target.kind === 'row') {
-      if (d.kind === 'row') commit(swapOrder(order, d.index, target.index));
-      else if (d.kind === 'pos') commit(swapPositions(order, d.index, target.index));
-      else if (d.kind === 'bench') commit(replaceStarter(order, target.index, d.playerId));
-    } else if (target.kind === 'bench' && d.kind === 'row') {
-      commit(replaceStarter(order, d.index, target.playerId));
-    }
-  };
+  }, [setSelection]);
 
   const problems = orderProblems(order, roster);
   // 次の先発が野手の枠にも入っている（二刀流）。⚠ 一人用はオンラインと違い、試合の日に
@@ -316,16 +277,6 @@ export default function SoloLineupBoard({ team, useDH, nextStarter, onChange, on
       ]
     : [...groupBench(bench), ...(pitcherBench.length ? [{ id: 'pitcher', label: '投手', players: shownPitchers }] : [])];
 
-  const rowClass = (index) =>
-    [
-      'online-lineup-row',
-      selectedRow === index ? 'is-selected' : '',
-      drag && dropAt?.kind === 'row' && dropAt.index === index ? `is-drop is-drop-${drag.kind}` : '',
-      drag?.kind === 'row' && drag.index === index ? 'is-dragging' : '',
-      selectedBench && order[index]?.position !== 'dh' && positionFitness(selectedBench, order[index]?.position) >= LOW_FITNESS ? 'is-fit' : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
 
   return (
     <div className="online online-desktop online-embed">
@@ -362,7 +313,7 @@ export default function SoloLineupBoard({ team, useDH, nextStarter, onChange, on
                       onDragStart={startDrag({ kind: 'row', index })}
                       onDragEnd={endDrag}
                       onDragOver={over({ kind: 'row', index })}
-                      onDragLeave={() => setDropAt(null)}
+                      onDragLeave={leave}
                       onDrop={dropOn({ kind: 'row', index })}
                       onClick={() => clickRow(index)}
                       data-slot={index + 1}
@@ -491,7 +442,7 @@ export default function SoloLineupBoard({ team, useDH, nextStarter, onChange, on
                           onDragStart={startDrag({ kind: 'bench', playerId: player.id })}
                           onDragEnd={endDrag}
                           onDragOver={over({ kind: 'bench', playerId: player.id })}
-                          onDragLeave={() => setDropAt(null)}
+                          onDragLeave={leave}
                           onDrop={dropOn({ kind: 'bench', playerId: player.id })}
                           onClick={() => clickBench(player.id)}
                           data-bench={player.id}

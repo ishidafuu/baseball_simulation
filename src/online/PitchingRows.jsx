@@ -132,3 +132,54 @@ export function useRoleMenuDismiss(ref, close) {
     };
   }, [ref, close]);
 }
+
+/**
+ * 行の左端の「選ぶ」ボタン（つまみの印と、先発なら登板順の数）。
+ * （オンラインPC版 `PitchingBoard.jsx` と一人用 `SoloPitchingBoard.jsx` で共通）
+ */
+export function SlotButton({ picking, id, name, number = null }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={picking.selection === id}
+      aria-label={picking.pickLabel(id, name)}
+      onClick={(e) => {
+        e.stopPropagation();
+        picking.clickRow(id);
+      }}
+    >
+      <span aria-hidden="true" className="online-lineup-grip">
+        ⠿
+      </span>
+      {number}
+    </button>
+  );
+}
+
+/**
+ * 役割の札。押すと役割の一覧が出る（`usePitchingPicking` の `openMenu`）。
+ * `label` / `hint` は役割の名前と説明（一人用は「役割なし」があるので外から渡す）。
+ * `auto` は「おまかせ」の色にするか。
+ */
+export function RoleChip({ picking, player, role, label, hint, auto, starter }) {
+  return (
+    <button
+      type="button"
+      className={[
+        'online-role-chip',
+        starter ? 'is-starter' : 'is-relief',
+        role === 'closer' ? 'is-closer' : '',
+        auto ? 'is-auto' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-haspopup="dialog"
+      aria-expanded={picking.menu?.id === player.id}
+      aria-label={`${player.name}の役割（${label}）を選び直す`}
+      title={hint}
+      onClick={picking.openMenu(player)}
+    >
+      {label}
+    </button>
+  );
+}

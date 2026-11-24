@@ -300,15 +300,28 @@ try {
   await p.screenshot({ path: '/tmp/baseball-online-mobile-lineup-320.png' });
   shots.push('/tmp/baseball-online-mobile-lineup-320.png');
 
-  // ---- 全画面の編成は投手起用の入口: 投手起用のタブから始まる -------------------
+  // ---- 投手起用（PCと同じ表を全画面で出す。`MobilePitching.jsx`）-------------------
   await click('投手起用を開く（横向き推奨）');
   const portal = p.locator('.online-lineup-portal');
   await portal.waitFor();
-  assert.match(
-    await portal.getByRole('button', { name: /投手起用/ }).first().getAttribute('class'),
-    /\bseg-on\b/,
-    '「投手起用を開く」で投手起用のタブから始まらない',
+  await portal.locator('tr[data-starter]').first().waitFor();
+  await p.screenshot({ path: '/tmp/baseball-online-mobile-pitching-320.png' });
+  shots.push('/tmp/baseball-online-mobile-pitching-320.png');
+  // 2回のタップで先発の登板順を入れ替えて保存する（打順は触らない）
+  const startersBefore = (await serverView()).lineup.starters;
+  await portal.locator('tr[data-starter] .online-lineup-slot button').nth(0).click();
+  await portal.locator('tr[data-starter] .online-lineup-slot button').nth(1).click();
+  await portal.getByRole('button', { name: '保存', exact: true }).click();
+  await portal.waitFor({ state: 'detached' });
+  const afterPitching = (await serverView()).lineup;
+  assert.deepEqual(
+    afterPitching.starters,
+    [startersBefore[1], startersBefore[0], ...startersBefore.slice(2)],
+    'スマホの投手起用で入れ替えた登板順が保存されない',
   );
+  assert.deepEqual(await slots(), edited, '投手起用を保存したら打順が変わった');
+  await click('投手起用を開く（横向き推奨）');
+  await portal.waitFor();
   // ⚠ 閉じた先は「打順」の表。ボタンの名前もそう書く（以前は「方針・采配の設定へ」。再監査 B6）
   await portal.getByRole('button', { name: '打順に戻る（保存しない）' }).click();
   await portal.waitFor({ state: 'detached' });

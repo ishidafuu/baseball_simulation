@@ -1,5 +1,6 @@
 // 対人画面専用。既存の今季記録の閲覧・並べ替えに使い、記録や判定には書き戻さない。
 import { getAbilityRank } from '../utils/constants.js';
+import { inningsCell } from '../utils/physics.js';
 const known = (value) =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 export const CONDITION_TEXT = ['絶不調', '不調', '普通', '好調', '絶好調'];
@@ -398,8 +399,7 @@ export function formatStat(column, value, numericAbility = false) {
       column.format === 'stamina',
     );
   if (column.format === 'condition') return CONDITION_TEXT[value] || '—';
-  if (column.format === 'innings')
-    return `${Math.floor(value / 3)}.${value % 3}`;
+  if (column.format === 'innings') return inningsCell(value);
   if (column.format === 'rate') return value.toFixed(3).replace(/^0\./, '.');
   if (column.format === 'decimal') return value.toFixed(2);
   if (column.format === 'percent')

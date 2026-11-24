@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SPLIT_NAMES, rates } from './recordStats.js';
+import { inningsCell } from '../utils/physics.js';
 const GROUPS = {
   pitchRates: [
     '投球回・投球指標',
@@ -109,7 +110,7 @@ export default function SplitStats({ period, category }) {
                     : ['avg', 'obp', 'ops', 'slg'].includes(id)
                       ? value.toFixed(3).replace(/^0\./, '.')
                       : id === 'outs'
-                        ? `${Math.floor(value / 3)}.${value % 3}`
+                        ? inningsCell(value)
                         : ['k9', 'bb9', 'whip'].includes(id)
                           ? value.toFixed(2)
                           : value}

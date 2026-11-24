@@ -1,11 +1,11 @@
 import React from "react";
 import { BATTERY_NOTE } from "./recordStats.js";
+import { inningsCell } from "../utils/physics.js";
 
 // 投手×捕手の組み合わせ（選手の詳細）。サーバーの `period.battery`（recordedViews.mjs `batteryFor`）。
 // ⚠ このゲームに「相性」の仕組みは無い（いしだ: 仕組みは足さず、結果として見られる形）。
 //    回数が少ない組は運の差が大きいので、薄く出して「少」と書く。
 // ⚠ 文言と境目はアプリ（PlayerSheet.kt の BatterySection）と同じにする
-const innings = (outs) => `${Math.floor(outs / 3)}.${outs % 3}`;
 const dec = (v) => (v === null || v === undefined ? "—" : v.toFixed(2));
 const rate = (v) =>
   v === null || v === undefined ? "—" : v.toFixed(3).replace(/^0\./, ".");
@@ -33,7 +33,7 @@ function Rows({ rows, who }) {
               {row.name}
               {row.few && <small>（少）</small>}
             </th>
-            <td>{innings(row.outs)}</td>
+            <td>{inningsCell(row.outs)}</td>
             <td>{dec(row.era)}</td>
             <td>{dec(row.k9)}</td>
             <td>{dec(row.bb9)}</td>
@@ -58,7 +58,7 @@ export default function BatteryStats({ battery }) {
           </h3>
           <dl className="online-stat-grid">
             {[
-              ["守備回", innings(c.outs)],
+              ["守備回", inningsCell(c.outs)],
               ["先発マスク", c.starts],
               ["捕手防御率", dec(c.era)],
               ["読まれ率", pct(c.readRate)],

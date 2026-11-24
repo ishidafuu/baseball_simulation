@@ -3814,6 +3814,46 @@ small.online-gain:not(:where(.online-sp *)) {
   }
 }
 
+/* スマホの投手起用（`MobilePitching.jsx`）。PCの表（`PitchingBoard.jsx`）を全画面で出す。
+   ⚠ PCのページの外枠（本文の余白・見出しの帯）はPCの幅が前提なので、ここで狭い幅に合わせる。
+   上の帯は浮かせない（下の見出し `.online-page-head.is-sticky` が top:0 に浮くので重なる） */
+.online-lineup-portal {
+  padding: 0 12px 16px;
+  color: var(--ink);
+}
+.online-lineup-portal-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 -12px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #0000001a;
+}
+.online-lineup-portal-bar button:not(:where(.online-sp *)) {
+  margin-left: auto;
+}
+.online-lineup-portal .online-page-head {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.online-lineup-portal .online-page-head.is-sticky {
+  margin: 0 -12px 12px;
+  padding: 10px 12px;
+}
+.online-lineup-portal .online-page-head h1 {
+  font-size: 20px;
+}
+.online-lineup-portal .online-page-actions {
+  flex-wrap: wrap;
+  flex-shrink: 1;
+}
+/* 役割の一覧は幅420px。スマホの幅では画面に収める */
+.online-role-menu {
+  max-width: calc(100vw - 16px);
+}
+
 /* 移植した編成画面は全画面で出すが、**左メニューは覆わない**。
    ⚠ 覆うと、スタメン設定から投手起用へ移れなくなる（実機で踏んだ）。 */
 @media (min-width: 768px) {

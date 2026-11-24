@@ -19,6 +19,14 @@ export const formatInnings = (outs) => {
 };
 
 /**
+ * 表の欄の投球回（例: 18.2 ＝ 18回2/3）。アウト数から作る。
+ * ⚠ 表はどれもこの書き方にそろえる（オンラインの成績の表・一人用の投手起用の表）。
+ *    以前は一人用の投手起用だけ「18 2/3」で、同じ選手が表によって違って見えた
+ * @param {number} outs - アウト数
+ */
+export const inningsCell = (outs) => `${Math.floor(outs / 3)}.${outs % 3}`;
+
+/**
  * 能力値の背景色を取得（0-100）
  * @param {number} value - 能力値
  * @returns {string} Tailwind CSSクラス名
