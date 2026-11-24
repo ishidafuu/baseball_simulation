@@ -1,5 +1,6 @@
 // オンラインのリーグを何年も試合込みで進め、年ごとのバランスと不整合を出す（計測だけ。合否なし）。
 //   node tools/sim-harness/long-run-probe.mjs [年数=10] [種=20261028] [出力JSON]
+//   HUMAN_CAMP=push で人の球団がキャンプで集中練習を当て続ける（野手はミートかパワー・投手は制球）
 // 人2人（標準案＝指導者任せ）＋CPU40球団。シーズンの終わり（契約更改が開いた時点）ごとに
 // 勝率の散らばり・打撃投手の成績・能力の平均と上位・年齢・名簿・保存の大きさ・不整合を記録する。
 // console.error / console.warn と例外も数える。
@@ -153,10 +154,23 @@ function seasonSnapshot() {
     eye: r1(avg(oBats.map((p) => p.batting?.eye).filter((x) => x != null))), control: r1(avg(oPits.map((p) => p.pitching?.control).filter((x) => x != null))),
     velocity: r1(avg(oPits.map((p) => p.pitching?.velocity).filter((x) => x != null))),
   };
+  // 成長の確かめ: スタメン野手のうちミートかパワーが70以上の割合・スタメンのミートとパワーの平均・投手の制球の平均・BB/9（人の球団とリーグ全体）
+  // ⚠ 契約更改の時点では isStarter が落ちているので、球団ごとに打席の多い野手9人をスタメンと見る
+  const regulars = (ps) => ps.filter((p) => !isP(p)).map((p) => ({ p, pa: (p.seasonStats?.batting?.atBats || 0) + (p.seasonStats?.batting?.walks || 0) }))
+    .sort((a, b) => b.pa - a.pa).slice(0, 9).filter((x) => x.pa > 0).map((x) => x.p);
+  const growthOf = (ns) => {
+    const ps = ns.flatMap((n) => teams[n]?.players || []);
+    const st = ns.flatMap((n) => regulars(teams[n]?.players || [])), pit = ps.filter(isP);
+    const w = sum(pit.map((p) => p.seasonStats?.pitching?.walks || 0)), outs = sum(pit.map((p) => p.seasonStats?.pitching?.inningsPitched || 0));
+    return { starters: st.length, share70: r3(st.filter((p) => (p.batting?.meet ?? 0) >= 70 || (p.batting?.power ?? 0) >= 70).length / Math.max(1, st.length)),
+      meet: r1(avg(st.map((p) => p.batting?.meet ?? 0))), power: r1(avg(st.map((p) => p.batting?.power ?? 0))),
+      control: r1(avg(pit.map((p) => p.pitching?.control).filter((x) => x != null))), bb9: r1(w * 27 / Math.max(1, outs)) };
+  };
+  const growth = { league: growthOf(names()), humans: growthOf(names().filter((n) => hs.has(n))) };
   const ages = all.map(({ p }) => p.age);
   const ageBins = {}; for (const a of ages) { const b = a <= 22 ? '〜22' : a <= 26 ? '23-26' : a <= 30 ? '27-30' : a <= 34 ? '31-34' : '35〜'; ageBins[b] = (ageBins[b] || 0) + 1; }
   const roster = names().map((n) => teams[n]?.players?.length || 0);
-  return { year: league.season.year, leagues, stats, abilities, world, strength, humanStrength, age: { avg: r1(avg(ages)), max: Math.max(...ages), bins: ageBins }, roster: { min: Math.min(...roster), max: Math.max(...roster), avg: r1(avg(roster)) }, players: all.length };
+  return { year: league.season.year, leagues, stats, abilities, growth, world, strength, humanStrength, age: { avg: r1(avg(ages)), max: Math.max(...ages), bins: ageBins }, roster: { min: Math.min(...roster), max: Math.max(...roster), avg: r1(avg(roster)) }, players: all.length };
 }
 
 function teamDiag(n) {
@@ -205,6 +219,7 @@ while (days < 20000) {
       years.push(snap);
       out(`\n=== ${snap.year}年 終わり（${snap.seconds}秒） ===`);
       out(JSON.stringify({ leagues: snap.leagues, stats: snap.stats }, null, 0));
+      out(JSON.stringify({ growth: snap.growth }));
       out(JSON.stringify({ abilities: snap.abilities, world: snap.world, strength: snap.strength, humanStrength: snap.humanStrength, age: snap.age, roster: snap.roster, players: snap.players }));
       out(JSON.stringify(snap.size));
       if (OUT) writeFileSync(OUT, JSON.stringify({ seed: SEED, years, offseasons, phaseLog, issues: Object.fromEntries(issues) }, null, 1));
@@ -212,7 +227,12 @@ while (days < 20000) {
     if (lastPhase !== phase.id) phaseLog.push({ year: league.season.year, at: `${phase.kind}:open`, ...abilityMeans() });
     lastPhase = phase.id;
     for (const m of league.members) {
-      try { quiet(() => submitPhase(league, m.userId, { phaseId: phase.id, plan: defaultPhasePlan(league, m.teamName), ready: true }, now.toISOString())); }
+      let plan = defaultPhasePlan(league, m.teamName);
+      // HUMAN_CAMP=push: 人の球団が毎年キャンプで集中練習を当て続ける（野手はミートかパワーの高い方、投手は制球）
+      if (phase.kind === 'camp' && process.env.HUMAN_CAMP === 'push')
+        plan = { ...plan, assignments: Object.fromEntries((league.game.teams[m.teamName]?.players || []).map((p) => [p.id,
+          isP(p) ? 'intensive_control' : (p.batting?.meet ?? 0) >= (p.batting?.power ?? 0) ? 'intensive_meet' : 'intensive_power'])) };
+      try { quiet(() => submitPhase(league, m.userId, { phaseId: phase.id, plan, ready: true }, now.toISOString())); }
       catch (e) { note('exception', `submitPhase ${phase.kind} ${e.message}`); }
     }
     if (league.phase?.id === phase.id && league.status === 'waiting') { note('stuck', `手続き ${phase.kind} が進まない`); break; }
