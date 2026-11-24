@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        seed: [11, 22, 33, 44, 55, 66, 77, 88]
+        seed: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116]
     name: trade-why (seed ${{ matrix.seed }})
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - run: npm ci
       - name: Probe
         env:
-          VARIANTS: ${{ vars.TRADE_VARIANTS }}
+          VARIANTS: none full
         run: tools/sim-harness/trade-why.sh ${{ matrix.seed }} out
       - uses: actions/upload-artifact@v4
         if: always()
