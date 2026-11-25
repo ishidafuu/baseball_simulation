@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         seed: [11, 22, 33, 44, 55, 66, 77, 88, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124]
-    name: strength-win (seed ${{ matrix.seed }})
+    name: lineup-fix (seed ${{ matrix.seed }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,6 +23,12 @@ jobs:
       - run: npm ci
       - name: Probe
         run: |
-          for s in advice delegate self; do STAFF=$s node tools/sim-harness/probe/strength-win-probe.mjs ${{ matrix.seed }} > sw-$s.log 2>&1 & done; wait
-          grep -h '^RESULT ' sw-*.log
-          tail -n 5 sw-*.log | grep -v '^RESULT' | cut -c1-300
+          S=${{ matrix.seed }}
+          LINEUP_FIX=1 STAFF=advice node tools/sim-harness/probe/strength-win-probe.mjs $S > o1.log 2>&1 &
+          TRADE_STAFF=delegate TRADE_VARIANT=staff=delegate node tools/sim-harness/human-trade-probe.mjs trade $S > o2.log 2>&1 &
+          TRADE_STAFF=delegate TRADE_VARIANT=staff=delegate node tools/sim-harness/human-trade-probe.mjs none $S > o3.log 2>&1 &
+          TRADE_STAFF=delegate LINEUP_FIX=1 TRADE_VARIANT=staff=delegate,fix=1 node tools/sim-harness/human-trade-probe.mjs trade $S > o4.log 2>&1 &
+          wait
+          TRADE_STAFF=delegate LINEUP_FIX=1 TRADE_VARIANT=staff=delegate,fix=1 node tools/sim-harness/human-trade-probe.mjs none $S > o5.log 2>&1
+          grep -h '^RESULT ' o*.log
+          tail -n 3 o*.log | grep -v '^RESULT' | cut -c1-300

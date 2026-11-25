@@ -1702,6 +1702,15 @@ function releasePlayers(teamName, ids, year) {
  *    おすすめに戻っていた（手続き中も編成画面は開けて保存できる）。
  *    ローテの投手が名簿から消えた・打順が埋まらないときだけ作り直す。
  */
+
+// 【計測用・sim/trade-why だけ】LINEUP_FIX=1 のとき、保存する打順を組む間だけ疲労と調子を平らにする
+function recommendedLineupForSave(team, name) {
+  if (!process.env.LINEUP_FIX) return setRecommendedLineup(team, name);
+  const saved = team.players.map((p) => [p, p.fatigue, p.condition]);
+  for (const p of team.players) { p.fatigue = 0; p.condition = 2; }
+  try { return setRecommendedLineup(team, name); }
+  finally { for (const [p, f, c] of saved) { p.fatigue = f; p.condition = c; } }
+}
 function refreshTeamPlan(league, name, { force = false } = {}) {
   const team = TEAMS_DATA[name];
   // 名簿に居なくなった投手（トレード・退団）の予告先発を消す
@@ -1724,7 +1733,7 @@ function refreshTeamPlan(league, name, { force = false } = {}) {
     }
     if (!ownLineup) {
       const registered = new Map(team.players.map((p) => [p.id, p.position]));
-      setRecommendedLineup(team, name);
+      recommendedLineupForSave(team, name);
       for (const player of team.players)
         if (registered.has(player.id)) player.position = registered.get(player.id);
     }
@@ -1759,7 +1768,7 @@ function refreshTeamPlan(league, name, { force = false } = {}) {
   //    ローテに残る・一塁手が三塁手に変わる、が黙って起きていた。守備位置は
   //    打順の側（`lineupSettings`）にあるので、登録は元に戻してよい
   const registered = new Map(team.players.map((p) => [p.id, p.position]));
-  setRecommendedLineup(team, name);
+  recommendedLineupForSave(team, name);
   for (const player of team.players)
     if (registered.has(player.id)) player.position = registered.get(player.id);
 }

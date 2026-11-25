@@ -21,6 +21,7 @@ import { TEAMS_DATA } from '../../src/teams-data.js';
 import { tradeJudgeForLeague } from '../../server/tradeJudge.mjs';
 import { assertTradeAllowed } from '../../src/online/trades.js';
 import { squadStrength } from '../../src/online/tradeSearch.js';
+import { setStaffModes } from '../../server/coachEngine.mjs';
 
 const MODE = process.argv[2] || 'trade'; // trade | none
 const SEED = Number(process.argv[3] || 20261028);
@@ -40,6 +41,9 @@ const tradeLog = [];
 let now = new Date('2026-10-28T00:00:00Z');
 const league = createLeague({ seed: SEED, members: [{ userId: 'a' }, { userId: 'b' }], now: now.toISOString() });
 const humans = new Set(league.members.map((m) => m.teamName));
+// TRADE_STAFF=delegate: 人の球団のスタメンと投手起用を指導者に任せる（取った選手をその場で使う形に組み直す）
+if (process.env.TRADE_STAFF)
+  for (const m of league.members) setStaffModes(league, m.userId, { lineup: process.env.TRADE_STAFF, pitching: process.env.TRADE_STAFF });
 const names = () => league.season.settings.teamNames;
 const log = (...a) => console.log(...a);
 
@@ -95,6 +99,14 @@ function tradeRound(label, key) {
       const r = openTrade(league, member.userId, { to: best.to, offer: best.offer.map((p) => p.id), want: [best.want.id] }, now.toISOString());
       if (r.status !== 'accepted') { log('not accepted?', r); break; }
       made++;
+      if (process.env.TRADE_DEBUG) {
+        // 取った選手が打順・ローテに入ったか（人の球団の編成は、成り立つ限り残る）
+        const t = TEAMS_DATA[member.teamName];
+        const inOrder = (t.lineupSettings?.battingOrder || []).some((e) => e.playerId === best.want.id && e.position !== 'pitcher');
+        const inRot = (t.pitchingRotation?.starters || []).includes(best.want.id);
+        const role = best.want.position === 'pitcher' ? (inRot ? '先発' : '救援') : (inOrder ? 'スタメン' : '控え');
+        log(`    取った ${best.want.name}: ${role}`);
+      }
       for (const p of [...best.offer, best.want]) touched.add(p.id);
       const pk = `${league.season.year}|${member.teamName}|${best.to}`;
       pairCount.set(pk, (pairCount.get(pk) || 0) + 1);

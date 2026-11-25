@@ -119,4 +119,4 @@ while (days < 3000 && !done) {
   if (!started[lastYear] && g >= 1) { snapAll('start'); started[lastYear] = 'start'; }
   else if (started[lastYear] === 'start' && g >= 58) { snapAll('mid'); started[lastYear] = 'mid'; }
 }
-console.log('RESULT ' + JSON.stringify({ seed: SEED, staff: STAFF, years }));
+console.log('RESULT ' + JSON.stringify({ seed: SEED, staff: STAFF + (process.env.LINEUP_FIX ? '+fix' : ''), years }));
