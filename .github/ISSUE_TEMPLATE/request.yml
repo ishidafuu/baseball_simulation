@@ -1,0 +1,52 @@
+name: 要望・気づいた点
+description: 直してほしいところ、こうしてほしいこと、気づいたことを書いてください。Claude が読んで対応します。
+title: "[要望] "
+labels: ["要望"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        書いてもらった内容は、1時間ごとに Claude が読んで対応します（直しは ice-north へ PR で届きます）。
+        分からないところがあれば、この下のコメントで Claude から質問します。1件に1つの要望だと助かります。
+  - type: dropdown
+    id: where
+    attributes:
+      label: どこのこと？
+      options:
+        - 一人用
+        - オンライン（PC）
+        - オンライン（スマホのブラウザ）
+        - Android アプリ
+        - 全体・その他
+    validations:
+      required: true
+  - type: input
+    id: screen
+    attributes:
+      label: どの画面？（分かれば）
+      placeholder: 例）スタメン設定、トレード、キャンプ、ホームの新聞
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が気になった？
+      description: 起きたこと・困ったことを、そのまま書いてください。
+      placeholder: 例）トレードで相手の選手を選んでも、下の合計が変わらない
+    validations:
+      required: true
+  - type: textarea
+    id: wish
+    attributes:
+      label: どうなってほしい？
+      description: 分かる範囲で大丈夫です。「おまかせ」でも構いません。
+  - type: textarea
+    id: shots
+    attributes:
+      label: 画面の写真（あれば）
+      description: ここに画像を貼り付けたり、ドラッグしたりできます。
+  - type: dropdown
+    id: hurry
+    attributes:
+      label: 急ぎ？
+      options:
+        - いつでもよい
+        - 早めにほしい
