@@ -1,6 +1,6 @@
 name: long-sim
 
-# sim/trade-why だけの計測: トレードの勝ちすぎの切り分け（human-trade-probe を試しごとに）。
+# sim/trade-why だけの計測: 戦力の物差しと勝ち数・人の球団とCPU球団の差（strength-win-probe を任せ方ごとに）。
 on:
   push:
     branches: ['sim/**']
@@ -8,12 +8,12 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        seed: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116]
-    name: trade-why (seed ${{ matrix.seed }})
+        seed: [11, 22, 33, 44, 55, 66, 77, 88, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124]
+    name: strength-win (seed ${{ matrix.seed }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,11 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Probe
-        env:
-          VARIANTS: none full
-        run: tools/sim-harness/trade-why.sh ${{ matrix.seed }} out
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: trade-why-${{ matrix.seed }}
-          path: out
+        run: |
+          for s in advice delegate self; do STAFF=$s node tools/sim-harness/probe/strength-win-probe.mjs ${{ matrix.seed }} > sw-$s.log 2>&1 & done; wait
+          grep -h '^RESULT ' sw-*.log
+          tail -n 5 sw-*.log | grep -v '^RESULT' | cut -c1-300
