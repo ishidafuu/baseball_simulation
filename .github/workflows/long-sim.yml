@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         seed: [11, 22, 33, 44, 55, 66, 77, 88, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124]
-    name: after-fix (seed ${{ matrix.seed }})
+    name: gap-limit (seed ${{ matrix.seed }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,10 +24,10 @@ jobs:
       - name: Probe
         run: |
           S=${{ matrix.seed }}
-          STAFF=advice node tools/sim-harness/probe/strength-win-probe.mjs $S > o1.log 2>&1 &
-          STAFF=self node tools/sim-harness/probe/strength-win-probe.mjs $S > o6.log 2>&1 &
-          node tools/sim-harness/human-trade-probe.mjs trade $S > o2.log 2>&1 &
-          node tools/sim-harness/human-trade-probe.mjs none $S > o3.log 2>&1 &
+          for g in 8 6 5; do
+            GAP_LIMIT=$g TRADE_VARIANT=gap=$g node tools/sim-harness/human-trade-probe.mjs trade $S > t$g.log 2>&1 &
+            GAP_LIMIT=$g TRADE_VARIANT=gap=$g node tools/sim-harness/human-trade-probe.mjs none $S > n$g.log 2>&1 &
+          done
           wait
-          grep -h '^RESULT ' o*.log
-          tail -n 3 o*.log | grep -v '^RESULT' | cut -c1-300
+          grep -h '^RESULT ' t*.log n*.log
+          tail -n 3 t*.log n*.log | grep -v '^RESULT' | cut -c1-300

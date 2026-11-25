@@ -558,7 +558,7 @@ export function givingTradeValues(rosterAfter, give, valueOf) {
  * ⚠ アプリの `STRENGTH_GAP_LIMIT`（TradeSearch.kt）と同じ値。サーバーは決まり（`team.trade.gapLimit`）
  *    でも渡すので、画面はそれを使う。
  */
-export const STRENGTH_GAP_LIMIT = 8;
+export const STRENGTH_GAP_LIMIT = Number(globalThis.process?.env?.GAP_LIMIT || 8); // 計測用（sim だけ）
 
 /**
  * 交換で開く戦力の差（点）＝提案した側の `squadStrength` の伸び − 受ける側の伸び。
