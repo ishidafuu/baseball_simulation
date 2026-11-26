@@ -8,18 +8,6 @@ body:
       value: |
         書いてもらった内容は、1時間ごとに Claude が読んで対応します（直しは ice-north へ PR で届きます）。
         分からないところがあれば、この下のコメントで Claude から質問します。1件に1つの要望だと助かります。
-  - type: dropdown
-    id: where
-    attributes:
-      label: どこのこと？
-      options:
-        - 一人用
-        - オンライン（PC）
-        - オンライン（スマホのブラウザ）
-        - Android アプリ
-        - 全体・その他
-    validations:
-      required: true
   - type: input
     id: screen
     attributes:
