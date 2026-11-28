@@ -828,10 +828,12 @@ try {
     .getByRole('button', { name: '選手成績を閉じる', exact: true })
     .click();
   // 同じoriginでも一人用の保存キーへ書き込まない。
-  // オンラインが残すのはログイン・接続の設定・前回のビュー（開いた直後にすぐ出すため。`savedView.js`）だけ
+  // オンラインが残すのはログイン・接続の設定・前回のビュー（開いた直後にすぐ出すため。`savedView.js`）と、
+  // 新しい見た目の入／切（検査のブラウザは鍵が無ければ 'old' を置いて開く。`lib/browser.mjs` の `launchBrowser`）だけ
   assert.deepEqual((await m.evaluate(() => Object.keys(localStorage))).sort(), [
     'baseball-online-auth-v1',
     'baseball-online-config-v1',
+    'baseball-online-look-v1',
     'baseball-online-view-v1',
   ]);
   for (const width of [320, 375, 430, 767]) {
