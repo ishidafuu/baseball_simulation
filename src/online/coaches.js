@@ -1007,7 +1007,8 @@ const regretPending = (coach) => (coach?.fired || 0) > (coach?.mellowed || 0);
 /**
  * 解任された監督が、再び監督になるとき、こだわりが1段やわらぐ（「前回の反省」）。
  * 解任1回につき1度だけ。返り値は丸くなったか。
- * ⚠ 采配の強さは変わらない。こだわりが効くのはキャンプの段階を選手の希望に合わせるかだけ。
+ * ⚠ 采配の強さは変わらない。こだわりが効くのはキャンプの段階を選手の希望に合わせるかと、
+ * 時間軸が球団の状況に寄るまでの年数（`horizonPatience`）だけ。
  */
 export function mellowOnReturn(coach, year) {
   if (!regretPending(coach)) return false;

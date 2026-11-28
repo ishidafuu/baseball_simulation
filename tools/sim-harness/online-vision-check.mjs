@@ -202,6 +202,12 @@ const rosterOf = (name) => league.game.teams[name].players;
   assert.equal(cpu.note, null, 'CPU球団に人の球団の注が付いた');
   assert.ok(teamPolicyView(league, humanTeam).note?.includes('オーナー'), '人の球団に注が無い');
   assert.ok(teamPolicyView(league, humanTeam, { own: true }).note?.includes('あなた'), '自球団の注が無い');
+  // 人の球団はコーチの居ない側を監督で埋めない（キャンプはおすすめで練習する。監査18）
+  const coach = staffOf(league, cpuTeam).pitching || manager;
+  const humanNoPitch = teamPolicy({ manager, batting: coach }, { human: true });
+  assert.match(value(humanNoPitch, 'growth'), /投手はおすすめ|^おすすめ$/, '人の球団の投手コーチ不在が監督の育成観で埋まる');
+  assert.equal(value(teamPolicy({ manager }, { human: true }), 'growth'), 'おすすめ', '人の球団のコーチ不在がおすすめにならない');
+  assert.notEqual(value(teamPolicy({ manager }, {}), 'growth'), 'おすすめ', 'CPU球団のコーチ不在が監督で埋まらない');
   const none = teamPolicy({}, {});
   assert.equal(value(none, 'lean'), 'バランス型', '監督不在がバランス型にならない');
   // 穴の大きい持ち場が「いまの重点」に出る

@@ -95,15 +95,26 @@ const POLICY_NEED_COUNT = 3;
 /** 「山田監督」 */
 const byName = (coach, role) => `${shortName(coach)}${ROLE_LABELS[role]}`;
 
-/** 育成の行（投手は投手コーチ、野手は野手コーチ。居なければ監督。2人の考えが違えば分けて書く） */
-function growthRow(staff) {
-  const pitching = staff.pitching || staff.manager;
-  const batting = staff.batting || staff.manager;
-  if (!pitching && !batting) return null;
+/** コーチの居ない側（人の球団。キャンプはおすすめで練習する） */
+const NO_COACH = (side) => ({ value: 'おすすめ', note: `${side}コーチが居ないので、キャンプはおすすめの練習` });
+
+/**
+ * 育成の行（投手は投手コーチ、野手は野手コーチ。居なければ監督。2人の考えが違えば分けて書く）
+ * ⚠ **人の球団は監督で埋めない**（キャンプの `campPlan` の `strictSeats` と同じ。コーチの居ない側の
+ *    選手はおすすめで練習する）。埋めると、画面は監督の育成観なのに実際はおすすめで回っていた（監査18）
+ */
+function growthRow(staff, human = false) {
+  const fill = human ? null : staff.manager;
+  const pitching = staff.pitching || fill;
+  const batting = staff.batting || fill;
+  if (!pitching && !batting)
+    return human
+      ? { key: 'growth', label: '育成', value: 'おすすめ', note: 'コーチが居ないので、キャンプはおすすめの練習' }
+      : null;
   const pStyle = pitching ? growthStyleOf(pitching) : null;
   const bStyle = batting ? growthStyleOf(batting) : null;
-  const pv = pStyle && GROWTH_POLICY[pStyle];
-  const bv = bStyle && GROWTH_POLICY[bStyle];
+  const pv = (pStyle && GROWTH_POLICY[pStyle]) || (human ? NO_COACH('投手') : null);
+  const bv = (bStyle && GROWTH_POLICY[bStyle]) || (human ? NO_COACH('野手') : null);
   if (pv && bv && pv.value !== bv.value)
     return {
       key: 'growth',
@@ -187,7 +198,7 @@ export function teamPolicy(staff = {}, { needs = null, human = false, own = fals
       note: '監督がいないので、采配は標準のまま',
     });
   }
-  const growth = growthRow(staff || {});
+  const growth = growthRow(staff || {}, human);
   if (growth) rows.push(growth);
   const need = needRow(needs, horizon);
   if (need) rows.push(need);

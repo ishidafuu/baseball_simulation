@@ -340,7 +340,10 @@ export function campPlanFor(league, teamName, roster) {
 /**
  * 同じ部のほかの球団の名簿（球団の穴を比べる相手。`teamNeeds`）。
  * ⚠ **保存された世界（`league.game`）から読む**。キャンプは球団ごとに順に回すので、
- *    `TEAMS_DATA` を読むと先に練習した球団の伸びで穴が変わり、画面の案と締め切りの実行で的がずれる
+ *    `TEAMS_DATA` を読むと先に練習した球団の伸びで穴が変わり、締め切りの実行で回す順に的が左右される。
+ *    ⚠ ただし人がクールを自分で回すと、その結果は `league.game` に保存される。同じ部のほかの球団の
+ *    案（画面に出ている的）は、締め切りまでに変わることがある（的を覚えた選手は続けるので、変わるのは
+ *    まだ的の無い選手だけ）
  */
 export function sameTierRosters(league, teamName) {
   const tierOf = (name) => (league.teams || []).find((t) => t.name === name)?.league;
