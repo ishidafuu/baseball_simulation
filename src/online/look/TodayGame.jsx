@@ -110,11 +110,16 @@ export default function TodayGame({ view, onLineup }) {
   const [paused, setPaused] = useState(false);
   const count = slides.length;
   const at = count ? index % count : 0;
+  // ⚠ 自分の試合が替わったら（日が進んだ）1枚目＝自分の試合から見せる。前の日の続きの番号のまま
+  //    ほかの試合が出た状態で始まっていた（監査18）
+  const gameKey = card ? `${card.when}|${card.title}` : '';
+  useEffect(() => setIndex(0), [gameKey]);
+  // ⚠ 1枚ごとに数え直す（点を押したら、そこから OTHER_GAMES_MS 待つ。間隔の途中で押すとすぐ次へ進んでいた）
   useEffect(() => {
     if (paused || count < 2) return undefined;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % count), OTHER_GAMES_MS);
-    return () => clearInterval(timer);
-  }, [paused, count]);
+    const timer = setTimeout(() => setIndex((i) => (i + 1) % count), OTHER_GAMES_MS);
+    return () => clearTimeout(timer);
+  }, [paused, count, index]);
   if (!card) return null;
   const slide = slides[at];
   return (
