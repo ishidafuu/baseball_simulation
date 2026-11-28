@@ -277,7 +277,11 @@ private fun OtherGamesStack(view: LeagueView, games: List<OtherGame>) {
                     (slideInVertically { it / 3 } + fadeIn(tween(500))) togetherWith (slideOutVertically { -it / 2 } + fadeOut(tween(400)))
                 },
                 label = "ほかの試合",
-            ) { i -> OtherGameFace(view, games[i]) }
+            ) { i ->
+                // 出ていく側の札は古い番号のまま描かれる。日が進んで試合が減ると games[i] が外れて落ちるので、
+                // 外れたら描かない（Web は index % count で同じことを防いでいる）
+                games.getOrNull(i)?.let { OtherGameFace(view, it) }
+            }
         }
         if (count > 1) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
