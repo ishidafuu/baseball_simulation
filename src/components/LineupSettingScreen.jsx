@@ -378,7 +378,7 @@ const LineupSettingContent = ({
     const cbs = player.careerStats?.batting;
     const arsenal = (p.arsenal || []).filter(a => a.type !== 'straight');
 
-    const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) / (ps.inningsPitched / 3) * 9).toFixed(2) : '-';
+    const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) * 27 / ps.inningsPitched).toFixed(2) : '-';
     const whip = ps?.inningsPitched > 0 ? (((ps.walks || 0) + (ps.hits || 0)) / (ps.inningsPitched / 3)).toFixed(2) : '-';
     const ip = ps?.inningsPitched ? (ps.inningsPitched / 3).toFixed(1) : '0.0';
     const avg = bs?.atBats > 0 ? (bs.hits / bs.atBats).toFixed(3) : '-';
@@ -626,7 +626,7 @@ const LineupSettingContent = ({
                   {cs?.games > 0 && <>
                     <span>{cs.wins||0}勝{cs.losses||0}敗</span>
                     {cs.saves > 0 && <span>{cs.saves}S</span>}
-                    <span>防{((cs.earnedRuns||0)+((ps?.earnedRuns||0))) > 0 && ((cs.inningsPitched||0)+(ps?.inningsPitched||0)) > 0 ? (((cs.earnedRuns||0)+(ps?.earnedRuns||0)) / (((cs.inningsPitched||0)+(ps?.inningsPitched||0)) / 3) * 9).toFixed(2) : '-'}</span>
+                    <span>防{((cs.inningsPitched||0)+(ps?.inningsPitched||0)) > 0 ? (((cs.earnedRuns||0)+(ps?.earnedRuns||0)) * 27 / ((cs.inningsPitched||0)+(ps?.inningsPitched||0))).toFixed(2) : '-'}</span>
                     <span>{(cs.games||0)+(ps?.games||0)}試合</span>
                   </>}
                   {cbs?.atBats > 0 && <>

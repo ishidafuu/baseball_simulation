@@ -279,7 +279,7 @@ const PreGameModal = ({ seasonData, userTeamName, formatDate, getStartingPitcher
     // ⚠ 欄は w-12（48px）なので略称だけ。「クローザー」（5字）ははみ出した。略称はオンラインの札（ROLE_SHORT）と同じ「抑え」
     const roleLabel = { closer: '抑え', setup: 'セット', ace_relief: '中エース', long: 'ロング', onepoint: 'ワンポ', behind: 'ビハ', mopup: '敗処' };
     const ps = pitcher.seasonStats?.pitching;
-    const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) / (ps.inningsPitched / 3) * 9).toFixed(2) : null;
+    const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) * 27 / ps.inningsPitched).toFixed(2) : null;
     return (
       <div key={pitcher.id} className="flex items-center gap-1 rounded px-1.5 py-0.5 bg-gray-800/40 text-xs">
         <span className={`px-1 py-0.5 rounded font-bold ${pitcher.physical?.throws === 'left' ? 'bg-blue-600/80 text-white' : 'bg-orange-600/80 text-white'}`}>
@@ -351,7 +351,7 @@ const PreGameModal = ({ seasonData, userTeamName, formatDate, getStartingPitcher
                   const f = pitcher.fatigue || 0;
                   const tooTired = f >= 80;
                   const ps = pitcher.seasonStats?.pitching;
-                  const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) / (ps.inningsPitched / 3) * 9).toFixed(2) : null;
+                  const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) * 27 / ps.inningsPitched).toFixed(2) : null;
                   return (
                     <div key={pitcher.id} onClick={() => !tooTired && handleSelectStarter(pitcher.id)}
                       className={`flex items-center gap-1.5 rounded px-2 py-1 transition-all text-xs ${
@@ -461,7 +461,7 @@ const PreGameModal = ({ seasonData, userTeamName, formatDate, getStartingPitcher
               <h3 className="text-xs font-bold text-gray-300 mb-1.5">相手先発投手</h3>
               {opponentStarter ? (() => {
                 const ps = opponentStarter.seasonStats?.pitching;
-                const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) / (ps.inningsPitched / 3) * 9).toFixed(2) : '-';
+                const era = ps?.inningsPitched > 0 ? ((ps.earnedRuns || 0) * 27 / ps.inningsPitched).toFixed(2) : '-';
                 return (<>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`text-xs px-1 py-0.5 rounded font-bold ${opponentStarter.physical?.throws === 'left' ? 'bg-blue-600 text-white' : 'bg-orange-600 text-white'}`}>

@@ -2290,7 +2290,7 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
               .sort((a, b) => b.value - a.value).slice(0, 5);
 
             const eraRanking = [...pitchingQualified]
-              .map(p => ({ ...p, value: (p.seasonStats.pitching.earnedRuns / (p.seasonStats.pitching.inningsPitched / 3)) * 9 }))
+              .map(p => ({ ...p, value: p.seasonStats.pitching.earnedRuns * 27 / p.seasonStats.pitching.inningsPitched }))
               .sort((a, b) => a.value - b.value).slice(0, 5);
 
             const winRanking = [...allPlayers]
@@ -2703,10 +2703,10 @@ const DateProgressContent = ({ seasonData, setSeasonData, onForceEvent, onSetupM
                             tH += p.seasonStats?.batting?.hits || 0;
                             tAB += p.seasonStats?.batting?.atBats || 0;
                             tER += p.seasonStats?.pitching?.earnedRuns || 0;
-                            tIP += (p.seasonStats?.pitching?.inningsPitched || 0) / 3;
+                            tIP += p.seasonStats?.pitching?.inningsPitched || 0; // アウト数
                           });
                           tAvg = tAB > 0 ? (tH / tAB).toFixed(3) : '-';
-                          tEra = tIP > 0 ? (tER / tIP * 9).toFixed(2) : '-';
+                          tEra = tIP > 0 ? (tER * 27 / tIP).toFixed(2) : '-';
                         }
                         let gb = '';
                         if (index === 0) gb = isLChampionDecided ? '優勝' : '-';
