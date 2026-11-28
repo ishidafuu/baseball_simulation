@@ -81,6 +81,28 @@ async function open(contextOptions, { look = false, patchView = null } = {}) {
 
 await withDeadline(
   (async () => {
+    // --- 何も選んでいない端末は入（既定。いしだ 2026-11-28「新しい見た目を、そのまま採用」） ---
+    // ⚠ `lookDefault: true` で開くと、検査のブラウザは鍵を置かない（`lib/browser.mjs`）
+    {
+      const { p, context } = await open({ viewport: { width: 1440, height: 1000 }, lookDefault: true });
+      await p.locator('.online.online-look').waitFor();
+      const toggle = p.locator('.online-nav-account').getByRole('button', { name: /新しい見た目/ });
+      assert.equal(await toggle.getAttribute('aria-pressed'), 'true', '何も選んでいない端末が入になっていない');
+      assert.equal(
+        await p.evaluate((key) => localStorage.getItem(key), LOOK_KEY),
+        null,
+        '開いただけで入／切を書き込んだ（選んでいない端末は鍵を持たない）',
+      );
+      // 今日の一戦の札は1枚で、1枚目は自分の試合（2026-11-28「自分の試合のところを切り替わってほしい」）
+      await p.locator('.online-today-game').first().waitFor();
+      assert.equal(await p.locator('.online-today-game').count(), 1, '今日の一戦の札が1枚でない');
+      assert.equal(await p.locator('.online-today-others, .online-today-other').count(), 0, 'ほかの試合の小さい札が残っている');
+      assert.match(await p.locator('.online-today-game > header strong').textContent(), /^(今日|次)の一戦/, '1枚目が自分の試合でない');
+      await context.close();
+      // ⚠ 読んだ字の数え（`fontLoads`）は検査全体で1つなので空に戻す。入で開いたこの段の字が
+      //    残ると、次の「切なのに新しい見た目の字を読んだ」が誤って落ちる
+      for (const name of Object.keys(fontLoads)) delete fontLoads[name];
+    }
     // --- PC -------------------------------------------------------------
     {
       const { p, context } = await open({ viewport: { width: 1440, height: 1000 } });
@@ -91,7 +113,8 @@ await withDeadline(
       assert.equal(await p.locator('.online-header').count(), 0, 'PCに見出しの帯が残っている');
       await p.locator('.online-nav-account').getByRole('link', { name: '一人用', exact: true }).waitFor();
       await p.locator('.online-nav-account').getByRole('button', { name: 'ログアウト', exact: true }).waitFor();
-      // 既定は切
+      // 検査のブラウザは切で開く（`lib/browser.mjs` の `launchBrowser` が鍵の無い端末に 'old' を置く）。
+      // ⚠ 本番の既定は入（2026-11-28）。既定の入は下の「何も選んでいない端末」で確かめる
       assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
       assert.equal(await p.locator('.online-look-art').count(), 0, '切なのに絵が出ている');
       assert.equal(await p.locator('.online.online-look').count(), 0);
@@ -175,20 +198,29 @@ await withDeadline(
       assert.ok((await today.locator('.online-today-starter .online-face').count()) >= 1, '札に先発の顔が無い');
       // 縦を詰めた（先方要望 #8）。前は 320px
       assert.ok((await today.boundingBox()).height <= 230, `今日の一戦の札が縦に長い: ${(await today.boundingBox()).height}px`);
-      // 同じ日のほかの試合: 重ねたカードの手前は1枚、点を押すとその試合が手前に来る。数秒ごとにめくる
-      const others = p.locator('.online-today-others');
-      await others.waitFor();
-      const otherCount = await others.locator('.online-today-other').count();
-      assert.ok(otherCount >= 2, `ほかの試合が ${otherCount} 件`);
-      assert.equal(await others.locator('.online-today-other.is-front').count(), 1, 'ほかの試合の手前が1枚でない');
-      const frontText = () => others.locator('.online-today-other.is-front').textContent();
-      const first = await frontText();
-      await others.locator('.online-today-dots button').nth(1).click();
-      assert.notEqual(await frontText(), first, '点を押しても手前の試合が変わらない');
+      // ⚠ **札は1枚で、中身が 自分の試合 → 同じ日のほかの試合 → … と切り替わる**（2026-11-28。
+      //    前は札の下に、ほかの試合を小さい札で重ねてめくっていたが、球団と先発を2回並べていた）
+      const sides = () => today.locator('.online-today-vs .online-today-side strong').allTextContents();
+      const cta = today.locator('.online-today-cta:not(.is-empty)');
+      const dots = today.locator('.online-today-dots button');
+      assert.ok((await dots.count()) >= 2, `切り替える試合が ${await dots.count()} 件`);
+      assert.match(await today.locator('> header strong').textContent(), /^(今日|次)の一戦/, '1枚目が自分の試合でない');
+      assert.equal(await cta.count(), 1, '自分の試合に「スタメンを見る」が無い');
+      const ownSides = await sides();
+      const ownHeight = (await today.boundingBox()).height;
+      // 点を押すとその試合へ。ほかの試合では顔と「スタメンを見る」を出さない（名前しか無い）
+      await dots.nth(1).click();
+      assert.notDeepEqual(await sides(), ownSides, '点を押しても試合が切り替わらない');
+      assert.match(await today.locator('> header strong').textContent(), /^ほかの試合/, '2枚目がほかの試合でない');
+      assert.equal(await cta.count(), 0, 'ほかの試合に「スタメンを見る」が出ている');
+      assert.equal(await today.locator('.online-today-starter .online-face').count(), 0, 'ほかの試合に先発の顔が出ている');
+      // 切り替えても札の高さは変わらない（変わると下の画面が数秒ごとに上下に揺れる）
+      assert.equal((await today.boundingBox()).height, ownHeight, '切り替えると札の高さが変わる');
+      // 乗せていないと数秒ごとに次の試合へ進む
       await p.mouse.move(0, 0);
-      const second = await frontText();
+      const second = JSON.stringify(await sides());
       await p.waitForFunction(
-        (text) => document.querySelector('.online-today-other.is-front')?.textContent !== text,
+        (text) => JSON.stringify([...document.querySelectorAll('.online-today-vs .online-today-side strong')].map((e) => e.textContent)) !== text,
         second,
         { timeout: 9000 },
       );
@@ -343,7 +375,9 @@ await withDeadline(
       assert.equal(await p.locator('.online-look-art').count(), 0, '切に戻しても絵が残った');
       const emoji = await p.locator('.online-lineup-person .online-condition').first().textContent();
       assert.match(emoji, EMOJI);
-      assert.equal(await p.evaluate((key) => localStorage.getItem(key), LOOK_KEY), null);
+      // ⚠ 切に戻したことを**覚える**（'old'）。前は鍵を消していたが、既定が入になったので
+      //    消すと次に開いたとき入に戻ってしまう
+      assert.equal(await p.evaluate((key) => localStorage.getItem(key), LOOK_KEY), 'old', '切に戻したのを端末に覚えていない');
       assert.doesNotMatch(await fontOf(p, '.online h1'), /LookHead/, '切に戻しても見出しの字が残った');
       assert.equal(await p.locator('head [data-look]').count(), 0, '切に戻してもアドレスバーの色などが残った');
       assert.equal(await p.evaluate(() => document.documentElement.classList.contains('online-look-root')), false);

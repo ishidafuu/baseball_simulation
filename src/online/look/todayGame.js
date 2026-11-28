@@ -124,6 +124,17 @@ export function todayGameCard(view) {
 const streakValue = (s) => (!s ? 0 : s.kind === 'W' ? s.count : s.kind === 'L' ? -s.count : 0);
 
 /**
+ * その球団の本拠地の客の入り（球場の絵の観客の量）。`todayGameCard` の `crowd` と同じ物差し。
+ * ⚠ **Web の札だけ**が使う（2026-11-28。ほかの試合を大きい札に切り替えて見せるとき、その試合の
+ *    本拠地の絵を描くため）。`otherGameCards` の出力は変えていない（あちらはアプリの
+ *    `TodayGame.kt` の写し元で、`expect-look.mjs` が答え合わせする）
+ */
+export function homeCrowd(view, home) {
+  const standing = standingOf(view, home);
+  return crowdLevel(standing.rank, standing.teams, streakValue(view?.teamStreaks?.[home]));
+}
+
+/**
  * 同じ日のほかの試合（先方要望 #8「他のチームの対戦カードも数秒ごとに切り替えて見たい」）。
  * 今日の一戦の札の下で、数秒ごとに1枚ずつめくって見せる（`TodayGame.jsx` の `OtherGames`）。
  *

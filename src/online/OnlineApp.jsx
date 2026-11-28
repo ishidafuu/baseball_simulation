@@ -183,7 +183,7 @@ export default function OnlineApp() {
   const [busy, setBusy] = useState(false);
   // 表示幅でPC/スマホの部品が切り替わっても、選択中の画面は失わない。
   const [screen, setScreen] = useState('today');
-  // 新しい見た目（試作）。⚠ 端末ごとの入／切で、既定は切（`look/LookContext.jsx`）
+  // 新しい見た目。⚠ 端末ごとの入／切で、既定は入（`look/LookContext.jsx`）
   const [lookOn, setLookOn] = useState(readLookSetting);
   const look = useMemo(
     () => ({
