@@ -21,7 +21,7 @@ val CAMP_MENUS: List<Menu> = listOf(
 )
 val CAMP_SUB_MENUS: List<Menu> = listOf(
     Menu("physique", "基礎体力", "🏃", "体力+2〜4/クール確定・体幹+0〜1（投手：スタミナ+1〜2も）", only = null),
-    Menu("weight", "ウエイト", "🏋️", "体幹+2〜4（確定）・パワー+0〜1・肩力+0〜1", only = null),
+    Menu("weight", "ウエイト", "🏋️", "体幹+2〜4（60から鈍り85で止まる）・パワー+0〜1・肩力+0〜1", only = null),
     Menu("stretch", "ストレッチ", "🧘", "野手：ミート/パワー/選球眼/走力/肩/守備からランダム1能力+1。投手：制球/球速/スタミナ/肩/守備/ミートからランダム1能力+1。回復力30%UP", only = null),
     Menu("long_throw", "遠投", "🎯", "肩力を重点強化（+0〜3）投手は球速連動", only = null),
     Menu("eye", "選球眼練習", "👁️", "選球眼を強化（+0〜2）", only = null),
