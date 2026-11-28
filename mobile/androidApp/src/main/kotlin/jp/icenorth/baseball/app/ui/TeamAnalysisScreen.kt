@@ -166,7 +166,6 @@ fun TeamOverviewPane(model: AppViewModel, view: LeagueView, raw: JsonObject, tea
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 /**
  * チームの方針（先方要望 #9）。PC の TeamAnalysis.jsx の TeamPolicy の写し。
  * 見出し（監督の野球の一言）・札・6行（攻撃・投手起用・重心・編成・育成・いまの重点）と、人の球団の注
@@ -207,6 +206,7 @@ private fun TeamPolicyCard(policy: TeamPolicy) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Tiles(tiles: List<Triple<String, String, String?>>) {
     FlowRow(Modifier.fillMaxWidth().testTag("team-tiles"), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 3) {
