@@ -11,6 +11,7 @@
 // 6. チームの方針（`teamPolicy`・先方要望 #9）: 監督の型から6行。人の球団は注つき、監督不在はバランス型。
 //    ビュー（自球団 `staff.policy`・他球団の `projectTeamInfo`）に載る。
 //    積極補強の監督ほどCPU同士のトレードを言い出す（`pickTradeMover`。重みに比例）
+// 7. 人の球団の提出（`submitPhase`）も育成の的を通す（自分の名簿・形の合うものだけ）
 import './lib/bootstrap.mjs';
 import assert from 'node:assert/strict';
 import { createLeague, runCampRound, campFallbackPlan, submitPhase, defaultPhasePlan } from '../../server/leagueEngine.mjs';
@@ -227,6 +228,25 @@ const rosterOf = (name) => league.game.teams[name].players;
     assert.ok(Math.abs((picks[n] || 0) - want) < want * 0.2, `言い出す回数が重みに比例しない（${n}: ${picks[n]} / 見込み ${Math.round(want)}）`);
   }
   console.log(`言い出す回数（積極補強・若手育成・バランス4球団）: ${pool.map((n) => picks[n] || 0).join('・')}`);
+}
+
+// ------------------------------------------------------------------ 7. 人の球団の提出も的を通す（監査18）
+// 「意見を聞く」で提出しなかった人は、締め切りで指導者の案が `submitPhase` の正規化を通って回る。
+// そこで的（`aims`）を落とすと、メイン練習は的の練習なのに選手が的を覚えず毎年選び直しになっていた
+{
+  const l = clone(league);
+  const member = l.members[0];
+  const plan = defaultPhasePlan(l, member.teamName);
+  const ids = Object.keys(plan.aims || {});
+  assert.ok(ids.length > 0, '人の球団の指導者の案に的が無い');
+  // 他球団の選手・形の崩れた的は落とす
+  const other = rosterOf(cpuTeam)[0].id;
+  const sent = { ...plan, aims: { ...plan.aims, [other]: plan.aims[ids[0]], [ids[0]]: { stat: 1 } } };
+  submitPhase(l, member.userId, { phaseId: l.phase.id, plan: sent, ready: false }, now);
+  const kept = l.phase.submissions[member.userId].plan.aims || {};
+  assert.equal(kept[other], undefined, '他球団の選手の的を受け取った');
+  assert.equal(kept[ids[0]], undefined, '形の崩れた的を受け取った');
+  for (const id of ids.slice(1)) assert.deepEqual(kept[id], plan.aims[id], '提出で的が落ちた');
 }
 
 console.log('online-vision-check PASS');

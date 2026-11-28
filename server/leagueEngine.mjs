@@ -1622,10 +1622,23 @@ function validatePhasePlan(league, teamName, plan) {
         );
         subAssignments[playerId] = key;
       }
+      // ⚠ **育成の的も通す**（`coaches.js` の `campAim`。指導者の案 `campPlanFor` に入る）。
+      //    「意見を聞く」で提出しなかった人は締め切りで指導者の案がここを通って回るので、
+      //    落とすとメイン練習は的の練習なのに選手が的を覚えず、毎年選び直しになっていた
+      //    （「任せる」は `campFallbackPlan` で的を覚える。監査18）。自分の名簿の選手・形の合うものだけ
+      const aims = {};
+      for (const [id, aim] of Object.entries(plan.aims || {})) {
+        const playerId = Number(id);
+        if (!own.has(playerId) || !aim || typeof aim.stat !== 'string' || typeof aim.mode !== 'string')
+          continue;
+        if (!Number.isFinite(aim.since)) continue;
+        aims[playerId] = { stat: aim.stat, mode: aim.mode, since: aim.since };
+      }
       return {
         menu: plan.menu,
         assignments,
         subAssignments,
+        ...(Object.keys(aims).length ? { aims } : {}),
         // ⚠ 方針は**やる気**に効く（噛み合うと伸びやすい）。無ければ標準
         policy: normalizeCampPolicy(plan.policy),
         players: campPlayerPolicies(team.players, plan.players),
