@@ -1,0 +1,41 @@
+--------- beginning of main
+11-28 16:01:05.792  6721  6740 I ScreenTour: shot contract-01-home-sealed.png
+11-28 16:01:10.755  6721  6740 I ScreenTour: shot contract-02-home-quick-replay.png
+11-28 16:01:12.970  6721  6740 I ScreenTour: shot contract-03-home-quick-replay-end.png
+11-28 16:01:16.510  6721  6740 I ScreenTour: shot contract-04-home.png
+11-28 16:01:17.827  6721  6740 I ScreenTour: shot contract-05-home-2.png
+11-28 16:01:19.163  6721  6740 I ScreenTour: shot contract-06-home-3.png
+11-28 16:01:20.462  6721  6740 I ScreenTour: shot contract-07-home-4.png
+11-28 16:01:22.340  6721  6740 W ScreenTour: skip home-page2: Failed to inject touch input.
+11-28 16:01:22.340  6721  6740 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '2面 チーム' (ignoreCase: false)'
+11-28 16:01:22.340  6721  6740 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:01:24.221  6721  6740 W ScreenTour: skip home-page3: Failed to inject touch input.
+11-28 16:01:24.221  6721  6740 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '3面 記録' (ignoreCase: false)'
+11-28 16:01:24.221  6721  6740 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:01:26.022  6721  6740 W ScreenTour: skip home-page1: Failed to inject touch input.
+11-28 16:01:26.022  6721  6740 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '1面' (ignoreCase: false)'
+11-28 16:01:26.022  6721  6740 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:01:30.300  6721  6740 I ScreenTour: shot contract-08-home-national.png
+11-28 16:01:31.663  6721  6740 I ScreenTour: shot contract-09-home-national-2.png
+11-28 16:01:32.966  6721  6740 I ScreenTour: shot contract-10-home-national-3.png
+11-28 16:01:40.172  6721  6740 I ScreenTour: shot contract-11-home-web.png
+11-28 16:01:41.487  6721  6740 I ScreenTour: shot contract-12-home-web-2.png
+11-28 16:01:42.789  6721  6740 I ScreenTour: shot contract-13-home-web-3.png
+11-28 16:01:46.874  6721  6740 I ScreenTour: shot contract-14-home-plain.png
+11-28 16:01:48.193  6721  6740 I ScreenTour: shot contract-15-home-plain-2.png
+11-28 16:01:49.491  6721  6740 I ScreenTour: shot contract-16-home-plain-3.png
+11-28 16:01:53.963  6721  6740 I ScreenTour: shot contract-17-home-menu.png
+11-28 16:02:01.088  6721  6740 I ScreenTour: shot contract-18-home-back-issues.png
+11-28 16:02:08.158  6721  6740 I ScreenTour: shot contract-19-home-inbox.png
+11-28 16:02:13.705  6721  6740 I ScreenTour: shot contract-20-procedures.png
+11-28 16:02:15.051  6721  6740 I ScreenTour: shot contract-21-procedures-2.png
+11-28 16:02:16.408  6721  6740 I ScreenTour: shot contract-22-procedures-3.png
+11-28 16:02:17.706  6721  6740 I ScreenTour: shot contract-23-procedures-4.png
+11-28 16:02:19.009  6721  6740 I ScreenTour: shot contract-24-procedures-5.png
+11-28 16:02:20.306  6721  6740 I ScreenTour: shot contract-25-procedures-6.png
+11-28 16:02:25.181  6721  6740 I ScreenTour: shot contract-26-games-news.png
+11-28 16:02:26.446  6721  6740 I ScreenTour: shot contract-27-games-news-2.png
+11-28 16:02:30.018  6721  6740 I ScreenTour: shot contract-28-plan-order.png
+11-28 16:02:33.612  6721  6740 I ScreenTour: shot contract-29-players.png
+11-28 16:02:41.980  6721  6740 I ScreenTour: shot contract-30-rename-dialog.png
+11-28 16:02:43.401  6721  6740 I ScreenTour: done contract: 30 shots

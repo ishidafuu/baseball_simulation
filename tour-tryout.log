@@ -1,0 +1,45 @@
+--------- beginning of main
+11-28 16:03:01.064  6894  6915 I ScreenTour: shot tryout-01-home-sealed.png
+11-28 16:03:06.006  6894  6915 I ScreenTour: shot tryout-02-home-quick-replay.png
+11-28 16:03:08.159  6894  6915 I ScreenTour: shot tryout-03-home-quick-replay-end.png
+11-28 16:03:11.672  6894  6915 I ScreenTour: shot tryout-04-home.png
+11-28 16:03:12.997  6894  6915 I ScreenTour: shot tryout-05-home-2.png
+11-28 16:03:14.324  6894  6915 I ScreenTour: shot tryout-06-home-3.png
+11-28 16:03:15.635  6894  6915 I ScreenTour: shot tryout-07-home-4.png
+11-28 16:03:17.623  6894  6915 W ScreenTour: skip home-page2: Failed to inject touch input.
+11-28 16:03:17.623  6894  6915 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '2面 チーム' (ignoreCase: false)'
+11-28 16:03:17.623  6894  6915 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:03:19.656  6894  6915 W ScreenTour: skip home-page3: Failed to inject touch input.
+11-28 16:03:19.656  6894  6915 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '3面 記録' (ignoreCase: false)'
+11-28 16:03:19.656  6894  6915 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:03:21.588  6894  6915 W ScreenTour: skip home-page1: Failed to inject touch input.
+11-28 16:03:21.588  6894  6915 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '1面' (ignoreCase: false)'
+11-28 16:03:21.588  6894  6915 W ScreenTour: There are no existing nodes for that selector.
+11-28 16:03:25.993  6894  6915 I ScreenTour: shot tryout-08-home-national.png
+11-28 16:03:27.342  6894  6915 I ScreenTour: shot tryout-09-home-national-2.png
+11-28 16:03:28.646  6894  6915 I ScreenTour: shot tryout-10-home-national-3.png
+11-28 16:03:35.865  6894  6915 I ScreenTour: shot tryout-11-home-web.png
+11-28 16:03:37.206  6894  6915 I ScreenTour: shot tryout-12-home-web-2.png
+11-28 16:03:38.504  6894  6915 I ScreenTour: shot tryout-13-home-web-3.png
+11-28 16:03:42.542  6894  6915 I ScreenTour: shot tryout-14-home-plain.png
+11-28 16:03:43.874  6894  6915 I ScreenTour: shot tryout-15-home-plain-2.png
+11-28 16:03:45.172  6894  6915 I ScreenTour: shot tryout-16-home-plain-3.png
+11-28 16:03:49.476  6894  6915 I ScreenTour: shot tryout-17-home-menu.png
+11-28 16:03:56.631  6894  6915 I ScreenTour: shot tryout-18-home-back-issues.png
+11-28 16:04:03.896  6894  6915 I ScreenTour: shot tryout-19-home-inbox.png
+11-28 16:04:09.197  6894  6915 I ScreenTour: shot tryout-20-procedures.png
+11-28 16:04:10.578  6894  6915 I ScreenTour: shot tryout-21-procedures-2.png
+11-28 16:04:11.886  6894  6915 I ScreenTour: shot tryout-22-procedures-3.png
+11-28 16:04:13.207  6894  6915 I ScreenTour: shot tryout-23-procedures-4.png
+11-28 16:04:14.506  6894  6915 I ScreenTour: shot tryout-24-procedures-5.png
+11-28 16:04:15.807  6894  6915 I ScreenTour: shot tryout-25-procedures-6.png
+11-28 16:04:17.775  6894  6915 I ScreenTour: shot tryout-26-procedures-tryout-weights.png
+11-28 16:04:19.073  6894  6915 I ScreenTour: shot tryout-27-procedures-tryout-weights-2.png
+11-28 16:04:21.040  6894  6915 I ScreenTour: shot tryout-28-procedures-tryout-pool.png
+11-28 16:04:22.344  6894  6915 I ScreenTour: shot tryout-29-procedures-tryout-pool-2.png
+11-28 16:04:27.215  6894  6915 I ScreenTour: shot tryout-30-games-news.png
+11-28 16:04:28.479  6894  6915 I ScreenTour: shot tryout-31-games-news-2.png
+11-28 16:04:32.026  6894  6915 I ScreenTour: shot tryout-32-plan-order.png
+11-28 16:04:35.553  6894  6915 I ScreenTour: shot tryout-33-players.png
+11-28 16:04:44.077  6894  6915 I ScreenTour: shot tryout-34-rename-dialog.png
+11-28 16:04:45.501  6894  6915 I ScreenTour: done tryout: 34 shots

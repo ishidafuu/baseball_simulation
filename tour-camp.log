@@ -1,0 +1,40 @@
+--------- beginning of main
+11-28 15:52:21.822  6075  6095 I ScreenTour: shot camp-01-home.png
+11-28 15:52:23.159  6075  6095 I ScreenTour: shot camp-02-home-2.png
+11-28 15:52:24.485  6075  6095 I ScreenTour: shot camp-03-home-3.png
+11-28 15:52:25.801  6075  6095 I ScreenTour: shot camp-04-home-4.png
+11-28 15:52:28.454  6075  6095 W ScreenTour: skip home-page2: Failed to inject touch input.
+11-28 15:52:28.454  6075  6095 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '2面 チーム' (ignoreCase: false)'
+11-28 15:52:28.454  6075  6095 W ScreenTour: There are no existing nodes for that selector.
+11-28 15:52:30.670  6075  6095 W ScreenTour: skip home-page3: Failed to inject touch input.
+11-28 15:52:30.670  6075  6095 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '3面 記録' (ignoreCase: false)'
+11-28 15:52:30.670  6075  6095 W ScreenTour: There are no existing nodes for that selector.
+11-28 15:52:32.803  6075  6095 W ScreenTour: skip home-page1: Failed to inject touch input.
+11-28 15:52:32.803  6075  6095 W ScreenTour: Can't retrieve node at index '0' of 'Text + InputText + EditableText contains '1面' (ignoreCase: false)'
+11-28 15:52:32.803  6075  6095 W ScreenTour: There are no existing nodes for that selector.
+11-28 15:52:37.139  6075  6095 I ScreenTour: shot camp-05-home-national.png
+11-28 15:52:38.421  6075  6095 I ScreenTour: shot camp-06-home-national-2.png
+11-28 15:52:39.702  6075  6095 I ScreenTour: shot camp-07-home-national-3.png
+11-28 15:52:47.327  6075  6095 I ScreenTour: shot camp-08-home-web.png
+11-28 15:52:48.625  6075  6095 I ScreenTour: shot camp-09-home-web-2.png
+11-28 15:52:49.927  6075  6095 I ScreenTour: shot camp-10-home-web-3.png
+11-28 15:52:54.247  6075  6095 I ScreenTour: shot camp-11-home-plain.png
+11-28 15:52:55.540  6075  6095 I ScreenTour: shot camp-12-home-plain-2.png
+11-28 15:52:56.840  6075  6095 I ScreenTour: shot camp-13-home-plain-3.png
+11-28 15:53:01.263  6075  6095 I ScreenTour: shot camp-14-home-menu.png
+11-28 15:53:08.300  6075  6095 I ScreenTour: shot camp-15-home-back-issues.png
+11-28 15:53:15.393  6075  6095 I ScreenTour: shot camp-16-home-inbox.png
+11-28 15:53:20.638  6075  6095 I ScreenTour: shot camp-17-procedures.png
+11-28 15:53:22.003  6075  6095 I ScreenTour: shot camp-18-procedures-2.png
+11-28 15:53:23.322  6075  6095 I ScreenTour: shot camp-19-procedures-3.png
+11-28 15:53:24.624  6075  6095 I ScreenTour: shot camp-20-procedures-4.png
+11-28 15:53:25.930  6075  6095 I ScreenTour: shot camp-21-procedures-5.png
+11-28 15:53:27.239  6075  6095 I ScreenTour: shot camp-22-procedures-6.png
+11-28 15:53:29.227  6075  6095 I ScreenTour: shot camp-23-procedures-camp-fielders.png
+11-28 15:53:30.523  6075  6095 I ScreenTour: shot camp-24-procedures-camp-fielders-2.png
+11-28 15:53:35.315  6075  6095 I ScreenTour: shot camp-25-games-news.png
+11-28 15:53:36.582  6075  6095 I ScreenTour: shot camp-26-games-news-2.png
+11-28 15:53:40.090  6075  6095 I ScreenTour: shot camp-27-plan-order.png
+11-28 15:53:43.661  6075  6095 I ScreenTour: shot camp-28-players.png
+11-28 15:53:52.095  6075  6095 I ScreenTour: shot camp-29-rename-dialog.png
+11-28 15:53:53.518  6075  6095 I ScreenTour: done camp: 29 shots
