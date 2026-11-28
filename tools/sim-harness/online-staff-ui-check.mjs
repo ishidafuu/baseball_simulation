@@ -293,6 +293,26 @@ try {
   assert.ok(await p.getByRole('heading', { name: '試合中の采配（実際の動き）' }).isVisible(), 'CPU球団の采配の内訳が出ない');
   await p.screenshot({ path: '/tmp/baseball-online-staff-pc-other.png', fullPage: true });
 
+  // チーム分析の「チームの方針」（先方要望 #9）: 自球団も他球団（CPU）も、監督の型から6行と札
+  await go('チーム分析');
+  {
+    const policy = p.getByRole('region', { name: 'チームの方針' });
+    await policy.waitFor();
+    const labels = await policy.locator('dt').allInnerTexts();
+    for (const l of ['攻撃', '投手起用', '重心', '編成', '育成', 'いまの重点'])
+      assert.ok(labels.includes(l), `自球団のチームの方針に「${l}」が無い（${labels.join('・')}）`);
+    assert.ok((await policy.locator('.online-team-policy-tags li').count()) >= 3, 'チームの方針の札が出ない');
+    assert.match(await policy.innerText(), /あなたの球団/, '自球団のチームの方針に注が無い');
+    const teams = p.getByLabel('閲覧する球団');
+    const values = await teams.locator('option').evaluateAll((list) => list.map((o) => o.value));
+    await teams.selectOption(values.find((v) => v && v !== values[0]));
+    await p.waitForFunction(() => !/あなたの球団/.test(document.querySelector('.online-team-policy')?.innerText || 'あなたの球団'));
+    const other = await policy.innerText();
+    assert.match(other, /監督/, '他球団のチームの方針に監督の名前が無い');
+    await policy.scrollIntoViewIfNeeded();
+    await p.screenshot({ path: '/tmp/baseball-online-staff-policy.png', fullPage: true });
+  }
+
   // 方針・采配の項目の下に「→ 中身（決めた人）」
   await go('方針・采配');
   await p.locator('.online-staff-actual').first().waitFor();

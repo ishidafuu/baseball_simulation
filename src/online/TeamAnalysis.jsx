@@ -185,6 +185,42 @@ function ratingsOf(view, shown) {
   return view.teamRatings?.[shown.teamName] ?? teamRatings(shown.roster, shown.lineup);
 }
 
+/**
+ * チームの方針（先方要望 #9）。監督とコーチの型から作った6行（攻撃・投手起用・重心・編成・育成・いまの重点）。
+ * 文はサーバーが作る（`teamPolicy.js`。アプリも同じ文を出す）。指導者の居ない古いリーグでは出さない
+ */
+export function TeamPolicy({ policy }) {
+  if (!policy) return null;
+  return (
+    <section className="online-card online-team-policy" aria-label="チームの方針">
+      <h2>チームの方針</h2>
+      <p className="online-team-policy-head">
+        <strong>{policy.headline}</strong>
+        {policy.by && <small>{policy.by}</small>}
+      </p>
+      {policy.tags?.length > 0 && (
+        <ul className="online-team-policy-tags">
+          {policy.tags.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+      )}
+      <dl className="online-team-policy-rows">
+        {policy.rows.map((r) => (
+          <div key={r.key}>
+            <dt>{r.label}</dt>
+            <dd>
+              <b>{r.value}</b>
+              <span>{r.note}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {policy.note && <p className="online-muted">{policy.note}</p>}
+    </section>
+  );
+}
+
 function Overview({ view, shown, setTab }) {
   const own = shown.teamName === view.teamName;
   const rivals = rivalsOf(view, shown.teamName);
@@ -231,6 +267,7 @@ function Overview({ view, shown, setTab }) {
           league={Object.values(view.teamRatings || {}).filter(Boolean)}
         />
       </section>
+      <TeamPolicy policy={shown.staff?.policy} />
       <section className="online-card">
         <h2>今季のチーム成績</h2>
         <div className="online-team-tiles">

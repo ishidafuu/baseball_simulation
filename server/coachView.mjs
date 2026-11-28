@@ -43,7 +43,25 @@ import {
   RIFT_CONFLICT,
   CONFLICT_AREAS,
   scheduledStaffLines,
+  sameTierRosters,
 } from './coachEngine.mjs';
+import { teamPolicy } from '../src/online/teamPolicy.js';
+import { teamNeeds } from '../src/online/teamNeeds.js';
+
+/**
+ * チームの方針（チーム分析の「チームの方針」。先方要望 #9）。監督とコーチの型と、球団の穴から作る。
+ * ⚠ 穴は保存された世界の名簿で比べる（`sameTierRosters` と同じ物差し。キャンプの育成の的と同じ穴になる）
+ */
+export function teamPolicyView(league, teamName, { own = false } = {}) {
+  if (!league.coaches) return null;
+  const roster = league.game?.teams?.[teamName]?.players;
+  const human = (league.members || []).some((m) => m.teamName === teamName);
+  return teamPolicy(staffOf(league, teamName), {
+    needs: roster?.length ? teamNeeds(roster, sameTierRosters(league, teamName)) : null,
+    human,
+    own,
+  });
+}
 
 const tierOf = (leagueId) =>
   PYRAMID_LEAGUES.find((l) => l.id === leagueId)?.tier ?? null;
@@ -492,6 +510,7 @@ export function ownStaffView(league, member, team, labelOf) {
     }),
     tactics: tacticsLines(league, member.teamName, team),
     front: frontView(league, member.teamName),
+    policy: teamPolicyView(league, member.teamName, { own: true }),
     canEditSeats: camp,
     // 年度更新で動く人事（契約更改の異動・コーチ打診）。⚠ 古いアプリは読まない（足すだけ）
     scheduled: scheduledStaffLines(league, member.teamName),
@@ -605,6 +624,7 @@ export function teamStaffView(league, teamName, team, labelOf) {
   return {
     seats: seatsView(league, teamName, labelOf, { roster: human ? null : team?.players }),
     front: human ? null : frontView(league, teamName),
+    policy: teamPolicyView(league, teamName),
     tactics: human ? null : tacticsLines(league, teamName, team),
     events: coachEventsView(league, labelOf, { limit: 6, team: teamName }),
   };

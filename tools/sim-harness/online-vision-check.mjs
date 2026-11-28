@@ -8,6 +8,9 @@
 // 4. 時間軸（`shouldHorizon`・`followHorizon`）: 弱い球団は育成・強い球団は勝負・主力が高齢で
 //    五分より悪ければ育成。こだわりで寄るまでの年数が変わり、寄るのは1年に1段
 // 5. 年度更新（`coachOffseason`）: CPU球団の指導者だけが寄る（人の球団の指導者は動かさない）
+// 6. チームの方針（`teamPolicy`・先方要望 #9）: 監督の型から6行。人の球団は注つき、監督不在はバランス型。
+//    ビュー（自球団 `staff.policy`・他球団の `projectTeamInfo`）に載る。
+//    積極補強の監督ほどCPU同士のトレードを言い出す（`pickTradeMover`。重みに比例）
 import './lib/bootstrap.mjs';
 import assert from 'node:assert/strict';
 import { createLeague, runCampRound, campFallbackPlan, submitPhase, defaultPhasePlan } from '../../server/leagueEngine.mjs';
@@ -16,6 +19,9 @@ import { teamNeeds } from '../../src/online/teamNeeds.js';
 import { campAim, shouldHorizon, followHorizon, horizonPatience, AIM_YEARS } from '../../src/online/coaches.js';
 import { menuForStat } from '../../src/season/trainingPolicy.js';
 import { TEAMS_DATA } from '../../src/teams-data.js';
+import { teamPolicy, tradeEagerness } from '../../src/online/teamPolicy.js';
+import { teamPolicyView } from '../../server/coachView.mjs';
+import { pickTradeMover } from '../../server/cpuTrades.mjs';
 
 const clone = (v) => structuredClone(v);
 const now = '2026-10-28T00:00:00.000Z';
@@ -175,6 +181,52 @@ const rosterOf = (name) => league.game.teams[name].players;
     if (h) counts[h] = (counts[h] || 0) + 1;
   }
   console.log(`年度更新の後の監督の時間軸: ${JSON.stringify(counts)}（求めた時間軸 ${JSON.stringify(Object.values(wants).reduce((a, w) => ({ ...a, [w]: (a[w] || 0) + 1 }), {}))}）`);
+}
+
+// ------------------------------------------------------------------ 6. チームの方針
+{
+  const cpu = teamPolicyView(league, cpuTeam);
+  const manager = staffOf(league, cpuTeam).manager;
+  assert.ok(manager, 'CPU球団に監督が居ない');
+  const keys = cpu.rows.map((r) => r.key);
+  for (const k of ['attack', 'pitching', 'lean', 'build', 'growth', 'need']) assert.ok(keys.includes(k), `方針に ${k} の行が無い`);
+  const value = (p, k) => p.rows.find((r) => r.key === k)?.value;
+  const attack = { speed: '機動力重視', power: '長打重視', contact: 'つなぎ重視' }[manager.vision.attack];
+  const pitching = { rotation: '先発完投型', bullpen: '継投型', fielding: '打たせて取る' }[manager.vision.defense];
+  const build = { develop: '若手育成', middle: 'バランス', win: '積極補強' }[manager.vision.horizon];
+  assert.equal(value(cpu, 'attack'), attack, '攻撃の方針が監督の型と違う');
+  assert.equal(value(cpu, 'pitching'), pitching, '投手起用の方針が監督の型と違う');
+  assert.equal(value(cpu, 'build'), build, '編成の方針が監督の時間軸と違う');
+  assert.ok(cpu.rows.every((r) => r.value && r.note), '方針の行に値か一言が無い');
+  assert.equal(cpu.note, null, 'CPU球団に人の球団の注が付いた');
+  assert.ok(teamPolicyView(league, humanTeam).note?.includes('オーナー'), '人の球団に注が無い');
+  assert.ok(teamPolicyView(league, humanTeam, { own: true }).note?.includes('あなた'), '自球団の注が無い');
+  const none = teamPolicy({}, {});
+  assert.equal(value(none, 'lean'), 'バランス型', '監督不在がバランス型にならない');
+  // 穴の大きい持ち場が「いまの重点」に出る
+  const needy = teamPolicy({ manager }, { needs: { slots: { catcher: 0.9 }, stats: { power: 0.5 } } });
+  assert.equal(value(needy, 'need'), '捕手・長打', 'いまの重点が穴の大きい順にならない');
+  assert.equal(value(teamPolicy({ manager }, { needs: { slots: {}, stats: {} } }), 'need'), '目立つ穴なし');
+  // 言い出しやすさ: 積極補強 > バランス > 若手育成。重みに比例して選ばれる
+  const as = (horizon) => ({ vision: { ...manager.vision, horizon } });
+  assert.ok(tradeEagerness(as('win')) > tradeEagerness(as('middle')) && tradeEagerness(as('middle')) > tradeEagerness(as('develop')));
+  assert.equal(tradeEagerness(null), 1);
+  const l = clone(league);
+  const pool = names.slice(0, 6);
+  const weight = (n) => (n === pool[0] ? tradeEagerness(as('win')) : n === pool[1] ? tradeEagerness(as('develop')) : 1);
+  const picks = {};
+  const days = 4000;
+  for (let i = 0; i < days; i++) {
+    l.season.currentDate = { year: 1 + Math.floor(i / 365), month: 1 + (Math.floor(i / 28) % 12), day: 1 + (i % 28) };
+    const from = pickTradeMover(l, pool, weight);
+    picks[from] = (picks[from] || 0) + 1;
+  }
+  const total = pool.reduce((a, n) => a + weight(n), 0);
+  for (const n of pool) {
+    const want = (weight(n) / total) * days;
+    assert.ok(Math.abs((picks[n] || 0) - want) < want * 0.2, `言い出す回数が重みに比例しない（${n}: ${picks[n]} / 見込み ${Math.round(want)}）`);
+  }
+  console.log(`言い出す回数（積極補強・若手育成・バランス4球団）: ${pool.map((n) => picks[n] || 0).join('・')}`);
 }
 
 console.log('online-vision-check PASS');

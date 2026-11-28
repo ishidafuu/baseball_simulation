@@ -85,6 +85,7 @@ export const VIEW_CONTRACT = {
     // 指導者
     { path: 'staff.seats[].coach', when: 'staff', why: '契約更改の「指導者の異動」の席・指導者カード' },
     { path: 'staff.scheduled', when: 'staff', why: '年度更新で動く人事の文' },
+    { path: 'staff.policy.rows[].note', when: 'staff', why: 'チームの方針（TeamAnalysisScreen.kt の TeamPolicyCard。src/online/teamPolicy.js）' },
     // 手続きの任せ方・読むだけの窓口
     { path: 'phase.delegated', when: 'offseason', why: '自分がその手続きを指導者に任せているか' },
     { path: 'members[].ready', live: true, why: '手続きの準備完了' },
@@ -99,6 +100,7 @@ export const VIEW_CONTRACT = {
     { path: 'roster[].years', live: true, why: '他球団の選手の年ごとの推移' },
     { path: 'lineup', live: true, why: '他球団のスタメン・投手陣と守備分析' },
     { path: 'chronicle.face.tenure', when: 'offseason', why: '球団の顔（在籍の長い選手）' },
+    { path: 'staff.policy.headline', when: 'staff', why: '他球団のチームの方針（TeamAnalysisScreen.kt の TeamPolicyCard）' },
   ],
   player: [{ path: 'years', live: true, why: '自球団の選手の年ごとの推移' }],
   transactions: [

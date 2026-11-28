@@ -180,6 +180,8 @@ data class StaffView(
     val modes: List<StaffArea> = emptyList(),
     val tactics: List<TacticLine> = emptyList(),
     val front: StaffFront? = null,
+    /** チームの方針（先方要望 #9。src/online/teamPolicy.js）。古いサーバーには無い */
+    val policy: TeamPolicy? = null,
     val canEditSeats: Boolean = false,
     val market: List<CoachCard> = emptyList(),
     val events: List<StaffEvent> = emptyList(),
@@ -222,11 +224,30 @@ data class LeagueStaff(val teams: List<TeamStaff> = emptyList(), val events: Lis
     fun of(team: String?): TeamStaff? = teams.firstOrNull { it.team == team }
 }
 
+/** チームの方針の1行（攻撃・投手起用・重心・編成・育成・いまの重点） */
+@Serializable
+data class TeamPolicyRow(val key: String = "", val label: String = "", val value: String = "", val note: String = "")
+
+/**
+ * チームの方針（チーム分析。先方要望 #9）。文はサーバーが作る（src/online/teamPolicy.js の teamPolicy）ので、ここは出すだけ。
+ * `note` は人の球団（自球団・他の人の球団）にだけ付く注
+ */
+@Serializable
+data class TeamPolicy(
+    val by: String? = null,
+    val headline: String = "",
+    val tags: List<String> = emptyList(),
+    val rows: List<TeamPolicyRow> = emptyList(),
+    val note: String? = null,
+)
+
 /** 他球団の指導者（team の窓口の staff）。⚠ 人の球団の采配（tactics）は届かない */
 @Serializable
 data class TeamStaffView(
     val seats: List<StaffSeat> = emptyList(),
     val front: StaffFront? = null,
+    /** チームの方針（先方要望 #9）。古いサーバーには無い */
+    val policy: TeamPolicy? = null,
     val tactics: List<TacticLine>? = null,
     val events: List<StaffEvent> = emptyList(),
 )

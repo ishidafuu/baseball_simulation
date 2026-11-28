@@ -123,6 +123,7 @@ import {
   liveOfferMemo,
   rememberOffer,
   partnerOrder,
+  pickTradeMover,
   dayRoll,
   offerExpiry,
   dateKey as cpuDateKey,
@@ -229,7 +230,9 @@ import {
   effectiveStaffModes,
   phaseDelegated,
   waitsFor,
+  staffOf,
 } from './coachEngine.mjs';
+import { tradeEagerness } from '../src/online/teamPolicy.js';
 
 export const ENGINE_VERSION = ONLINE_ENGINE_VERSION;
 export { CAMP_MENUS, CAMP_SUB_MENUS, CAMP_DIRECTIONS, CAMP_PHASES, CAMP_ROUNDS };
@@ -912,7 +915,8 @@ function runCpuTrades(league, now) {
   };
   // --- CPU同士
   if (cpus.length >= 2 && dayRoll(league, 'cpu-trade') < 1 / CPU_TRADE_EVERY) {
-    const from = [...cpus].sort((a, b) => dayRoll(league, `cpu-from:${a}`) - dayRoll(league, `cpu-from:${b}`))[0];
+    // 言い出す球団は監督の編成の方針で選ばれやすさが違う（積極補強ほど言い出す。先方要望 #9）
+    const from = pickTradeMover(league, cpus, (name) => tradeEagerness(staffOf(league, name).manager));
     fresh();
     const plan = planCpuTrade({
       from,

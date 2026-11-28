@@ -207,7 +207,7 @@ function growthOf(coach) {
   const line = who !== 'none' && GROWTH_LINES.includes(Number(g.line)) ? Number(g.line) : null;
   return { who, line };
 }
-function growthStyleOf(coach) {
+export function growthStyleOf(coach) {
   const { who, line } = growthOf(coach);
   return who === 'none' ? 'complete' : who === 'sharp' ? 'shape' : line == null ? 'extreme' : 'staged';
 }

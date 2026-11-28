@@ -28,11 +28,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import jp.icenorth.baseball.app.AppViewModel
 import jp.icenorth.baseball.shared.LEAGUE_NAMES
 import jp.icenorth.baseball.shared.LeagueView
 import jp.icenorth.baseball.shared.OnlineJson
 import jp.icenorth.baseball.shared.TeamDiagnosis
+import jp.icenorth.baseball.shared.TeamPolicy
 import jp.icenorth.baseball.shared.allTeamRatings
 import jp.icenorth.baseball.shared.at
 import jp.icenorth.baseball.shared.SERVER_UPDATE_PENDING
@@ -69,13 +71,18 @@ import kotlinx.serialization.json.JsonObject
  * ⚠ 呼ぶのは PlayersScreen の1か所だけにし、「能力」「スタメン」「守備」へ同じものを渡す。以前は切り替えごとに
  *    呼んでいて、他球団を見ながら切り替えるたびに同じ `team` を読み直していた（2026-11-20 監査）
  */
-class TeamData(val roster: List<JsonObject>?, val lineup: JsonObject?, val failure: String?, val retry: () -> Unit)
+class TeamData(val roster: List<JsonObject>?, val lineup: JsonObject?, val failure: String?, val policy: TeamPolicy? = null, val retry: () -> Unit)
+
+/** ビュー・球団の読み込みの `staff.policy`（チームの方針）。無い・壊れた値は null */
+private fun policyOf(staff: JsonObject?): TeamPolicy? =
+    staff?.at("policy")?.obj()?.let { runCatching { OnlineJson.decodeFromJsonElement(TeamPolicy.serializer(), it) }.getOrNull() }
 
 @Composable
 fun rememberTeamData(model: AppViewModel, view: LeagueView, raw: JsonObject, team: String): TeamData {
     val own = team == view.teamName
     var roster by remember(team) { mutableStateOf<List<JsonObject>?>(null) }
     var lineup by remember(team) { mutableStateOf<JsonObject?>(null) }
+    var policy by remember(team) { mutableStateOf<TeamPolicy?>(null) }
     var failure by remember(team) { mutableStateOf<String?>(null) }
     var attempt by remember(team) { mutableStateOf(0) }
     LaunchedEffect(team, view.revision, attempt) {
@@ -84,14 +91,16 @@ fun rememberTeamData(model: AppViewModel, view: LeagueView, raw: JsonObject, tea
             val result = model.read("team", mapOf("team" to team))
             roster = result.at("roster").list().mapNotNull { it.obj() }
             lineup = result.at("lineup").obj()
+            policy = policyOf(result.at("staff").obj())
             failure = null
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             failure = model.describe(e)
         }
     }
-    return if (own) TeamData(raw.at("roster").list().mapNotNull { it.obj() }, view.lineup, null) {}
-    else TeamData(roster, lineup, failure) { failure = null; attempt += 1 }
+    val ownPolicy = remember(raw) { if (own) policyOf(raw.at("staff").obj()) else null }
+    return if (own) TeamData(raw.at("roster").list().mapNotNull { it.obj() }, view.lineup, null, ownPolicy) {}
+    else TeamData(roster, lineup, failure, policy) { failure = null; attempt += 1 }
 }
 
 private fun sumOf(roster: List<JsonObject>, side: String, key: String): Int =
@@ -120,6 +129,7 @@ fun TeamOverviewPane(model: AppViewModel, view: LeagueView, raw: JsonObject, tea
                 label = view.teamLabel(team),
             )
         }
+        data.policy?.let { TeamPolicyCard(it) }
         Section("今季のチーム成績") {
             val stats = raw.at("teamStats", team).obj()
             val avg = stats?.at("average").num()
@@ -157,6 +167,46 @@ fun TeamOverviewPane(model: AppViewModel, view: LeagueView, raw: JsonObject, tea
 }
 
 @OptIn(ExperimentalLayoutApi::class)
+/**
+ * チームの方針（先方要望 #9）。PC の TeamAnalysis.jsx の TeamPolicy の写し。
+ * 見出し（監督の野球の一言）・札・6行（攻撃・投手起用・重心・編成・育成・いまの重点）と、人の球団の注
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TeamPolicyCard(policy: TeamPolicy) {
+    Section("チームの方針") {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("team-policy")) {
+            Text(policy.headline, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+            policy.by?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        if (policy.tags.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                policy.tags.forEach { tag ->
+                    Text(
+                        tag,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+        policy.rows.forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(row.label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(72.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(row.value, fontWeight = FontWeight.Bold)
+                    Text(row.note, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        policy.note?.let { Muted(it) }
+    }
+}
+
 @Composable
 private fun Tiles(tiles: List<Triple<String, String, String?>>) {
     FlowRow(Modifier.fillMaxWidth().testTag("team-tiles"), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 3) {

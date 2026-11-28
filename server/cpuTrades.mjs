@@ -94,6 +94,18 @@ export function dayRoll(league, tag) {
   return hashSeed(`${league.seed ?? 0}:${d.year}-${d.month}-${d.day}:${tag}`) / 4294967296;
 }
 
+/**
+ * CPU同士の交換を言い出す球団（その日のくじ）。`weightOf(球団)` が大きいほど選ばれやすい
+ * （選ばれる見込みは重みに比例。その日のサイコロ u から -ln(1-u)/重み がいちばん小さい球団）。
+ * ⚠ 重みは監督の編成の方針（`teamPolicy.js` の `tradeEagerness`。積極補強 1.6・若手育成 0.6）。
+ *    言い出すかどうか（`CPU_TRADE_EVERY`）は別のくじなので、リーグ全体の回数は変わらない
+ */
+export function pickTradeMover(league, cpus, weightOf = () => 1) {
+  // ⚠ -ln(1-u) は u と同じ向き。重みが全部同じなら、前と同じ「u がいちばん小さい球団」になる
+  const key = (name) => -Math.log(Math.max(1e-12, 1 - dayRoll(league, `cpu-from:${name}`))) / Math.max(1e-6, weightOf(name));
+  return [...cpus].sort((a, b) => key(a) - key(b))[0];
+}
+
 /** 名簿だけから見た起用（打順の守備位置・先発ローテ・抑え）。`teamUsage` と同じ形 */
 export function rosterUsage(players) {
   const fielders = {};
